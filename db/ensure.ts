@@ -24,6 +24,13 @@ export async function ensureDatabase() {
     )`),
     env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_runs_workspace_created
       ON runs(workspace_id, created_at)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS provider_cache (
+      cache_key TEXT PRIMARY KEY NOT NULL,
+      provider TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    )`),
   ]);
 
   schemaReady = true;

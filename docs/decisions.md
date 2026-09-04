@@ -16,7 +16,22 @@ dependency and does not copy Bitscale or Clay source code.
 
 ## Hosted and self-hosted execution boundaries
 
-The hosted runner supports safe deterministic recipes and records zero external
-writes. Scoutbound's richer HTTP, waterfall, AI, script, and command execution
-belongs behind a self-hosted worker adapter. Future CRM mutation must go through
-GTM Control Tower's preview, approval, receipt, and rollback boundary.
+The hosted batch runner supports safe deterministic recipes and records zero
+external writes. A selected-row Apollo action may read a business profile after
+an explicit credit confirmation; exact name and company-domain checks decide
+whether a verified work email can be accepted. Scoutbound's richer HTTP,
+waterfall, AI, script, and command execution belongs behind a self-hosted worker
+adapter. Future CRM mutation must go through GTM Control Tower's preview,
+approval, receipt, and rollback boundary.
+
+## Apollo email before phone reveal
+
+The first provider slice uses Apollo's synchronous People Enrichment response
+for business profile and verified work email data. Personal-email and phone
+flags are explicitly false. Phone reveal remains separate because it can add
+eight credits and requires Apollo to call a publicly reachable HTTPS webhook;
+the current owner-only Site cannot safely receive that callback.
+
+Provider results are cached in D1 for 30 days behind a hashed identity/domain
+key. Cache hits report zero new credits. Mismatched identities never expose the
+returned person's fields, and uncertain emails stay in review state.

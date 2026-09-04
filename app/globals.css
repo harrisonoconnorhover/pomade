@@ -137,6 +137,7 @@ button { color: inherit; }
 
 .usage-pill svg { width: 14px; }
 .usage-pill strong { color: #254936; }
+.usage-pill-connected { border-color: #b9d8c2; background: #edf9ef; color: #23603b; }
 
 .avatar {
   width: 33px;
@@ -276,6 +277,30 @@ button { color: inherit; }
 .record-person strong { font-size: 13px; }
 .record-person span { color: #69766f; font-size: 11px; }
 .record-person a { color: #315e48; font-size: 11px; text-decoration: none; }
+.apollo-action {
+  width: 100%;
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: 34px 1fr 18px;
+  align-items: center;
+  gap: 9px;
+  margin-top: 18px;
+  padding: 9px;
+  border: 1px solid #cdddca;
+  border-radius: 11px;
+  background: #f4faef;
+  color: #244633;
+  text-align: left;
+  cursor: pointer;
+}
+.apollo-action:hover { border-color: #98b99f; background: #ecf8e4; }
+.apollo-action:disabled { opacity: .55; cursor: default; }
+.apollo-action > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: white; box-shadow: inset 0 0 0 1px #d8e5d4; }
+.apollo-action > span svg { width: 16px; }
+.apollo-action > div { min-width: 0; display: grid; gap: 2px; }
+.apollo-action strong { font-size: 11px; }
+.apollo-action small { overflow: hidden; color: #718078; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.apollo-action > svg { width: 15px; color: #568166; }
 .inspector-section { margin-top: 29px; padding-top: 17px; border-top: 1px solid #e2e1da; }
 .section-title { display: flex; justify-content: space-between; color: #7e8982; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
 .recipe-list { list-style: none; padding: 0; margin: 15px 0 0; display: grid; gap: 15px; }
@@ -320,6 +345,33 @@ button { color: inherit; }
 .receipt-log small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #7a867f; font-size: 9px; }
 .receipt-pass { width: 20px; height: 20px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: #31704b; background: #e9f7e8; }
 .receipt-pass svg { width: 10px; }
+
+.apollo-dialog { max-width: 560px !important; }
+.apollo-target { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.apollo-target > div { min-width: 0; display: grid; gap: 4px; padding: 10px; border: 1px solid #e0e1da; border-radius: 9px; background: #f8f8f4; }
+.apollo-target span { color: #7a867f; font-size: 9px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.apollo-target strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.apollo-safety,
+.apollo-result { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid #d9e3d5; border-radius: 10px; background: #f3f9ef; }
+.apollo-safety > svg,
+.apollo-result > svg { width: 18px; height: 18px; flex: 0 0 auto; color: #397052; }
+.apollo-safety > div,
+.apollo-result > div { min-width: 0; display: grid; gap: 4px; }
+.apollo-safety strong,
+.apollo-result strong { font-size: 11px; }
+.apollo-safety p,
+.apollo-result p { margin: 0; color: #66746d; font-size: 10px; line-height: 1.5; }
+.apollo-result small { color: #4b7259; font-size: 9px; font-weight: 650; }
+.apollo-result-needs_review { border-color: #ead8ad; background: #fff9e9; }
+.apollo-result-not_found { border-color: #deddd5; background: #f7f7f3; }
+.apollo-error { margin: 0; padding: 9px 10px; border: 1px solid #efc7bf; border-radius: 8px; background: #fff1ee; color: #9f3d32; font-size: 10px; line-height: 1.45; }
+.apollo-dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 2px; }
+.phone-next { display: flex; align-items: center; gap: 8px; min-width: 0; color: #758078; }
+.phone-next > svg { width: 15px; flex: 0 0 auto; }
+.phone-next > span { display: grid; gap: 1px; }
+.phone-next strong { font-size: 9px; }
+.phone-next small { font-size: 8px; }
+.apollo-submit { flex: 0 0 auto; background: #1e3329; }
 
 @media (max-width: 1180px) {
   .workspace-layout { grid-template-columns: 190px minmax(560px, 1fr); }

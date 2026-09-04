@@ -21,5 +21,15 @@ export const runs = sqliteTable(
     receipt: text('receipt').notNull(),
     createdAt: integer('created_at').notNull(),
   },
-  (table) => [index('idx_runs_workspace_created').on(table.workspaceId, table.createdAt)],
+  (table) => [
+    index('idx_runs_workspace_created').on(table.workspaceId, table.createdAt),
+  ],
 );
+
+export const providerCache = sqliteTable('provider_cache', {
+  cacheKey: text('cache_key').primaryKey(),
+  provider: text('provider').notNull(),
+  payload: text('payload').notNull(),
+  createdAt: integer('created_at').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+});

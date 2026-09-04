@@ -14,11 +14,14 @@ import {
   FlaskConical,
   FunctionSquare,
   LoaderCircle,
+  MailCheck,
   MoreHorizontal,
   PanelLeftClose,
+  Phone,
   Plus,
   Rows3,
   Search,
+  ShieldCheck,
   Sparkles,
   Table2,
   Upload,
@@ -43,6 +46,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type {
+  ApolloEnrichmentResult,
   PomadeColumn,
   PomadeRow,
   RunReceipt,
@@ -56,6 +60,15 @@ const PomadeDataGrid = dynamic(() => import('@/components/pomade-data-grid'), {
 });
 
 type FilterMode = 'All' | 'Ready' | 'Review';
+
+type ApolloProviderStatus = {
+  configured: boolean;
+  capabilities: {
+    personMatch: boolean;
+    verifiedWorkEmail: boolean;
+    phoneReveal: boolean;
+  };
+};
 
 const recipePresets: Array<Pick<PomadeColumn, 'title' | 'kind' | 'recipe' | 'width'>> = [
   { title: 'Normalized domain', kind: 'formula', recipe: 'normalize-domain', width: 190 },
@@ -100,6 +113,11 @@ export default function Home() {
   const [sortAscending, setSortAscending] = useState(true);
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [apolloOpen, setApolloOpen] = useState(false);
+  const [apolloRunning, setApolloRunning] = useState(false);
+  const [apolloError, setApolloError] = useState('');
+  const [apolloResult, setApolloResult] = useState<ApolloEnrichmentResult>();
+  const [apolloStatus, setApolloStatus] = useState<ApolloProviderStatus>();
   const hydrated = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -114,12 +132,22 @@ export default function Home() {
         if (!response.ok) throw new Error('Runs failed to load');
         return response.json() as Promise<{ runs: RunReceipt[] }>;
       }),
+      fetch('/api/providers/apollo')
+        .then((response) => {
+          if (!response.ok) throw new Error('Apollo status failed to load');
+          return response.json() as Promise<ApolloProviderStatus>;
+        })
+        .catch(() => ({
+          configured: false,
+          capabilities: { personMatch: true, verifiedWorkEmail: true, phoneReveal: false },
+        })),
     ])
-      .then(([workspaceResponse, runsResponse]) => {
+      .then(([workspaceResponse, runsResponse, providerStatus]) => {
         if (cancelled) return;
         setWorkspace(workspaceResponse.workspace);
         setActiveRowId(workspaceResponse.workspace.rows[0]?.id ?? '');
         setLatestRun(runsResponse.runs[0]);
+        setApolloStatus(providerStatus);
         setSaveState('Saved');
         hydrated.current = true;
       })
@@ -250,6 +278,43 @@ export default function Home() {
     URL.revokeObjectURL(url);
   }
 
+  function openApollo() {
+    setApolloError('');
+    setApolloResult(undefined);
+    setApolloOpen(true);
+  }
+
+  async function enrichSelectedWithApollo() {
+    if (!selected || apolloRunning) return;
+    setApolloRunning(true);
+    setApolloError('');
+    setApolloResult(undefined);
+    try {
+      const response = await fetch('/api/providers/apollo', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ workspace, rowId: selected.id }),
+      });
+      const result = (await response.json()) as {
+        workspace?: WorkspaceSnapshot;
+        run?: RunReceipt;
+        enrichment?: ApolloEnrichmentResult;
+        error?: string;
+      };
+      if (!response.ok || !result.workspace || !result.run || !result.enrichment) {
+        throw new Error(result.error || 'Apollo enrichment failed.');
+      }
+      setWorkspace(result.workspace);
+      setLatestRun(result.run);
+      setApolloResult(result.enrichment);
+      setSaveState('Saved');
+    } catch (error) {
+      setApolloError(error instanceof Error ? error.message : 'Apollo enrichment failed.');
+    } finally {
+      setApolloRunning(false);
+    }
+  }
+
   async function runEnrichment() {
     if (running || workspace.rows.length === 0) return;
     setRunning(true);
@@ -293,7 +358,10 @@ export default function Home() {
             {saveState === 'Saving' ? <LoaderCircle className="spin" /> : <Cloud />} {saveState}
           </button>
           <Button variant="ghost" size="icon" aria-label="Workspace menu"><MoreHorizontal /></Button>
-          <div className="usage-pill"><Sparkles /> Safe demo runner</div>
+          <div className={`usage-pill ${apolloStatus?.configured ? 'usage-pill-connected' : ''}`}>
+            {apolloStatus?.configured ? <MailCheck /> : <Sparkles />}
+            {apolloStatus?.configured ? 'Apollo configured' : 'Safe demo runner'}
+          </div>
           <div className="avatar" aria-label="Harrison account">H</div>
         </div>
       </header>
@@ -337,6 +405,7 @@ export default function Home() {
                 <DropdownMenuTrigger render={<Button variant="outline" />}>Action <ChevronDown /></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={addBlankRow}><Plus /> Add blank row</DropdownMenuItem>
+                  <DropdownMenuItem onClick={openApollo}><MailCheck /> Enrich selected with Apollo</DropdownMenuItem>
                   <DropdownMenuItem onClick={exportCsv}><Download /> Export CSV</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -368,6 +437,11 @@ export default function Home() {
             <span>{selectedValues.title || 'No title'}</span>
             {selectedValues.domain ? <a href={`https://${selectedValues.domain}`}>{selectedValues.domain}</a> : null}
           </div>
+          <button className="apollo-action" type="button" onClick={openApollo} disabled={!selected}>
+            <span><MailCheck /></span>
+            <div><strong>Enrich with Apollo</strong><small>Person match + verified work email</small></div>
+            <Sparkles />
+          </button>
           <div className="inspector-section">
             <div className="section-title"><span>Recipe trace</span><span>{selectedReceipts.length} steps</span></div>
             {selectedReceipts.length ? (
@@ -419,6 +493,71 @@ export default function Home() {
             {latestRun?.receipts.slice(0, 20).map((receipt) => (
               <div key={receipt.id}><span className="receipt-pass"><Check /></span><div><strong>{receipt.rowLabel} · {receipt.action}</strong><small>{receipt.after || 'No output'} · {receipt.durationMs} ms</small></div></div>
             ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={apolloOpen} onOpenChange={setApolloOpen}>
+        <DialogContent className="apollo-dialog">
+          <DialogHeader>
+            <DialogTitle>Enrich {selectedValues.person || 'selected person'} with Apollo</DialogTitle>
+            <DialogDescription>
+              Match this person at their current company and return a verified business profile.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="apollo-target">
+            <div><span>Person</span><strong>{selectedValues.person || 'Missing person name'}</strong></div>
+            <div><span>Company</span><strong>{selectedValues.company || 'Unknown company'}</strong></div>
+            <div><span>Domain</span><strong>{selectedValues.domain || 'Missing company domain'}</strong></div>
+          </div>
+
+          <div className="apollo-safety">
+            <ShieldCheck />
+            <div>
+              <strong>{apolloStatus?.configured ? 'Apollo key is configured' : 'Apollo key is not configured'}</strong>
+              <p>
+                This action sends the person name and company domain to Apollo. It may use up to 1
+                Apollo credit when data is found. Personal emails and phone numbers stay off.
+              </p>
+            </div>
+          </div>
+
+          {apolloResult ? (
+            <div className={`apollo-result apollo-result-${apolloResult.status}`}>
+              <MailCheck />
+              <div>
+                <strong>
+                  {apolloResult.status === 'found'
+                    ? apolloResult.workEmail
+                    : apolloResult.status === 'not_found'
+                      ? 'No Apollo match found'
+                      : 'Match held for review'}
+                </strong>
+                <p>{apolloResult.evidence.join(' ')}</p>
+                <small>
+                  {apolloResult.cached
+                    ? 'Cache hit · 0 new credits'
+                    : apolloResult.creditsConsumed === null
+                      ? 'Apollo did not report credit usage'
+                      : `${apolloResult.creditsConsumed} Apollo credit${apolloResult.creditsConsumed === 1 ? '' : 's'} used`}
+                </small>
+              </div>
+            </div>
+          ) : null}
+
+          {apolloError ? <p className="apollo-error" role="alert">{apolloError}</p> : null}
+
+          <div className="apollo-dialog-actions">
+            <div className="phone-next"><Phone /><span><strong>Phone reveal is separate</strong><small>It can cost 8 extra credits and needs a public webhook.</small></span></div>
+            <Button
+              className="apollo-submit"
+              onClick={enrichSelectedWithApollo}
+              disabled={apolloRunning || !apolloStatus?.configured || !selectedValues.person || !selectedValues.domain}
+            >
+              {apolloRunning ? <LoaderCircle className="spin" /> : <MailCheck />}
+              {apolloRunning ? 'Checking Apollo…' : 'Use up to 1 credit'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

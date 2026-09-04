@@ -1,9 +1,54 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "837c759b-5104-4421-8e62-e016a9bae49a",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "3aaf3b3b-e371-4985-a1b4-5fc29e589ed3",
+  "prevId": "837c759b-5104-4421-8e62-e016a9bae49a",
   "tables": {
+    "provider_cache": {
+      "name": "provider_cache",
+      "columns": {
+        "cache_key": {
+          "name": "cache_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "runs": {
       "name": "runs",
       "columns": {
@@ -60,10 +105,7 @@
       "indexes": {
         "idx_runs_workspace_created": {
           "name": "idx_runs_workspace_created",
-          "columns": [
-            "workspace_id",
-            "created_at"
-          ],
+          "columns": ["workspace_id", "created_at"],
           "isUnique": false
         }
       },
@@ -72,12 +114,8 @@
           "name": "runs_workspace_id_workspaces_id_fk",
           "tableFrom": "runs",
           "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
