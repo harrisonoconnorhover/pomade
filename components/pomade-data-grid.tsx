@@ -1,14 +1,16 @@
 'use client';
 
 import DataEditor, {
+  CompactSelection,
   GridCellKind,
   type EditableGridCell,
   type GridCell,
   type GridColumn,
+  type GridSelection,
   type Item,
 } from '@glideapps/glide-data-grid';
 import '@glideapps/glide-data-grid/dist/index.css';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import type { PomadeColumn, PomadeRow } from '@/lib/pomade-types';
 
@@ -17,9 +19,27 @@ type Props = {
   rows: PomadeRow[];
   onRowsChange: (rows: PomadeRow[]) => void;
   onActiveRowChange: (rowId: string) => void;
+  onSelectedRowIdsChange: (rowIds: string[]) => void;
 };
 
-export default function PomadeDataGrid({ columns, rows, onRowsChange, onActiveRowChange }: Props) {
+function emptySelection(): GridSelection {
+  return {
+    rows: CompactSelection.empty(),
+    columns: CompactSelection.empty(),
+  };
+}
+
+export default function PomadeDataGrid({
+  columns,
+  rows,
+  onRowsChange,
+  onActiveRowChange,
+  onSelectedRowIdsChange,
+}: Props) {
+  const [gridSelection, setGridSelection] = useState<GridSelection>(() =>
+    emptySelection(),
+  );
+
   const gridColumns = useMemo<GridColumn[]>(
     () =>
       columns.map((column) => ({
@@ -40,7 +60,8 @@ export default function PomadeDataGrid({ columns, rows, onRowsChange, onActiveRo
       const column = columns[col];
       const value = rows[row]?.values[column.id] ?? '';
       const isStatus = column.kind === 'status';
-      const isGenerated = column.kind === 'formula' || column.kind === 'enrichment';
+      const isGenerated =
+        column.kind === 'formula' || column.kind === 'enrichment';
 
       return {
         kind: GridCellKind.Text,
@@ -78,6 +99,19 @@ export default function PomadeDataGrid({ columns, rows, onRowsChange, onActiveRo
     [columns, onRowsChange, rows],
   );
 
+  const onGridSelectionChange = useCallback(
+    (selection: GridSelection) => {
+      setGridSelection(selection);
+      const selectedIds = selection.rows
+        .toArray()
+        .map((index) => rows[index]?.id)
+        .filter((rowId): rowId is string => Boolean(rowId));
+      onSelectedRowIdsChange(selectedIds);
+      if (selectedIds.length === 1) onActiveRowChange(selectedIds[0]);
+    },
+    [onActiveRowChange, onSelectedRowIdsChange, rows],
+  );
+
   return (
     <DataEditor
       columns={gridColumns}
@@ -85,9 +119,13 @@ export default function PomadeDataGrid({ columns, rows, onRowsChange, onActiveRo
       getCellContent={getCellContent}
       onCellEdited={onCellEdited}
       onCellClicked={([, row]) => onActiveRowChange(rows[row].id)}
+      gridSelection={gridSelection}
+      onGridSelectionChange={onGridSelectionChange}
       getCellsForSelection
       onPaste
       rowMarkers={{ kind: 'both', width: 52 }}
+      rowSelect="multi"
+      rowSelectionMode="multi"
       freezeColumns={1}
       smoothScrollX
       smoothScrollY

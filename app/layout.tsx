@@ -13,9 +13,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://pomade.deleteddeleted.chatgpt.site'),
   title: 'Pomade — Shape your GTM data',
   description:
     'A programmable GTM grid for turning raw account data into receipted, governed workflows.',
+  openGraph: {
+    title: 'Pomade — Shape your GTM data',
+    description:
+      'A programmable GTM grid for turning raw account data into receipted, governed workflows.',
+    url: '/',
+    siteName: 'Pomade',
+    type: 'website',
+    images: [
+      {
+        url: '/og.png',
+        width: 1731,
+        height: 909,
+        alt: 'Pomade — Shape your GTM data.',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Pomade — Shape your GTM data',
+    description:
+      'A programmable GTM grid for turning raw account data into receipted, governed workflows.',
+    images: ['/og.png'],
+  },
 };
 
 export default function RootLayout({

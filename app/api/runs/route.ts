@@ -17,27 +17,58 @@ function hasRunnableWorkspace(value: unknown): value is WorkspaceSnapshot {
 }
 
 export async function GET(request: Request) {
-  const workspaceId = new URL(request.url).searchParams.get('workspaceId') ?? 'founder-targets';
+  const workspaceId =
+    new URL(request.url).searchParams.get('workspaceId') ?? 'founder-targets';
   const db = await ensureDatabase();
   const result = await db
-    .prepare('SELECT receipt FROM runs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 10')
+    .prepare(
+      'SELECT receipt FROM runs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 10',
+    )
     .bind(workspaceId)
     .all<{ receipt: string }>();
 
   return Response.json({
-    runs: result.results.map((record) => JSON.parse(record.receipt) as RunReceipt),
+    runs: result.results.map(
+      (record) => JSON.parse(record.receipt) as RunReceipt,
+    ),
   });
 }
 
 export async function POST(request: Request) {
   const body: unknown = await request.json();
   const workspace = (body as { workspace?: unknown })?.workspace;
+  const requestedRowIds = (body as { rowIds?: unknown })?.rowIds;
 
   if (!hasRunnableWorkspace(workspace)) {
-    return Response.json({ error: 'A non-empty workspace is required.' }, { status: 400 });
+    return Response.json(
+      { error: 'A non-empty workspace is required.' },
+      { status: 400 },
+    );
   }
 
-  const { workspace: updated, run } = executeWorkspace(workspace);
+  if (
+    requestedRowIds !== undefined &&
+    (!Array.isArray(requestedRowIds) ||
+      requestedRowIds.length === 0 ||
+      requestedRowIds.length > workspace.rows.length ||
+      requestedRowIds.some((rowId) => typeof rowId !== 'string'))
+  ) {
+    return Response.json(
+      { error: 'Select one or more valid rows to run.' },
+      { status: 400 },
+    );
+  }
+
+  const rowIds = requestedRowIds as string[] | undefined;
+  const knownRows = new Set(workspace.rows.map((row) => row.id));
+  if (rowIds?.some((rowId) => !knownRows.has(rowId))) {
+    return Response.json(
+      { error: 'One or more selected rows no longer exist.' },
+      { status: 409 },
+    );
+  }
+
+  const { workspace: updated, run } = executeWorkspace(workspace, rowIds);
   const db = await ensureDatabase();
   const now = Date.now();
 

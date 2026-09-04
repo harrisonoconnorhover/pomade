@@ -35,3 +35,30 @@ the current owner-only Site cannot safely receive that callback.
 Provider results are cached in D1 for 30 days behind a hashed identity/domain
 key. Cache hits report zero new credits. Mismatched identities never expose the
 returned person's fields, and uncertain emails stay in review state.
+
+## CRM sources are read-only
+
+HubSpot contacts and Salesforce leads enter Pomade through preview-first,
+read-only endpoints. Imports can replace the grid or append only unseen records;
+stable provider record IDs are retained so repeated imports do not create
+duplicates. The first slice deliberately avoids CRM writes and broad object
+mapping.
+
+## Run scope is explicit
+
+Recipe runs target selected rows when the user has made a selection and the
+currently visible rows otherwise. Receipts report the exact processed row count,
+which keeps bulk work understandable after search and filtering.
+
+## GTM Control Tower owns mutation
+
+Pomade can export a bounded preview plan containing only the rows and fields
+already visible in the grid. The plan blocks record creation and cannot execute
+a write. GTM Control Tower remains the approval, execution, receipt, and rollback
+boundary, preserving the existing product while making Pomade additive.
+
+## Provider errors preserve uncertainty
+
+Apollo HTTP 403 responses include Apollo's sanitized response detail and explain
+that either plan access, API scope, or work-email entitlement may be responsible.
+Pomade does not claim a single cause unless the provider says so.

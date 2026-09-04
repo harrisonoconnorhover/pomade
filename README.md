@@ -10,18 +10,19 @@ what changed. It is an original product built on the open-source
 ## Current vertical slice
 
 - Import any CSV and edit cells in a fast, virtualized grid.
-- Add deterministic formula or enrichment recipe columns.
+- Preview and import contacts from HubSpot or leads from Salesforce without writing back.
+- Add grouped formula and enrichment recipe columns, then run selected or visible rows.
 - Enrich one selected person through Apollo with exact-name/company-domain safeguards.
-- Run every configured recipe across the workspace.
-- Persist the workspace and recent run receipts in Cloudflare D1.
+- Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
 - Search, filter, sort, add rows, and export the resulting CSV.
-- Review field-level inputs, outputs, durations, and external-write count.
+- Inspect row quality and field-level lineage, or download a bounded GTM Control Tower preview plan.
 
-The included batch runner is deterministic and credential-free. Apollo enrichment
-is an explicit, selected-row action that may use up to one credit; it never
-requests personal emails or phone numbers. `lib/scoutbound-adapter.ts` remains
-the boundary for a future self-hosted Scoutbound worker. Governed CRM writes
-remain behind GTM Control Tower's preview, approval, receipt, and rollback flow.
+The included batch runner is deterministic and credential-free. CRM connections
+are read-only sources. Apollo enrichment is an explicit, selected-row action
+that may use up to one credit; it never requests personal emails or phone
+numbers. `lib/scoutbound-adapter.ts` remains the boundary for a future
+self-hosted Scoutbound worker. Governed CRM writes remain behind GTM Control
+Tower's preview, approval, receipt, and rollback flow.
 
 ## Run locally
 
@@ -35,8 +36,9 @@ npm run dev
 Then open the printed local URL. Load a CSV or use the included founder-target
 workspace, add a recipe column, and click **Run enrichment**.
 
-To enable Apollo locally, copy `.env.example` to `.env.local` and set a scoped
-`APOLLO_API_KEY` with `people/match` access. Never commit the real key.
+To enable providers locally, copy `.env.example` to `.env.local`. Set a scoped
+`APOLLO_API_KEY` with `people/match` access and/or the read-only HubSpot and
+Salesforce variables shown in that file. Never commit real credentials.
 
 ## Check it
 
@@ -54,19 +56,20 @@ Glide Data Grid UI | Pomade workspace + recipe schema
                        |
           -------------------------------------------
           |                    |                    |
-safe hosted recipe runner   Apollo provider     Scoutbound adapter
-          |                    |                    |
-          -------- D1 workspace, cache, and immutable receipts
+safe recipe runner       read-only sources       Apollo provider
+          |             HubSpot / Salesforce            |
+          ------------- D1 workspace, cache, receipts ---
                                |
-            GTM Control Tower adapter (governed CRM writes later)
+         GTM Control Tower preview adapter (governed writes only)
 ```
 
 ## Status
 
-Pomade is an early working product slice, not a complete Clay replacement. The
-grid, CSV workflow, recipe execution, Apollo person enrichment, persistence,
-caching, and receipts are real. Apollo phone reveal, authentication,
-multi-workspace collaboration, and CRM write-back are intentionally deferred.
+Pomade is a polished working vertical slice, not a complete Clay replacement.
+The grid, CSV and CRM source workflow, scoped recipe execution, Apollo person
+enrichment, persistence, cache, receipts, and Control Tower handoff are real.
+Apollo phone reveal, durable CRM OAuth, multi-user collaboration, and direct CRM
+write-back are intentionally deferred.
 
 ## License
 

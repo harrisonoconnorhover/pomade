@@ -7,6 +7,9 @@ export type PomadeColumn = {
   width: number;
   recipe?:
     | 'normalize-domain'
+    | 'first-name'
+    | 'email-domain'
+    | 'dedupe-key'
     | 'score-fit'
     | 'write-opener'
     | 'company-summary';
@@ -23,6 +26,13 @@ export type WorkspaceSnapshot = {
   columns: PomadeColumn[];
   rows: PomadeRow[];
   updatedAt: number;
+  source?: WorkspaceSource;
+};
+
+export type WorkspaceSource = {
+  provider: 'sample' | 'csv' | 'hubspot' | 'salesforce';
+  label: string;
+  importedAt: number;
 };
 
 export type ActionReceipt = {
@@ -35,7 +45,7 @@ export type ActionReceipt = {
   durationMs: number;
   before: string;
   after: string;
-  provider?: 'apollo';
+  provider?: 'apollo' | 'local';
   creditsConsumed?: number | null;
   cached?: boolean;
   evidence?: string[];
@@ -73,4 +83,27 @@ export type ApolloEnrichmentResult = {
   evidence: string[];
   creditsConsumed: number | null;
   cached: boolean;
+};
+
+export type CrmProvider = 'hubspot' | 'salesforce';
+
+export type CrmSourceContact = {
+  nativeId: string;
+  objectType: 'contact' | 'lead';
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  company: string;
+  phone: string;
+  jobTitle: string;
+  website: string;
+};
+
+export type CrmSourcePreview = {
+  provider: CrmProvider;
+  sourceLabel: string;
+  contacts: CrmSourceContact[];
+  truncated: boolean;
+  readAt: string;
 };

@@ -93,23 +93,48 @@ function validEmail(value: string | null): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
 }
 
-function errorForStatus(status: number, retryAfter: string | null): Error {
+function safeApolloDetail(value: unknown) {
+  const payload = record(value);
+  const detail =
+    optionalString(payload?.message) ||
+    optionalString(payload?.error_description) ||
+    optionalString(payload?.error);
+  return detail
+    ? ` Apollo said: ${detail.replace(/\s+/g, ' ').slice(0, 240)}`
+    : '';
+}
+
+async function errorForResponse(response: Response): Promise<Error> {
+  const status = response.status;
+  const retryAfter = response.headers.get('retry-after');
+  const text = await response.text();
+  let payload: unknown = null;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch {
+    payload = text ? { message: text } : null;
+  }
+  const detail = safeApolloDetail(payload);
   if (status === 401)
-    return new Error('Apollo rejected the configured API key.');
+    return new Error(`Apollo rejected the configured API key.${detail}`);
   if (status === 403) {
     return new Error(
-      'Apollo denied People Enrichment. The account needs a work-email login and people/match access.',
+      `Apollo denied People Enrichment (HTTP 403). Free accounts need a work-email login, and the key or workspace must allow people/match.${detail}`,
     );
   }
   if (status === 429) {
     const suffix = retryAfter
       ? ` Try again in ${retryAfter} seconds.`
       : ' Try again later.';
-    return new Error(`Apollo's API limit was reached.${suffix}`);
+    return new Error(`Apollo's API limit was reached.${suffix}${detail}`);
   }
   if (status === 422)
-    return new Error('Apollo could not match that person and company input.');
-  return new Error(`Apollo People Enrichment failed with HTTP ${status}.`);
+    return new Error(
+      `Apollo could not match that person and company input.${detail}`,
+    );
+  return new Error(
+    `Apollo People Enrichment failed with HTTP ${status}.${detail}`,
+  );
 }
 
 function locationFrom(person: Record<string, unknown>) {
@@ -171,10 +196,7 @@ export class ApolloClient {
     }
 
     if (!response.ok) {
-      throw errorForStatus(
-        response.status,
-        response.headers.get('retry-after'),
-      );
+      throw await errorForResponse(response);
     }
 
     const payload = record(await response.json());

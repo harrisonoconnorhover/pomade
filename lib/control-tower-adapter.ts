@@ -32,10 +32,19 @@ export function toControlTowerPreview(
       .slice(0, 100)
       .map((row) => ({
         rowId: row.id,
-        externalKey: row.values.domain || row.id,
+        externalKey:
+          row.values.crm_source && row.values.crm_id
+            ? `${row.values.crm_source}:${row.values.crm_id}`
+            : row.values.email ||
+              row.values.apollo_email ||
+              row.values.domain ||
+              row.id,
         proposedFields: Object.fromEntries(
           workspace.columns
-            .filter((column) => column.kind !== 'status')
+            .filter(
+              (column) =>
+                column.kind !== 'status' && !column.id.startsWith('__'),
+            )
             .map((column) => [column.id, row.values[column.id] ?? '']),
         ),
       })),

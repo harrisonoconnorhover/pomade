@@ -118,6 +118,19 @@ describe('Apollo client', () => {
     );
   });
 
+  it('keeps Apollo permission details when a 403 is returned', async () => {
+    const { client } = clientFor(
+      Response.json(
+        { message: 'API access is not enabled for this account' },
+        { status: 403 },
+      ),
+    );
+
+    await expect(client.enrichPerson(INPUT)).rejects.toThrow(
+      'Apollo said: API access is not enabled for this account',
+    );
+  });
+
   it('normalizes domains and produces stable privacy-safe cache keys', async () => {
     expect(normalizeCompanyDomain(INPUT.companyDomain)).toBe('example.com');
     await expect(apolloCacheKey(INPUT)).resolves.toMatch(/^[a-f0-9]{64}$/);
