@@ -12,17 +12,19 @@ what changed. It is an original product built on the open-source
 - Import any CSV and edit cells in a fast, virtualized grid.
 - Preview and import contacts from HubSpot or leads from Salesforce without writing back.
 - Add grouped formula and enrichment recipe columns, then run selected or visible rows.
+- Create custom AI research columns that use Gemini, live Google Search, and clickable citations.
 - Enrich one selected person through Apollo with exact-name/company-domain safeguards.
 - Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
 - Search, filter, sort, add rows, and export the resulting CSV.
 - Inspect row quality and field-level lineage, or download a bounded GTM Control Tower preview plan.
 
-The included batch runner is deterministic and credential-free. CRM connections
-are read-only sources. Apollo enrichment is an explicit, selected-row action
-that may use up to one credit; it never requests personal emails or phone
-numbers. `lib/scoutbound-adapter.ts` remains the boundary for a future
-self-hosted Scoutbound worker. Governed CRM writes remain behind GTM Control
-Tower's preview, approval, receipt, and rollback flow.
+The included formula runner is deterministic and credential-free. CRM
+connections are read-only sources. AI web research uses a bring-your-own Gemini
+key, requires an explicit run confirmation, caps each run at ten research
+requests, caches results for 24 hours, and stores source links with the receipt.
+Apollo enrichment remains an explicit selected-row action that may use up to one
+credit; it never requests personal emails or phone numbers. Governed CRM writes
+remain behind GTM Control Tower's preview, approval, receipt, and rollback flow.
 
 ## Run locally
 
@@ -36,9 +38,12 @@ npm run dev
 Then open the printed local URL. Load a CSV or use the included founder-target
 workspace, add a recipe column, and click **Run enrichment**.
 
-To enable providers locally, copy `.env.example` to `.env.local`. Set a scoped
-`APOLLO_API_KEY` with `people/match` access and/or the read-only HubSpot and
-Salesforce variables shown in that file. Never commit real credentials.
+To enable grounded web research locally, set `GEMINI_API_KEY` in the ignored
+`.env.local` file and restart Pomade. A Google AI Studio key works with the
+default Gemini model. Add an **AI web research** recipe, customize the prompt
+with row variables such as `{{company}}` and `{{domain}}`, select rows, and run
+the recipe. Set the other optional provider variables shown in `.env.example`
+as needed. Never commit real credentials.
 
 ## Check it
 
@@ -56,9 +61,9 @@ Glide Data Grid UI | Pomade workspace + recipe schema
                        |
           -------------------------------------------
           |                    |                    |
-safe recipe runner       read-only sources       Apollo provider
-          |             HubSpot / Salesforce            |
-          ------------- D1 workspace, cache, receipts ---
+safe recipe runner       read-only sources       provider reads
+          |             HubSpot / Salesforce    Apollo / Gemini Search
+          ------------- D1 workspace, cache, receipts -------------
                                |
          GTM Control Tower preview adapter (governed writes only)
 ```
@@ -66,10 +71,10 @@ safe recipe runner       read-only sources       Apollo provider
 ## Status
 
 Pomade is a polished working vertical slice, not a complete Clay replacement.
-The grid, CSV and CRM source workflow, scoped recipe execution, Apollo person
-enrichment, persistence, cache, receipts, and Control Tower handoff are real.
-Apollo phone reveal, durable CRM OAuth, multi-user collaboration, and direct CRM
-write-back are intentionally deferred.
+The grid, CSV and CRM source workflow, scoped recipe execution, grounded AI web
+research, Apollo person enrichment, persistence, cache, receipts, and Control
+Tower handoff are real. Apollo phone reveal, durable CRM OAuth, multi-user
+collaboration, and direct CRM write-back are intentionally deferred.
 
 ## License
 

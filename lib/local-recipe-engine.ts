@@ -81,7 +81,9 @@ export function executeWorkspace(
 ): { workspace: WorkspaceSnapshot; run: RunReceipt } {
   const startedAt = Date.now();
   const recipeColumns = input.columns.filter(
-    (column) => column.kind === 'formula' || column.kind === 'enrichment',
+    (column) =>
+      (column.kind === 'formula' || column.kind === 'enrichment') &&
+      column.recipe !== 'web-research',
   );
   const receipts: ActionReceipt[] = [];
   const selected = selectedRowIds ? new Set(selectedRowIds) : null;

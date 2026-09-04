@@ -1,6 +1,22 @@
+import { env } from 'cloudflare:workers';
+
 import { ensureDatabase } from '@/db/ensure';
+import { GeminiWebResearchClient } from '@/lib/gemini-client';
 import { executeWorkspace } from '@/lib/local-recipe-engine';
-import type { RunReceipt, WorkspaceSnapshot } from '@/lib/pomade-types';
+import type {
+  PomadeColumn,
+  RunReceipt,
+  WebResearchResult,
+  WorkspaceSnapshot,
+} from '@/lib/pomade-types';
+import {
+  applyWebResearchResult,
+  renderWebResearchPrompt,
+  webResearchCacheKey,
+} from '@/lib/web-research';
+
+const RESEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1_000;
+const MAX_RESEARCH_ACTIONS = 10;
 
 function hasRunnableWorkspace(value: unknown): value is WorkspaceSnapshot {
   if (!value || typeof value !== 'object') return false;
@@ -35,66 +51,207 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const body: unknown = await request.json();
-  const workspace = (body as { workspace?: unknown })?.workspace;
-  const requestedRowIds = (body as { rowIds?: unknown })?.rowIds;
+  try {
+    const startedAt = Date.now();
+    const body: unknown = await request.json();
+    const workspace = (body as { workspace?: unknown })?.workspace;
+    const requestedRowIds = (body as { rowIds?: unknown })?.rowIds;
+    const confirmedResearch =
+      (body as { confirmExternalResearch?: unknown })
+        ?.confirmExternalResearch === true;
 
-  if (!hasRunnableWorkspace(workspace)) {
-    return Response.json(
-      { error: 'A non-empty workspace is required.' },
-      { status: 400 },
+    if (!hasRunnableWorkspace(workspace)) {
+      return Response.json(
+        { error: 'A non-empty workspace is required.' },
+        { status: 400 },
+      );
+    }
+
+    if (
+      requestedRowIds !== undefined &&
+      (!Array.isArray(requestedRowIds) ||
+        requestedRowIds.length === 0 ||
+        requestedRowIds.length > workspace.rows.length ||
+        requestedRowIds.some((rowId) => typeof rowId !== 'string'))
+    ) {
+      return Response.json(
+        { error: 'Select one or more valid rows to run.' },
+        { status: 400 },
+      );
+    }
+
+    const rowIds = requestedRowIds as string[] | undefined;
+    const knownRows = new Set(workspace.rows.map((row) => row.id));
+    if (rowIds?.some((rowId) => !knownRows.has(rowId))) {
+      return Response.json(
+        { error: 'One or more selected rows no longer exist.' },
+        { status: 409 },
+      );
+    }
+
+    const db = await ensureDatabase();
+    const targetRows = rowIds
+      ? workspace.rows.filter((row) => rowIds.includes(row.id))
+      : workspace.rows;
+    const researchColumns = workspace.columns.filter(
+      (column): column is PomadeColumn & { prompt: string } =>
+        column.recipe === 'web-research' && Boolean(column.prompt?.trim()),
     );
-  }
+    const researchActionCount = targetRows.length * researchColumns.length;
+    if (researchActionCount > MAX_RESEARCH_ACTIONS) {
+      return Response.json(
+        {
+          error: `This run would make ${researchActionCount} web research requests. Select fewer rows so the total is ${MAX_RESEARCH_ACTIONS} or less.`,
+        },
+        { status: 400 },
+      );
+    }
+    if (researchActionCount > 0 && !confirmedResearch) {
+      return Response.json(
+        {
+          error:
+            'Confirm the external Gemini web research requests before running.',
+        },
+        { status: 400 },
+      );
+    }
+    if (researchActionCount > 0 && !env.GEMINI_API_KEY?.trim()) {
+      return Response.json(
+        {
+          error:
+            'Gemini is not configured. Add GEMINI_API_KEY to .env.local and restart Pomade.',
+        },
+        { status: 503 },
+      );
+    }
 
-  if (
-    requestedRowIds !== undefined &&
-    (!Array.isArray(requestedRowIds) ||
-      requestedRowIds.length === 0 ||
-      requestedRowIds.length > workspace.rows.length ||
-      requestedRowIds.some((rowId) => typeof rowId !== 'string'))
-  ) {
-    return Response.json(
-      { error: 'Select one or more valid rows to run.' },
-      { status: 400 },
-    );
-  }
+    const localResult = executeWorkspace(workspace, rowIds);
+    let updated = localResult.workspace;
+    const receipts = [...localResult.run.receipts];
+    const model = env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
+    const gemini = new GeminiWebResearchClient({
+      apiKey: env.GEMINI_API_KEY ?? '',
+      model,
+    });
 
-  const rowIds = requestedRowIds as string[] | undefined;
-  const knownRows = new Set(workspace.rows.map((row) => row.id));
-  if (rowIds?.some((rowId) => !knownRows.has(rowId))) {
-    return Response.json(
-      { error: 'One or more selected rows no longer exist.' },
-      { status: 409 },
-    );
-  }
+    for (const row of targetRows) {
+      for (const column of researchColumns) {
+        const actionStartedAt = Date.now();
+        const currentRow = updated.rows.find(
+          (candidate) => candidate.id === row.id,
+        );
+        if (!currentRow) continue;
+        const prompt = renderWebResearchPrompt(column.prompt, currentRow);
+        const cacheKey = await webResearchCacheKey(model, prompt);
+        const now = Date.now();
+        const cached = await db
+          .prepare(
+            'SELECT payload FROM provider_cache WHERE cache_key = ? AND provider = ? AND expires_at > ?',
+          )
+          .bind(cacheKey, 'gemini', now)
+          .first<{ payload: string }>();
 
-  const { workspace: updated, run } = executeWorkspace(workspace, rowIds);
-  const db = await ensureDatabase();
-  const now = Date.now();
+        let result: WebResearchResult;
+        if (cached) {
+          result = {
+            ...(JSON.parse(cached.payload) as WebResearchResult),
+            cached: true,
+          };
+        } else {
+          result = await gemini.research(prompt);
+          await db
+            .prepare(
+              `INSERT INTO provider_cache (cache_key, provider, payload, created_at, expires_at)
+              VALUES (?, ?, ?, ?, ?)
+              ON CONFLICT(cache_key) DO UPDATE SET
+                payload = excluded.payload,
+                created_at = excluded.created_at,
+                expires_at = excluded.expires_at`,
+            )
+            .bind(
+              cacheKey,
+              'gemini',
+              JSON.stringify(result),
+              now,
+              now + RESEARCH_CACHE_TTL_MS,
+            )
+            .run();
+        }
 
-  await db.batch([
-    db
-      .prepare(`INSERT INTO workspaces (id, name, snapshot, created_at, updated_at)
+        const applied = applyWebResearchResult(
+          updated,
+          row.id,
+          column,
+          result,
+          actionStartedAt,
+        );
+        updated = applied.workspace;
+        receipts.push(applied.receipt);
+      }
+    }
+
+    const finishedAt = Date.now();
+    const hasLocalActions = localResult.run.receipts.length > 0;
+    const hasResearchActions = researchActionCount > 0;
+    const run: RunReceipt = {
+      id: crypto.randomUUID(),
+      workspaceId: workspace.id,
+      status: 'completed',
+      startedAt,
+      finishedAt,
+      rowCount: targetRows.length,
+      actionCount: receipts.length,
+      passedCount: receipts.filter((receipt) => receipt.status === 'passed')
+        .length,
+      reviewCount: receipts.filter((receipt) => receipt.status === 'review')
+        .length,
+      externalWrites: 0,
+      provider:
+        hasResearchActions && hasLocalActions
+          ? 'mixed'
+          : hasResearchActions
+            ? 'gemini'
+            : 'local',
+      receipts,
+    };
+
+    await db.batch([
+      db
+        .prepare(`INSERT INTO workspaces (id, name, snapshot, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           name = excluded.name,
           snapshot = excluded.snapshot,
           updated_at = excluded.updated_at`)
-      .bind(updated.id, updated.name, JSON.stringify(updated), now, now),
-    db
-      .prepare(`INSERT INTO runs
+        .bind(
+          updated.id,
+          updated.name,
+          JSON.stringify(updated),
+          finishedAt,
+          finishedAt,
+        ),
+      db
+        .prepare(`INSERT INTO runs
         (id, workspace_id, status, row_count, action_count, receipt, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .bind(
-        run.id,
-        run.workspaceId,
-        run.status,
-        run.rowCount,
-        run.actionCount,
-        JSON.stringify(run),
-        run.finishedAt,
-      ),
-  ]);
+        .bind(
+          run.id,
+          run.workspaceId,
+          run.status,
+          run.rowCount,
+          run.actionCount,
+          JSON.stringify(run),
+          finishedAt,
+        ),
+    ]);
 
-  return Response.json({ workspace: updated, run });
+    return Response.json({ workspace: updated, run });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'The recipe run failed.';
+    return Response.json(
+      { error: message },
+      { status: message.includes('not configured') ? 503 : 502 },
+    );
+  }
 }

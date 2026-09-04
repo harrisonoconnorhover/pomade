@@ -1,7 +1,7 @@
 import { sites } from '@openai/sites-vite-plugin';
 import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import hostingConfig from './.openai/hosting.json' with { type: 'json' };
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
@@ -13,41 +13,45 @@ const { d1, r2 } = hostingConfig;
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
 const localVariableNames = [
   'APOLLO_API_KEY',
+  'GEMINI_API_KEY',
+  'GEMINI_MODEL',
   'HUBSPOT_ACCESS_TOKEN',
   'SALESFORCE_INSTANCE_URL',
   'SALESFORCE_ACCESS_TOKEN',
   'SALESFORCE_API_VERSION',
 ] as const;
-const localVars = Object.fromEntries(
-  localVariableNames.flatMap((name) =>
-    process.env[name] ? [[name, process.env[name]]] : [],
-  ),
-) as Record<string, string>;
 
-const localBindingConfig = {
-  main: 'vinext/server/fetch-handler',
-  compatibility_flags: ['nodejs_compat'],
-  vars: localVars,
-  d1_databases: d1
-    ? [
-        {
-          binding: d1,
-          database_name: 'site-creator-d1',
-          database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
-        },
-      ]
-    : [],
-  r2_buckets: r2
-    ? [
-        {
-          binding: r2,
-          bucket_name: 'site-creator-r2',
-        },
-      ]
-    : [],
-};
+export default defineConfig(async ({ mode }) => {
+  const fileEnv = loadEnv(mode, process.cwd(), '');
+  const localVars = Object.fromEntries(
+    localVariableNames.flatMap((name) => {
+      const value = process.env[name] ?? fileEnv[name];
+      return value ? [[name, value]] : [];
+    }),
+  ) as Record<string, string>;
+  const localBindingConfig = {
+    main: 'vinext/server/fetch-handler',
+    compatibility_flags: ['nodejs_compat'],
+    vars: localVars,
+    d1_databases: d1
+      ? [
+          {
+            binding: d1,
+            database_name: 'site-creator-d1',
+            database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+          },
+        ]
+      : [],
+    r2_buckets: r2
+      ? [
+          {
+            binding: r2,
+            bucket_name: 'site-creator-r2',
+          },
+        ]
+      : [],
+  };
 
-export default defineConfig(async () => {
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
   process.env.WRANGLER_WRITE_LOGS ??= 'false';

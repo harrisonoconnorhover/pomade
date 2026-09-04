@@ -5,6 +5,7 @@ export type PomadeColumn = {
   title: string;
   kind: ColumnKind;
   width: number;
+  prompt?: string;
   recipe?:
     | 'normalize-domain'
     | 'first-name'
@@ -12,7 +13,8 @@ export type PomadeColumn = {
     | 'dedupe-key'
     | 'score-fit'
     | 'write-opener'
-    | 'company-summary';
+    | 'company-summary'
+    | 'web-research';
 };
 
 export type PomadeRow = {
@@ -45,10 +47,12 @@ export type ActionReceipt = {
   durationMs: number;
   before: string;
   after: string;
-  provider?: 'apollo' | 'local';
+  provider?: 'apollo' | 'gemini' | 'local';
   creditsConsumed?: number | null;
   cached?: boolean;
   evidence?: string[];
+  references?: WebResearchCitation[];
+  queries?: string[];
 };
 
 export type RunReceipt = {
@@ -62,7 +66,7 @@ export type RunReceipt = {
   passedCount: number;
   reviewCount: number;
   externalWrites: 0;
-  provider?: 'apollo' | 'local';
+  provider?: 'apollo' | 'gemini' | 'local' | 'mixed';
   creditsConsumed?: number | null;
   receipts: ActionReceipt[];
 };
@@ -82,6 +86,19 @@ export type ApolloEnrichmentResult = {
   status: ApolloEnrichmentStatus;
   evidence: string[];
   creditsConsumed: number | null;
+  cached: boolean;
+};
+
+export type WebResearchCitation = {
+  title: string;
+  url: string;
+};
+
+export type WebResearchResult = {
+  answer: string;
+  citations: WebResearchCitation[];
+  queries: string[];
+  model: string;
   cached: boolean;
 };
 
