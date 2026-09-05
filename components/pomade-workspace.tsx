@@ -77,6 +77,7 @@ import type {
   RecipeScheduleCadence,
   RecipeTemplate,
   ResearchValueType,
+  RunJob,
   RunReceipt,
   RunConditionOperator,
   WaterfallStep,
@@ -91,6 +92,13 @@ import {
   createRecipeSchedule,
   pauseRecipeSchedule,
 } from '@/lib/recipe-schedule';
+import {
+  MAX_BACKGROUND_RESEARCH_ACTIONS,
+  MAX_BACKGROUND_ROWS,
+  canPauseRunJob,
+  canResumeRunJob,
+  runJobPercent,
+} from '@/lib/run-job';
 import { createSampleWorkspace } from '@/lib/sample-workspace';
 
 const PomadeDataGrid = dynamic(() => import('@/components/pomade-data-grid'), {
@@ -101,6 +109,7 @@ const PomadeDataGrid = dynamic(() => import('@/components/pomade-data-grid'), {
 type FilterMode = 'All' | 'Ready' | 'Review';
 type SaveState = 'Loading' | 'Saving' | 'Saved' | 'Offline';
 type ResearchOutputMode = 'single' | 'structured' | 'list';
+type PendingRunMode = 'immediate' | 'background';
 
 type ResearchFieldDraft = {
   key: string;
@@ -435,6 +444,7 @@ export default function PomadeWorkspace() {
   const [templateSaveOpen, setTemplateSaveOpen] = useState(false);
   const [templateUseOpen, setTemplateUseOpen] = useState(false);
   const [researchConfirmOpen, setResearchConfirmOpen] = useState(false);
+  const [backgroundRunsOpen, setBackgroundRunsOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -486,6 +496,11 @@ export default function PomadeWorkspace() {
   const [icpListLimit, setIcpListLimit] = useState(15);
   const [pendingRunRowIds, setPendingRunRowIds] = useState<string[]>([]);
   const [pendingRunColumnIds, setPendingRunColumnIds] = useState<string[]>([]);
+  const [pendingRunMode, setPendingRunMode] =
+    useState<PendingRunMode>('immediate');
+  const [runJobs, setRunJobs] = useState<RunJob[]>([]);
+  const [jobSaving, setJobSaving] = useState(false);
+  const [jobError, setJobError] = useState('');
   const [scheduleCadence, setScheduleCadence] =
     useState<RecipeScheduleCadence>('once');
   const [scheduleRunAt, setScheduleRunAt] = useState(defaultScheduleTime);
@@ -505,6 +520,8 @@ export default function PomadeWorkspace() {
   const [sourcePreview, setSourcePreview] = useState<CrmSourcePreview>();
 
   const hydrated = useRef(false);
+  const jobRevision = useRef(0);
+  const suppressNextWorkspaceSave = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -578,7 +595,58 @@ export default function PomadeWorkspace() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    async function pollJobs() {
+      try {
+        const response = await fetch('/api/jobs?workspaceId=founder-targets');
+        if (!response.ok) return;
+        const result = (await response.json()) as { jobs: RunJob[] };
+        if (cancelled) return;
+        const newestRevision = Math.max(
+          0,
+          ...result.jobs.map((job) => job.updatedAt),
+        );
+        const changed =
+          jobRevision.current > 0 && newestRevision > jobRevision.current;
+        jobRevision.current = newestRevision;
+        setRunJobs(result.jobs);
+        if (changed) {
+          const [workspaceResponse, runsResponse] = await Promise.all([
+            fetch('/api/workspace'),
+            fetch('/api/runs?workspaceId=founder-targets'),
+          ]);
+          if (cancelled || !workspaceResponse.ok || !runsResponse.ok) return;
+          const workspaceResult = (await workspaceResponse.json()) as {
+            workspace: WorkspaceSnapshot;
+          };
+          const runsResult = (await runsResponse.json()) as {
+            runs: RunReceipt[];
+          };
+          if (cancelled) return;
+          suppressNextWorkspaceSave.current = true;
+          setWorkspace(workspaceResult.workspace);
+          setRunHistory(runsResult.runs);
+          setLatestRun(runsResult.runs[0]);
+          setSaveState('Saved');
+        }
+      } catch {
+        // Background polling is best-effort; the workspace remains usable.
+      }
+    }
+    void pollJobs();
+    const timer = window.setInterval(pollJobs, 4_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!hydrated.current) return;
+    if (suppressNextWorkspaceSave.current) {
+      suppressNextWorkspaceSave.current = false;
+      return;
+    }
     setSaveState('Saving');
     const timer = window.setTimeout(() => {
       fetch('/api/workspace', {
@@ -707,6 +775,22 @@ export default function PomadeWorkspace() {
   }, [pendingRunRowIds, pendingWebResearchColumns, workspace.rows]);
   const maximumResearchActions =
     researchStatus?.capabilities.maximumActionsPerRun ?? 10;
+  const pendingResearchActionLimit =
+    pendingRunMode === 'background'
+      ? MAX_BACKGROUND_RESEARCH_ACTIONS
+      : maximumResearchActions;
+  const latestRunJob = runJobs[0];
+  const currentRunJob =
+    latestRunJob &&
+    ['queued', 'running', 'paused', 'failed'].includes(latestRunJob.status)
+      ? latestRunJob
+      : undefined;
+  const jobLocksWorkspace = Boolean(
+    currentRunJob &&
+    (currentRunJob.status === 'queued' ||
+      currentRunJob.status === 'running' ||
+      (currentRunJob.status === 'paused' && currentRunJob.leaseUntil)),
+  );
   const scheduledTargetRows =
     scheduleTarget === 'selected'
       ? workspace.rows.filter((row) => scheduleRowIds.includes(row.id))
@@ -959,6 +1043,7 @@ export default function PomadeWorkspace() {
     setQuery('');
     setPendingRunRowIds([result.sourceRowId]);
     setPendingRunColumnIds([result.researchColumnId]);
+    setPendingRunMode('immediate');
     setCompanyListOpen(false);
     setResearchConfirmOpen(true);
     if (result.schedulePaused) {
@@ -1427,6 +1512,7 @@ export default function PomadeWorkspace() {
     if (eligibleResearchActions > 0 && !confirmExternalResearch) {
       setPendingRunRowIds(rowIds);
       setPendingRunColumnIds(columnIds ?? []);
+      setPendingRunMode('immediate');
       setResearchConfirmOpen(true);
       return;
     }
@@ -1484,6 +1570,125 @@ export default function PomadeWorkspace() {
       );
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function queueBackgroundRun(
+    rowIds = runTargetIds,
+    confirmExternalResearch = false,
+    columnIds?: string[],
+  ) {
+    if (jobSaving || !rowIds.length) return;
+    if (rowIds.length > MAX_BACKGROUND_ROWS) {
+      setJobError(
+        `Select ${MAX_BACKGROUND_ROWS} rows or fewer for one background run.`,
+      );
+      setBackgroundRunsOpen(true);
+      return;
+    }
+    const activeJob = runJobs.find((job) =>
+      ['queued', 'running', 'paused'].includes(job.status),
+    );
+    if (activeJob) {
+      setJobError(
+        'Finish or resume the existing background run before starting another.',
+      );
+      setBackgroundRunsOpen(true);
+      return;
+    }
+    const target = new Set(rowIds);
+    const scopedResearchColumns = columnIds?.length
+      ? webResearchColumns.filter((column) => columnIds.includes(column.id))
+      : webResearchColumns;
+    const researchActionCount = countEligibleRecipeActions(
+      workspace.rows.filter((row) => target.has(row.id)),
+      scopedResearchColumns,
+    );
+    if (researchActionCount > 0 && !confirmExternalResearch) {
+      setPendingRunRowIds(rowIds);
+      setPendingRunColumnIds(columnIds ?? []);
+      setPendingRunMode('background');
+      setResearchConfirmOpen(true);
+      return;
+    }
+
+    setJobSaving(true);
+    setJobError('');
+    try {
+      const response = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          workspace,
+          rowIds,
+          columnIds,
+          confirmExternalResearch,
+        }),
+      });
+      const result = (await response.json()) as {
+        job?: RunJob;
+        error?: string;
+      };
+      if (!response.ok || !result.job) {
+        throw new Error(
+          result.error || 'The background run could not be queued.',
+        );
+      }
+      jobRevision.current = Math.max(jobRevision.current, result.job.updatedAt);
+      setRunJobs((current) => [
+        result.job!,
+        ...current.filter((job) => job.id !== result.job?.id),
+      ]);
+      setBackgroundRunsOpen(true);
+      setNotice(
+        `${result.job.rowIds.length} ${result.job.rowIds.length === 1 ? 'row' : 'rows'} queued for background processing.`,
+      );
+    } catch (error) {
+      setJobError(
+        error instanceof Error
+          ? error.message
+          : 'The background run could not be queued.',
+      );
+      setBackgroundRunsOpen(true);
+    } finally {
+      setJobSaving(false);
+    }
+  }
+
+  async function updateRunJob(job: RunJob, action: 'pause' | 'resume') {
+    setJobSaving(true);
+    setJobError('');
+    try {
+      const response = await fetch('/api/jobs', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jobId: job.id, action }),
+      });
+      const result = (await response.json()) as {
+        job?: RunJob;
+        error?: string;
+      };
+      if (!response.ok || !result.job) {
+        throw new Error(result.error || `The job could not ${action}.`);
+      }
+      jobRevision.current = Math.max(jobRevision.current, result.job.updatedAt);
+      setRunJobs(
+        (current) =>
+          current.map((candidate) =>
+            candidate.id === result.job?.id ? result.job : candidate,
+          ) as RunJob[],
+      );
+      setNotice(
+        action === 'pause'
+          ? 'Background run paused after any in-flight row finishes.'
+          : 'Background run resumed.',
+      );
+    } catch (error) {
+      setJobError(
+        error instanceof Error ? error.message : `The job could not ${action}.`,
+      );
+    } finally {
+      setJobSaving(false);
     }
   }
 
@@ -1638,16 +1843,40 @@ export default function PomadeWorkspace() {
           <LogoMark />
           <span className="brand-name">Pomade</span>
           <span className="crumb">/</span>
-          <button className="workspace-name" type="button" onClick={openRename}>
+          <button
+            className="workspace-name"
+            type="button"
+            onClick={openRename}
+            disabled={jobLocksWorkspace}
+          >
             {workspace.name} <ChevronDown />
           </button>
         </div>
         <div className="topbar-actions">
+          {currentRunJob ? (
+            <button
+              className={`schedule-pill run-job-pill run-job-pill-${currentRunJob.status}`}
+              type="button"
+              onClick={() => setBackgroundRunsOpen(true)}
+            >
+              {currentRunJob.status === 'running' ? (
+                <LoaderCircle className="spin" />
+              ) : (
+                <Cloud />
+              )}
+              <span>
+                {currentRunJob.status === 'completed'
+                  ? 'Background run complete'
+                  : `${runJobPercent(currentRunJob)}% · ${currentRunJob.status}`}
+              </span>
+            </button>
+          ) : null}
           {workspace.schedule ? (
             <button
               className={`schedule-pill schedule-pill-${workspace.schedule.state}`}
               type="button"
               onClick={openScheduleBuilder}
+              disabled={jobLocksWorkspace}
             >
               <CalendarClock />
               <span>
@@ -1700,6 +1929,13 @@ export default function PomadeWorkspace() {
             <button
               className="nav-item"
               type="button"
+              onClick={() => setBackgroundRunsOpen(true)}
+            >
+              <Cloud /> Background runs <span>{runJobs.length}</span>
+            </button>
+            <button
+              className="nav-item"
+              type="button"
               onClick={() => setSourcesOpen(true)}
             >
               <Database /> Sources <span>{connectedCount}/4</span>
@@ -1708,6 +1944,7 @@ export default function PomadeWorkspace() {
               className="nav-item"
               type="button"
               onClick={() => setAddColumnOpen(true)}
+              disabled={jobLocksWorkspace}
             >
               <Library /> Recipe library <span>{recipeTemplates.length}</span>
             </button>
@@ -1739,6 +1976,7 @@ export default function PomadeWorkspace() {
             className="new-table"
             type="button"
             onClick={() => setAddColumnOpen(true)}
+            disabled={jobLocksWorkspace}
           >
             <Plus /> Add recipe column
           </button>
@@ -1746,6 +1984,7 @@ export default function PomadeWorkspace() {
             className="engine-card"
             type="button"
             onClick={() => setRecipeSettingsOpen(true)}
+            disabled={jobLocksWorkspace}
           >
             <span className="engine-icon">
               <Braces />
@@ -1778,6 +2017,7 @@ export default function PomadeWorkspace() {
                 variant="outline"
                 size="lg"
                 onClick={() => setSourcesOpen(true)}
+                disabled={jobLocksWorkspace}
               >
                 <Upload /> Load data
               </Button>
@@ -1785,6 +2025,7 @@ export default function PomadeWorkspace() {
                 variant="outline"
                 size="lg"
                 onClick={openCompanyListBuilder}
+                disabled={jobLocksWorkspace}
               >
                 <Building2 /> Find companies
               </Button>
@@ -1792,10 +2033,18 @@ export default function PomadeWorkspace() {
               <span className="toolbar-stat">
                 <Rows3 /> {visibleRows.length} rows
               </span>
-              <Button variant="ghost" onClick={() => setAddColumnOpen(true)}>
+              <Button
+                variant="ghost"
+                onClick={() => setAddColumnOpen(true)}
+                disabled={jobLocksWorkspace}
+              >
                 <Columns3 /> {workspace.columns.length} columns
               </Button>
-              <Button variant="ghost" onClick={sortRows}>
+              <Button
+                variant="ghost"
+                onClick={sortRows}
+                disabled={jobLocksWorkspace}
+              >
                 <ArrowDownUp /> Sort
               </Button>
               <Button
@@ -1828,29 +2077,50 @@ export default function PomadeWorkspace() {
                   Action <ChevronDown />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={addBlankRow}>
+                  <DropdownMenuItem
+                    onClick={addBlankRow}
+                    disabled={jobLocksWorkspace}
+                  >
                     <Plus /> Add blank row
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={openApollo} disabled={!selected}>
+                  <DropdownMenuItem
+                    onClick={openApollo}
+                    disabled={!selected || jobLocksWorkspace}
+                  >
                     <MailCheck />
                     {selectedRowIds.length
                       ? 'Enrich selected with Apollo'
                       : 'Enrich active row with Apollo'}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={openResearchBuilder}>
+                  <DropdownMenuItem
+                    onClick={openResearchBuilder}
+                    disabled={jobLocksWorkspace}
+                  >
                     <Globe2 /> Add AI web research
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={openCompanyListBuilder}>
+                  <DropdownMenuItem
+                    onClick={openCompanyListBuilder}
+                    disabled={jobLocksWorkspace}
+                  >
                     <Building2 /> Find target companies
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRecipeSettingsOpen(true)}>
+                  <DropdownMenuItem
+                    onClick={() => setRecipeSettingsOpen(true)}
+                    disabled={jobLocksWorkspace}
+                  >
                     <SlidersHorizontal /> Recipe run settings
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={openScheduleBuilder}
-                    disabled={recipeCount === 0}
+                    disabled={recipeCount === 0 || jobLocksWorkspace}
                   >
                     <CalendarClock /> Schedule recipe run
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => void queueBackgroundRun()}
+                    disabled={recipeCount === 0 || jobSaving}
+                  >
+                    <Cloud /> Run in background
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={exportCsv}>
                     <Download /> Export CSV
@@ -1861,7 +2131,10 @@ export default function PomadeWorkspace() {
                   >
                     <ShieldCheck /> Prepare CRM handoff
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={resetSample}>
+                  <DropdownMenuItem
+                    onClick={resetSample}
+                    disabled={jobLocksWorkspace}
+                  >
                     <RotateCcw /> Restore sample data
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -1870,7 +2143,10 @@ export default function PomadeWorkspace() {
                 className="run-button"
                 onClick={() => runEnrichment()}
                 disabled={
-                  running || runTargetIds.length === 0 || recipeCount === 0
+                  running ||
+                  jobLocksWorkspace ||
+                  runTargetIds.length === 0 ||
+                  recipeCount === 0
                 }
               >
                 {running ? <LoaderCircle className="spin" /> : <WandSparkles />}
@@ -1892,6 +2168,7 @@ export default function PomadeWorkspace() {
               key={`${filter}|${query}|${visibleRows.map((row) => row.id).join('|')}`}
               columns={workspace.columns}
               rows={visibleRows}
+              readOnly={jobLocksWorkspace}
               onRowsChange={updateVisibleRows}
               onActiveRowChange={setActiveRowId}
               onSelectedRowIdsChange={updateSelectedRows}
@@ -1919,6 +2196,11 @@ export default function PomadeWorkspace() {
               <button type="button" onClick={openScheduleBuilder}>
                 <CalendarClock /> Next run{' '}
                 {runTime(workspace.schedule.nextRunAt)}
+              </button>
+            ) : null}
+            {currentRunJob && currentRunJob.status !== 'completed' ? (
+              <button type="button" onClick={() => setBackgroundRunsOpen(true)}>
+                <Cloud /> Background {runJobPercent(currentRunJob)}%
               </button>
             ) : null}
             <span>{workspace.source?.label ?? 'Manual workspace'}</span>
@@ -1976,7 +2258,7 @@ export default function PomadeWorkspace() {
             className="apollo-action"
             type="button"
             onClick={openApollo}
-            disabled={!selected}
+            disabled={!selected || jobLocksWorkspace}
           >
             <span>
               <MailCheck />
@@ -1991,6 +2273,7 @@ export default function PomadeWorkspace() {
             className="research-action"
             type="button"
             onClick={openResearchBuilder}
+            disabled={jobLocksWorkspace}
           >
             <span>
               <Globe2 />
@@ -2005,7 +2288,9 @@ export default function PomadeWorkspace() {
             className="row-run-action"
             type="button"
             onClick={() => selected && runEnrichment([selected.id])}
-            disabled={!selected || running || recipeCount === 0}
+            disabled={
+              !selected || running || jobLocksWorkspace || recipeCount === 0
+            }
           >
             <Play /> Run recipes for this row
           </button>
@@ -3083,14 +3368,31 @@ export default function PomadeWorkspace() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={researchConfirmOpen} onOpenChange={setResearchConfirmOpen}>
+      <Dialog
+        open={researchConfirmOpen}
+        onOpenChange={(open) => {
+          setResearchConfirmOpen(open);
+          if (!open) {
+            setPendingRunRowIds([]);
+            setPendingRunColumnIds([]);
+            setPendingRunMode('immediate');
+          }
+        }}
+      >
         <DialogContent className="research-confirm-dialog">
           <DialogHeader>
-            <DialogTitle>Run grounded web research?</DialogTitle>
+            <DialogTitle>
+              {pendingRunMode === 'background'
+                ? 'Queue grounded web research?'
+                : 'Run grounded web research?'}
+            </DialogTitle>
             <DialogDescription>
               {researchStatus?.label ?? 'Your configured provider'} will search
               the live web for each row and research column. Each request may
-              consume provider credits.
+              consume provider credits
+              {pendingRunMode === 'background'
+                ? ', while the durable worker continues after you close Pomade.'
+                : '.'}
             </DialogDescription>
           </DialogHeader>
           <div className="research-run-summary">
@@ -3116,10 +3418,12 @@ export default function PomadeWorkspace() {
               Add PARALLEL_API_KEY or GEMINI_API_KEY to .env.local and restart
               Pomade before this run.
             </p>
-          ) : pendingResearchActionCount > maximumResearchActions ? (
+          ) : pendingResearchActionCount > pendingResearchActionLimit ? (
             <p className="research-warning" role="alert">
-              This first slice allows {maximumResearchActions} research requests
-              per run. Select fewer rows or remove a research column.
+              {pendingRunMode === 'background'
+                ? `One background job allows ${pendingResearchActionLimit} research requests across up to ${MAX_BACKGROUND_ROWS} rows.`
+                : `This immediate run allows ${pendingResearchActionLimit} research requests.`}{' '}
+              Select fewer rows or remove a research column.
             </p>
           ) : (
             <p className="research-safety">
@@ -3139,22 +3443,144 @@ export default function PomadeWorkspace() {
               onClick={() => {
                 const rowIds = pendingRunRowIds;
                 const columnIds = pendingRunColumnIds;
+                const mode = pendingRunMode;
                 setResearchConfirmOpen(false);
                 setPendingRunRowIds([]);
                 setPendingRunColumnIds([]);
-                void runEnrichment(
-                  rowIds,
-                  true,
-                  columnIds.length ? columnIds : undefined,
-                );
+                setPendingRunMode('immediate');
+                if (mode === 'background') {
+                  void queueBackgroundRun(
+                    rowIds,
+                    true,
+                    columnIds.length ? columnIds : undefined,
+                  );
+                } else {
+                  void runEnrichment(
+                    rowIds,
+                    true,
+                    columnIds.length ? columnIds : undefined,
+                  );
+                }
               }}
               disabled={
                 !researchStatus?.configured ||
                 pendingResearchActionCount === 0 ||
-                pendingResearchActionCount > maximumResearchActions
+                pendingResearchActionCount > pendingResearchActionLimit ||
+                jobSaving
               }
             >
-              <Globe2 /> Research {pendingRunRowIds.length} rows
+              <Globe2 />
+              {pendingRunMode === 'background'
+                ? `Queue ${pendingRunRowIds.length} rows`
+                : `Research ${pendingRunRowIds.length} rows`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={backgroundRunsOpen} onOpenChange={setBackgroundRunsOpen}>
+        <DialogContent className="background-runs-dialog">
+          <DialogHeader>
+            <DialogTitle>Background runs</DialogTitle>
+            <DialogDescription>
+              Durable row-by-row recipe work continues on the worker clock after
+              you close Pomade. Every completed row keeps its normal receipt.
+            </DialogDescription>
+          </DialogHeader>
+          {runJobs.length ? (
+            <div className="run-job-list">
+              {runJobs.slice(0, 6).map((job) => {
+                const processed = job.completedCount + job.skippedCount;
+                return (
+                  <article
+                    key={job.id}
+                    className={`run-job run-job-${job.status}`}
+                  >
+                    <div className="run-job-heading">
+                      <span className="run-job-icon">
+                        {job.status === 'running' ? (
+                          <LoaderCircle className="spin" />
+                        ) : job.status === 'completed' ? (
+                          <Check />
+                        ) : job.status === 'failed' ? (
+                          <RotateCcw />
+                        ) : job.status === 'paused' ? (
+                          <Pause />
+                        ) : (
+                          <Cloud />
+                        )}
+                      </span>
+                      <div>
+                        <strong>{job.rowIds.length} row background run</strong>
+                        <small>
+                          {processed} processed · {job.status}
+                          {job.confirmExternalResearch
+                            ? ' · provider consent saved'
+                            : ' · local recipes only'}
+                        </small>
+                      </div>
+                      <em>{runJobPercent(job)}%</em>
+                    </div>
+                    <progress
+                      className="run-job-progress"
+                      aria-label={`Background run ${runJobPercent(job)} percent complete`}
+                      max={100}
+                      value={runJobPercent(job)}
+                    />
+                    {job.lastError ? (
+                      <p className="run-job-error">{job.lastError}</p>
+                    ) : null}
+                    {canPauseRunJob(job) || canResumeRunJob(job) ? (
+                      <div className="run-job-actions">
+                        <span>
+                          {job.skippedCount
+                            ? `${job.skippedCount} deleted ${job.skippedCount === 1 ? 'row was' : 'rows were'} skipped.`
+                            : 'The current row may finish before a pause takes effect.'}
+                        </span>
+                        {canPauseRunJob(job) ? (
+                          <Button
+                            variant="outline"
+                            onClick={() => void updateRunJob(job, 'pause')}
+                            disabled={jobSaving}
+                          >
+                            <Pause /> Pause
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => void updateRunJob(job, 'resume')}
+                            disabled={jobSaving}
+                          >
+                            <Play />{' '}
+                            {job.status === 'failed' ? 'Retry' : 'Resume'}
+                          </Button>
+                        )}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="empty-trace">
+              No background runs yet. Choose **Action → Run in background** to
+              queue the current row scope.
+            </p>
+          )}
+          {jobError ? (
+            <p className="apollo-error" role="alert">
+              {jobError}
+            </p>
+          ) : null}
+          <div className="background-runs-footer">
+            <p>
+              The worker advances one row per job each minute and resumes from
+              the last completed row after a failure.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => setBackgroundRunsOpen(false)}
+            >
+              Close
             </Button>
           </div>
         </DialogContent>
@@ -3287,8 +3713,8 @@ export default function PomadeWorkspace() {
           ) : null}
           <div className="schedule-actions">
             <p>
-              Pomade checks for due work every five minutes. Failed schedules
-              stop instead of spending credits repeatedly.
+              Pomade checks for due work every minute. Failed schedules stop
+              instead of spending credits repeatedly.
             </p>
             {workspace.schedule?.enabled ? (
               <Button variant="outline" onClick={pauseSchedule}>
@@ -3480,7 +3906,11 @@ export default function PomadeWorkspace() {
                 <small>Any spreadsheet export</small>
               </div>
               <span className="connection-badge connection-ready">Ready</span>
-              <button type="button" onClick={() => fileInput.current?.click()}>
+              <button
+                type="button"
+                onClick={() => fileInput.current?.click()}
+                disabled={jobLocksWorkspace}
+              >
                 Choose file
               </button>
             </article>
@@ -3597,10 +4027,14 @@ export default function PomadeWorkspace() {
                 <Button
                   variant="outline"
                   onClick={() => importCrmPreview('replace')}
+                  disabled={jobLocksWorkspace}
                 >
                   Replace rows
                 </Button>
-                <Button onClick={() => importCrmPreview('append')}>
+                <Button
+                  onClick={() => importCrmPreview('append')}
+                  disabled={jobLocksWorkspace}
+                >
                   Append records
                 </Button>
               </div>

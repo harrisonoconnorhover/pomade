@@ -181,6 +181,17 @@ button {
   color: #2d6945;
   background: #edf8ed;
 }
+.run-job-pill-queued,
+.run-job-pill-paused {
+  border-color: #dfd5af;
+  color: #765d24;
+  background: #fff9e8;
+}
+.run-job-pill-failed {
+  border-color: #ebc6bd;
+  color: #9a4538;
+  background: #fff3ef;
+}
 .sync-state {
   gap: 6px;
   color: #758078;
@@ -1300,6 +1311,113 @@ button {
   max-width: 300px;
   font-size: 10px;
   line-height: 1.5;
+}
+
+.background-runs-dialog {
+  max-width: 680px !important;
+  max-height: min(760px, calc(100vh - 48px));
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+.run-job-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+.run-job {
+  display: grid;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid #dfe2dc;
+  border-radius: 11px;
+  background: #fbfbf8;
+}
+.run-job-running,
+.run-job-completed {
+  border-color: #cee0ca;
+  background: #f7fbf4;
+}
+.run-job-failed {
+  border-color: #ebc9c0;
+  background: #fff7f4;
+}
+.run-job-heading {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+.run-job-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: #315e48;
+  background: #e8f4e3;
+}
+.run-job-icon svg {
+  width: 15px;
+}
+.run-job-heading > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.run-job-heading strong {
+  font-size: 11px;
+}
+.run-job-heading small {
+  overflow: hidden;
+  color: #7c8780;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.run-job-heading em {
+  color: #486052;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 750;
+}
+.run-job-progress {
+  width: 100%;
+  height: 6px;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: #e5e8e2;
+}
+.run-job-progress::-webkit-progress-bar {
+  border-radius: 999px;
+  background: #e5e8e2;
+}
+.run-job-progress::-webkit-progress-value,
+.run-job-progress::-moz-progress-bar {
+  border-radius: 999px;
+  background: #62a566;
+}
+.run-job-error {
+  margin: 0;
+  color: #9b493b;
+  font-size: 9px;
+  line-height: 1.45;
+}
+.run-job-actions,
+.background-runs-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.run-job-actions > span,
+.background-runs-footer p {
+  flex: 1;
+  margin: 0;
+  color: #758078;
+  font-size: 9px;
+  line-height: 1.45;
 }
 
 .sources-dialog {

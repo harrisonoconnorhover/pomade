@@ -96,6 +96,30 @@ export type RecipeSchedule = {
   lastError?: string;
 };
 
+export type RunJobStatus =
+  | 'queued'
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'failed';
+
+export type RunJob = {
+  id: string;
+  workspaceId: string;
+  status: RunJobStatus;
+  rowIds: string[];
+  columnIds?: string[];
+  cursor: number;
+  completedCount: number;
+  skippedCount: number;
+  confirmExternalResearch: boolean;
+  createdAt: number;
+  updatedAt: number;
+  leaseUntil?: number;
+  lastRunId?: string;
+  lastError?: string;
+};
+
 export type PomadeRow = {
   id: string;
   generatedByColumnId?: string;

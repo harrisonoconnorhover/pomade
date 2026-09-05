@@ -33,3 +33,36 @@ export const providerCache = sqliteTable('provider_cache', {
   createdAt: integer('created_at').notNull(),
   expiresAt: integer('expires_at').notNull(),
 });
+
+export const runJobs = sqliteTable(
+  'run_jobs',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    status: text('status').notNull(),
+    rowIds: text('row_ids').notNull(),
+    columnIds: text('column_ids'),
+    cursor: integer('cursor').notNull().default(0),
+    completedCount: integer('completed_count').notNull().default(0),
+    skippedCount: integer('skipped_count').notNull().default(0),
+    confirmExternalResearch: integer('confirm_external_research', {
+      mode: 'boolean',
+    })
+      .notNull()
+      .default(false),
+    leaseUntil: integer('lease_until'),
+    lastRunId: text('last_run_id'),
+    lastError: text('last_error'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_run_jobs_workspace_created').on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+    index('idx_run_jobs_status_updated').on(table.status, table.updatedAt),
+  ],
+);

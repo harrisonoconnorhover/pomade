@@ -1,17 +1,35 @@
 import app from 'vinext/server/fetch-handler';
 
+import { ensureDatabaseSchema } from './db/ensure';
 import {
   claimDueSchedule,
   completeClaimedSchedule,
   failClaimedSchedule,
 } from './lib/recipe-schedule';
 import type { RunReceipt, WorkspaceSnapshot } from './lib/pomade-types';
+import { RUN_JOB_LEASE_MS } from './lib/run-job';
 
 const MAX_WORKSPACES_PER_TICK = 3;
+const MAX_JOBS_PER_TICK = 3;
+let workerSchemaReady = false;
 
 type WorkspaceRecord = {
   id: string;
   snapshot: string;
+  updated_at: number;
+};
+
+type RunJobRecord = {
+  id: string;
+  workspace_id: string;
+  status: string;
+  row_ids: string;
+  column_ids: string | null;
+  cursor: number;
+  completed_count: number;
+  skipped_count: number;
+  confirm_external_research: number;
+  lease_until: number | null;
   updated_at: number;
 };
 
@@ -144,6 +162,169 @@ export async function runDueSchedules(
   }
 }
 
+async function claimRunJob(
+  env: Cloudflare.Env,
+  record: RunJobRecord,
+  now: number,
+) {
+  const result = await env.DB.prepare(
+    `UPDATE run_jobs
+     SET status = 'running', lease_until = ?, updated_at = ?
+     WHERE id = ? AND updated_at = ?
+       AND (status = 'queued' OR (status = 'running' AND lease_until <= ?))`,
+  )
+    .bind(now + RUN_JOB_LEASE_MS, now, record.id, record.updated_at, now)
+    .run();
+  return result.meta.changes === 1;
+}
+
+async function finishRunJobStep(
+  env: Cloudflare.Env,
+  job: RunJobRecord,
+  input: { runId?: string; skipped?: boolean },
+) {
+  const nextCursor = job.cursor + 1;
+  const total = (JSON.parse(job.row_ids) as unknown[]).length;
+  const nextStatus = nextCursor >= total ? 'completed' : 'queued';
+  const now = Date.now();
+  await env.DB.prepare(
+    `UPDATE run_jobs
+     SET cursor = ?, completed_count = completed_count + ?,
+         skipped_count = skipped_count + ?,
+         status = CASE WHEN status = 'paused' THEN 'paused' ELSE ? END,
+         lease_until = NULL, last_run_id = COALESCE(?, last_run_id),
+         last_error = NULL, updated_at = ?
+     WHERE id = ? AND status IN ('running', 'paused')`,
+  )
+    .bind(
+      nextCursor,
+      input.skipped ? 0 : 1,
+      input.skipped ? 1 : 0,
+      nextStatus,
+      input.runId ?? null,
+      now,
+      job.id,
+    )
+    .run();
+}
+
+async function failRunJob(env: Cloudflare.Env, jobId: string, error: string) {
+  await env.DB.prepare(
+    `UPDATE run_jobs
+     SET status = CASE WHEN status = 'paused' THEN 'paused' ELSE 'failed' END,
+         lease_until = NULL, last_error = ?, updated_at = ?
+     WHERE id = ? AND status IN ('running', 'paused')`,
+  )
+    .bind(error.replace(/\s+/g, ' ').trim().slice(0, 500), Date.now(), jobId)
+    .run();
+}
+
+export async function runQueuedJobs(
+  scheduledTime: number,
+  env: Cloudflare.Env,
+  ctx: ExecutionContext,
+) {
+  const records = await env.DB.prepare(
+    `SELECT id, workspace_id, status, row_ids, column_ids, cursor,
+            completed_count, skipped_count, confirm_external_research,
+            lease_until, updated_at
+     FROM run_jobs
+     WHERE status = 'queued'
+        OR (status = 'running' AND lease_until <= ?)
+     ORDER BY created_at ASC
+     LIMIT ?`,
+  )
+    .bind(scheduledTime, MAX_JOBS_PER_TICK)
+    .all<RunJobRecord>();
+
+  for (const job of records.results) {
+    try {
+      if (!(await claimRunJob(env, job, scheduledTime))) continue;
+      const rowIds = JSON.parse(job.row_ids) as string[];
+      const rowId = rowIds[job.cursor];
+      if (!rowId) {
+        await env.DB.prepare(
+          `UPDATE run_jobs
+           SET status = 'completed', lease_until = NULL, updated_at = ?
+           WHERE id = ? AND status = 'running'`,
+        )
+          .bind(Date.now(), job.id)
+          .run();
+        continue;
+      }
+      const workspaceRecord = await env.DB.prepare(
+        'SELECT snapshot FROM workspaces WHERE id = ?',
+      )
+        .bind(job.workspace_id)
+        .first<{ snapshot: string }>();
+      if (!workspaceRecord)
+        throw new Error('The queued workspace was removed.');
+      const workspace = JSON.parse(
+        workspaceRecord.snapshot,
+      ) as WorkspaceSnapshot;
+      if (!workspace.rows.some((row) => row.id === rowId)) {
+        await finishRunJobStep(env, job, { skipped: true });
+        continue;
+      }
+      const columnIds = job.column_ids
+        ? (JSON.parse(job.column_ids) as string[])
+        : undefined;
+      const response = await app.fetch(
+        new Request('https://pomade.internal/api/runs', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            workspace,
+            rowIds: [rowId],
+            columnIds,
+            confirmExternalResearch: job.confirm_external_research === 1,
+          }),
+        }),
+        env,
+        ctx,
+      );
+      const result = (await response.json()) as {
+        run?: RunReceipt;
+        error?: string;
+      };
+      if (!response.ok || !result.run) {
+        throw new Error(
+          result.error || `Background row failed (${response.status}).`,
+        );
+      }
+      await finishRunJobStep(env, job, { runId: result.run.id });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'The background run failed.';
+      console.error(`Pomade background job ${job.id} failed: ${message}`);
+      try {
+        await failRunJob(env, job.id, message);
+      } catch (recoveryError) {
+        console.error(
+          `Pomade could not persist background job failure: ${
+            recoveryError instanceof Error
+              ? recoveryError.message
+              : 'unknown error'
+          }`,
+        );
+      }
+    }
+  }
+}
+
+async function runBackgroundWork(
+  scheduledTime: number,
+  env: Cloudflare.Env,
+  ctx: ExecutionContext,
+) {
+  if (!workerSchemaReady) {
+    await ensureDatabaseSchema(env.DB);
+    workerSchemaReady = true;
+  }
+  await runDueSchedules(scheduledTime, env, ctx);
+  await runQueuedJobs(scheduledTime, env, ctx);
+}
+
 export default {
   fetch: app.fetch,
   scheduled(
@@ -152,6 +333,6 @@ export default {
     ctx: ExecutionContext,
   ) {
     controller.noRetry();
-    ctx.waitUntil(runDueSchedules(controller.scheduledTime, env, ctx));
+    ctx.waitUntil(runBackgroundWork(controller.scheduledTime, env, ctx));
   },
 } satisfies ExportedHandler<Cloudflare.Env>;

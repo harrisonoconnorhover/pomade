@@ -17,6 +17,7 @@ import type { PomadeColumn, PomadeRow } from '@/lib/pomade-types';
 type Props = {
   columns: PomadeColumn[];
   rows: PomadeRow[];
+  readOnly?: boolean;
   onRowsChange: (rows: PomadeRow[], editedColumnId?: string) => void;
   onActiveRowChange: (rowId: string) => void;
   onSelectedRowIdsChange: (rowIds: string[]) => void;
@@ -32,6 +33,7 @@ function emptySelection(): GridSelection {
 export default function PomadeDataGrid({
   columns,
   rows,
+  readOnly = false,
   onRowsChange,
   onActiveRowChange,
   onSelectedRowIdsChange,
@@ -74,7 +76,7 @@ export default function PomadeDataGrid({
         data: value,
         displayData: value,
         allowOverlay: !isStatus,
-        readonly: isStatus,
+        readonly: isStatus || readOnly,
         contentAlign: column.recipe === 'score-fit' ? 'center' : 'left',
         themeOverride: isStatus
           ? {
@@ -87,13 +89,18 @@ export default function PomadeDataGrid({
             : undefined,
       };
     },
-    [columns, rows],
+    [columns, readOnly, rows],
   );
 
   const onCellEdited = useCallback(
     ([col, row]: Item, value: EditableGridCell) => {
       const column = columns[col];
-      if (value.kind !== GridCellKind.Text || column.kind === 'status') return;
+      if (
+        readOnly ||
+        value.kind !== GridCellKind.Text ||
+        column.kind === 'status'
+      )
+        return;
       const changedRow = rows[row];
       onRowsChange(
         [
@@ -105,7 +112,7 @@ export default function PomadeDataGrid({
         column.id,
       );
     },
-    [columns, onRowsChange, rows],
+    [columns, onRowsChange, readOnly, rows],
   );
 
   const onGridSelectionChange = useCallback(
@@ -131,7 +138,7 @@ export default function PomadeDataGrid({
       gridSelection={gridSelection}
       onGridSelectionChange={onGridSelectionChange}
       getCellsForSelection
-      onPaste
+      onPaste={!readOnly}
       rowMarkers={{ kind: 'both', width: 52 }}
       rowSelect="multi"
       rowSelectionMode="multi"

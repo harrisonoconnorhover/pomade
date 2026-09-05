@@ -148,7 +148,7 @@ captured set of stable row IDs. Saving a schedule with research columns requires
 explicit recurring-provider consent, and the existing ten-request ceiling still
 applies when the run becomes due.
 
-A Cloudflare scheduled handler checks due work every five minutes and claims at
+A Cloudflare scheduled handler checks due work every minute and claims at
 most three workspaces per tick with an optimistic `updated_at` comparison. It
 advances a recurring schedule before execution, disables a one-time schedule on
 claim, and asks Cloudflare not to retry the event. This keeps overlapping ticks
@@ -159,6 +159,23 @@ conditions, receipts, and row limits do not fork into a second execution system.
 Any failed run disables its schedule until the user reviews and resaves it.
 Replacing table rows from CSV or CRM also pauses an active schedule so a saved
 scope cannot silently begin running against a different dataset.
+
+## Background jobs advance one stable row at a time
+
+A background job stores up to 100 stable row IDs, an optional recipe-column
+scope, the current cursor, progress counts, provider consent, and a lease in D1.
+The one-minute worker claims up to three jobs per tick and advances one row in
+each. It delegates that row to the normal run endpoint, so conditions, caches,
+provider ceilings, list replacement, workspace persistence, and receipts are
+not reimplemented.
+
+Only one queued, running, or paused job may own a workspace. While a job is able
+to write, the grid and structural controls are read-only and server refreshes do
+not trigger an autosave back over newer worker output. Pause lets an in-flight
+row finish; resume continues after it. Failures retain the current cursor and
+error, while an expired 15-minute lease makes an interrupted row claimable
+again. Research jobs require explicit consent and are capped at 50 requests in
+total and ten on any single row.
 
 ## Waterfalls compose upstream results
 

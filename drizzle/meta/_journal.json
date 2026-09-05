@@ -15,6 +15,13 @@
       "when": 1788553250434,
       "tag": "0001_aberrant_songbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788579524506,
+      "tag": "0002_dashing_ezekiel",
+      "breakpoints": true
     }
   ]
 }

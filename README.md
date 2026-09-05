@@ -24,7 +24,9 @@ what changed. It is an original product built on the open-source
 - Start from an ICP description and create an evidence-backed company list with
   canonical company/domain fields without replacing the current table.
 - Schedule the whole table or a captured selection once, every 24 hours, or
-  every 7 days through a durable five-minute worker clock.
+  every 7 days through a durable one-minute worker clock.
+- Queue up to 100 rows for durable background execution with progress,
+  pause/resume, retry, and per-row receipts.
 - Enrich up to ten selected people through Apollo with exact-name/company-domain safeguards.
 - Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
 - Search, filter, sort, add rows, and export the resulting CSV.
@@ -72,6 +74,13 @@ closed. A future one-time run acts as a delay; recurring runs advance from their
 original interval. The scheduler captures stable row IDs when targeting a
 selection, uses the same ten-request provider ceiling and run receipts as a
 manual run, and stops after an error instead of spending credits repeatedly.
+
+Background runs process a stable row scope one row at a time on the same worker
+clock and guarded runner. The grid becomes read-only while a job can still
+write, polls D1 for progress, and refreshes saved results and receipts after each
+step. A pause takes effect after any in-flight row; failed jobs preserve their
+cursor and can retry from that row. One job may hold up to 100 rows and 50 total
+research requests, while each individual row keeps the ten-request ceiling.
 
 AI web research can return one answer or populate two to six typed output
 columns from one request. Structured outputs support text, date, number, and
