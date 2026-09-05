@@ -268,7 +268,7 @@ describe('web research recipe', () => {
     });
   });
 
-  it('keeps malformed structured output visible but marks it for review', () => {
+  it('retains malformed output in raw evidence and clears structured fields for review', () => {
     const workspace = createSampleWorkspace();
     const column = {
       id: 'trigger',
@@ -299,7 +299,9 @@ describe('web research recipe', () => {
       'parallel',
     );
 
-    expect(result.workspace.rows[0].values.trigger).toBe(
+    expect(result.workspace.rows[0].values.trigger).toBe('');
+    expect(result.workspace.rows[0].values.verified).toBe('');
+    expect(result.workspace.rows[0].values.__research_trigger_raw).toBe(
       'The provider returned prose instead of JSON.',
     );
     expect(result.receipt.status).toBe('review');

@@ -1,5 +1,8 @@
+import { projectSignalFeed } from '@/lib/account-signals';
+import { detectSignalChanges, type SignalBatch } from '@/lib/change-signals';
+import { verifyHiringEvidence } from '@/lib/hiring-evidence';
 import { configuredHttpConnections } from '@/lib/provider-connections';
-import { signalStatements } from '@/db/signal-store';
+import { signalBatchStatements } from '@/db/signal-store';
 import { executeProviderWaterfall } from '@/lib/provider-waterfall';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { env } from 'cloudflare:workers';
@@ -221,6 +224,19 @@ export async function POST(request: Request) {
           model,
         });
 
+    if (workspace.signalFeedFields) {
+      const feed = await db
+        .prepare(
+          'SELECT batch FROM signal_batches WHERE workspace_id = ? ORDER BY created_at DESC,id DESC LIMIT 100',
+        )
+        .bind(workspace.id)
+        .all<{ batch: string }>();
+      workspace = projectSignalFeed(
+        workspace,
+        feed.results.map((r) => JSON.parse(r.batch) as SignalBatch),
+      );
+    }
+
     const result = await executeRecipePipeline(
       workspace,
       rowIds,
@@ -256,7 +272,11 @@ export async function POST(request: Request) {
             column.outputCardinality,
             column.listLimit,
           );
-          const cacheKey = await webResearchCacheKey(model, prompt);
+          const cacheModel =
+            parallelConfigured && column.outputFields?.length
+              ? `${model}:structured-v1`
+              : model;
+          const cacheKey = await webResearchCacheKey(cacheModel, prompt);
           const now = Date.now();
           const cached = await db
             .prepare(
@@ -272,7 +292,15 @@ export async function POST(request: Request) {
               cached: true,
             };
           } else {
-            result = await researchClient.research(prompt);
+            result =
+              researchClient instanceof ParallelWebResearchClient
+                ? await researchClient.research(
+                    prompt,
+                    column.outputFields,
+                    column.outputCardinality,
+                    column.listLimit,
+                  )
+                : await researchClient.research(prompt);
             await db
               .prepare(
                 `INSERT INTO provider_cache (cache_key, provider, payload, created_at, expires_at)
@@ -292,13 +320,17 @@ export async function POST(request: Request) {
               .run();
           }
 
-          return applyWebResearchResult(
-            currentWorkspace,
+          return verifyHiringEvidence(
+            applyWebResearchResult(
+              currentWorkspace,
+              rowId,
+              column,
+              result,
+              actionStartedAt,
+              researchProvider,
+            ),
             rowId,
             column,
-            result,
-            actionStartedAt,
-            researchProvider,
           );
         } catch (error) {
           const message =
@@ -357,12 +389,6 @@ export async function POST(request: Request) {
         updated,
         JSON.parse(newest.snapshot),
       );
-    const workspaceStatements = await versionedWorkspaceStatements(
-      db,
-      updated,
-      'Recipe run',
-      finishedAt,
-    );
     const signalColumns = workspace.columns.filter((c) =>
       run.receipts.some((r) => r.columnId === c.id),
     );
@@ -378,17 +404,25 @@ export async function POST(request: Request) {
         )
         .map((r) => r.id),
     ];
+    const signalBatch = detectSignalChanges(executionBase, updated, {
+      id: run.id,
+      origin: 'Recipe run',
+      rowIds: signalRows,
+      columnIds: signalColumns.flatMap((c) => [
+        ...(c.outputFields?.map((f) => f.id) ?? [c.id]),
+        ...Object.values(c.listDestinationBindings ?? {}),
+      ]),
+    });
+    if (signalBatch) updated = projectSignalFeed(updated, [signalBatch]);
+    const workspaceStatements = await versionedWorkspaceStatements(
+      db,
+      updated,
+      'Recipe run',
+      finishedAt,
+    );
     await db.batch([
       ...workspaceStatements,
-      ...signalStatements(db, executionBase, updated, {
-        id: run.id,
-        origin: 'Recipe run',
-        rowIds: signalRows,
-        columnIds: signalColumns.flatMap((c) => [
-          ...(c.outputFields?.map((f) => f.id) ?? [c.id]),
-          ...Object.values(c.listDestinationBindings ?? {}),
-        ]),
-      }),
+      ...signalBatchStatements(db, signalBatch),
       db
         .prepare(`INSERT INTO runs
         (id, workspace_id, status, row_count, action_count, receipt, created_at)

@@ -4,7 +4,20 @@ Baseline: 2026-09-05 (official documentation refreshed). This is a living produc
 Pomade matches the maturity, throughput, provider coverage, or reliability of
 Bitscale or Clay.
 
+The detailed acceptance status for the latest request is maintained in
+[requested workflows](requested-workflows.md). Account access and live evidence
+remain separate from implemented features.
+
 ## Already working
+
+- [x] Verified-status email/phone waterfall acceptance, Hunter/Apollo email presets,
+      rich Apollo company data and a PDL company adapter. Actual multi-provider
+      access and verified-phone match coverage remain unproven.
+- [x] Source-linked account signals, set comparisons, current-job verification and
+      signal fields for qualification/CRM; buying-intent sources are fixture-only.
+- [x] Native custom-field metadata and typed CRM writes/imports. Scheduled qualified
+      revenue/employee updates verified for three companies in each dev CRM;
+      custom score/tag permissions are still pending.
 
 - [x] Named CRM mappings per table and verified native-ID copying from receipts.
       Exact matching saved mappings reuse copied IDs; changed/conflicting rows
@@ -12,7 +25,7 @@ Bitscale or Clay.
       dev CRM records on 2026-09-05 with unchanged-only actions.
 
 - [x] Apollo company enrichment preset with server-side existing-key connection,
-      domain normalization/match checking and four mapped outputs. Docs plus
+      domain normalization/match checking and basic or rich mapped outputs. Docs plus
       live three-company Free-tier enrichment verified 2026-09-05; actual credit
       usage was not returned by Apollo.
 
@@ -55,13 +68,13 @@ Bitscale or Clay.
 - [x] Direct local mapped CRM creates/updates with before/after preview, native-ID
       receipts, read-back checks and no-op/replay behavior. Three companies and
       three contacts written and imported in each dev CRM on 2026-09-05.
-      Continuous synchronization, custom fields and HubSpot associations remain open.
+      Native HubSpot associations and event-driven continuous synchronization remain open.
 - [x] Deterministic formula and enrichment recipe columns with selected-row or
       visible-row execution, including immediate or background single-column
       runs from the grid header. Crossed off 2026-09-05.
 - [x] Custom merge formulas with column tokens, safe transforms, column-order
       dependencies, and a five-row preview. Crossed off 2026-09-04.
-- [x] Row-level recipe conditions with empty, equality, and contains operators;
+- [x] Row-level recipe conditions with numeric, empty, equality and contains operators, combined with AND/OR;
       skipped actions are counted in receipts. Crossed off 2026-09-04.
 - [x] Safe local formula auto-update after cell edits, with dependency-order
       recalculation and editable overrides. Crossed off 2026-09-04.
@@ -119,7 +132,7 @@ Bitscale or Clay.
 - [ ] Company and people sourcing from saved searches, Maps, and job-board
       sources.
 - [x] Generic HTTP enrichment using server-configured connections, GET/JSON POST,
-      row-token inputs, one-to-four JSON output paths, explicit request consent,
+      row-token inputs, one-to-sixteen JSON output paths, explicit request consent,
       column-ordered execution and manual/background/scheduled runs. Verified
       against an isolated local API and D1 on 2026-09-05.
 - [x] Authenticated durable inbound webhook inbox with delivery-key deduplication,
@@ -158,8 +171,9 @@ Bitscale or Clay.
 - [ ] Event-driven workflows with triggers, branching, code steps, and actions.
 - [ ] Persistent people/company profiles, deduplicated audiences, and dynamic
       segments.
-- [ ] Recurring signals for job changes, hiring, news, fundraising, and other
-      account events.
+- [x] Recurring observed-change comparisons for hiring, leadership and technology,
+      plus a normalized external intent feed. Live news/fundraising monitors,
+      broad source coverage and verified hire/promotion dates remain open.
 - [ ] Public API to append rows and run selected output columns synchronously or
       asynchronously.
 - [x] Bounded structural version history and restore with latest-20 retention,
@@ -170,8 +184,8 @@ Bitscale or Clay.
 - [x] True sequential fallback across two-to-four configured HTTP providers with
       nonempty/email-format acceptance, stop-on-success, explicit error policy,
       per-attempt receipts and weighted request limits. Verified 2026-09-05.
-- [ ] Native provider waterfall presets, richer acceptance predicates and verified
-      data-quality/cost comparison against the competitors.
+- [x] Hunter/Apollo email presets and verified email/phone acceptance predicates.
+- [ ] Live multi-provider data-quality/cost comparison against competitors.
 - [ ] Bulk function rollout and structural version migrations. Current versions
       apply explicitly to one compatible copy at a time. List-expanding
       stages and portable function export remain gaps.

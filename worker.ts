@@ -1,3 +1,4 @@
+import { runScheduledCrm } from './db/scheduled-crm';
 import { signalStatements } from './db/signal-store';
 import app from 'vinext/server/fetch-handler';
 import {
@@ -191,6 +192,35 @@ export async function runDueSchedules(
         (receipt) => receipt.error,
       )?.error;
       if (stepError) throw new Error(stepError);
+      const crmPlanIds = await runScheduledCrm(
+        env.DB,
+        result.workspace,
+        rowIds,
+        {
+          hubSpotAccessToken: env.HUBSPOT_ACCESS_TOKEN,
+          salesforceAccessToken: env.SALESFORCE_ACCESS_TOKEN,
+          salesforceInstanceUrl: env.SALESFORCE_INSTANCE_URL,
+          salesforceApiVersion: env.SALESFORCE_API_VERSION,
+        },
+        async (planId) => {
+          const response = await app.fetch(
+            new Request('https://pomade.internal/api/crm-sync', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ planId, confirmWrite: true }),
+            }),
+            env,
+            ctx,
+          );
+          const body = (await response.json()) as {
+            plan?: import('./lib/crm-sync').CrmSyncPlan;
+            error?: string;
+          };
+          if (!response.ok || !body.plan)
+            throw new Error(body.error || 'Scheduled CRM write failed.');
+          return body.plan;
+        },
+      );
       const transfer = await scheduledTransferStatements(
         env.DB,
         result.workspace,
@@ -202,6 +232,7 @@ export async function runDueSchedules(
         result.run,
         Date.now(),
       );
+      completed.schedule!.lastCrmPlanIds = crmPlanIds;
       completed.schedule!.lastTransferRunId = transfer.receiptId;
       completed.schedule!.lastTransferRunIds = transfer.receiptIds;
       await env.DB.batch([

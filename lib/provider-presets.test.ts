@@ -162,6 +162,7 @@ describe('expanded company and verified email presets', () => {
           name: 'Example',
           estimated_num_employees: 100,
           annual_revenue_printed: '10M-50M',
+          annual_revenue: 25000000,
           country: 'United States',
           technology_names: ['HubSpot', 'React'],
           funding_events: [{ date: '2025-01-01', type: 'Series A' }],
@@ -177,6 +178,8 @@ describe('expanded company and verified email presets', () => {
     );
     expect(f).toHaveBeenCalledTimes(1);
     expect(result.workspace.rows[0].values[columns[4].id]).toBe('10M-50M');
+    expect(result.workspace.rows[0].values[columns[12].id]).toBe('25000000');
+    expect(columns[12].valueType).toBe('number');
     expect(result.workspace.rows[0].values[columns[11].id]).toBe(
       '["HubSpot","React"]',
     );

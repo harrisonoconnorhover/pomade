@@ -770,3 +770,19 @@ read-back. Only requested extra CRM properties are imported and refreshed in
 `crm_property_` columns, preserving other local columns. Blank values still do
 not clear CRM fields. Native property updates may trigger existing CRM workflows;
 no prospect messaging was authorized or sent.
+
+
+## Signals and scheduled CRM (2026-09-05)
+
+- Reuse the existing account rows, signal batches and scheduler. Keep event time
+  separate from observation time; technology set changes and leadership title
+  changes describe source observations, not inferred hire/install dates. Signal
+  projection into five table fields is opt-in and reads the newest 100 batches.
+- Capture at most two distinct CRM/object mappings per schedule, with up to 25
+  qualifying rows each. Reuse the existing native preview/read-back flow and
+  stable per-execution batch IDs; uncertain writes stop for inspection. No
+  additional workflow engine or automatic CRM rollback is introduced.
+- Structured Parallel requests use JSON schema; malformed answers stay in raw
+  evidence rather than downstream fields. Direct ATS checks were added after a
+  real stale listing returned HTTP 200. Keep manual source review explicit: valid
+  JSON/citations alone did not establish current roles, dates or relevance.

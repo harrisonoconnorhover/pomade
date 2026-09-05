@@ -1,3 +1,4 @@
+import { matchesRunCondition, validRunCondition } from './run-conditions';
 import { functionStepIds } from './recipe-functions';
 import type {
   RecipeSchedule,
@@ -25,6 +26,8 @@ export function createRecipeSchedule(input: {
   functionInstanceId?: string;
   afterRunTransfer?: TableTransferRule;
   afterRunTransfers?: TableTransferRule[];
+  afterRunCrm?: import('./pomade-types').ScheduledCrmWrite[];
+  confirmCrmWrites?: boolean;
   beforeRunSource?: import('./api-source').ApiSourceRefresh;
   now?: number;
 }): RecipeSchedule {
@@ -36,12 +39,29 @@ export function createRecipeSchedule(input: {
         input.afterRunTransfers.length)
   )
     throw new Error('Choose up to five transfers with distinct destinations.');
+  if (
+    input.afterRunCrm?.length &&
+    (!input.confirmCrmWrites ||
+      input.afterRunCrm.length > 2 ||
+      new Set(
+        input.afterRunCrm.map(
+          (c) => c.config.provider + '/' + c.config.objectType,
+        ),
+      ).size !== input.afterRunCrm.length)
+  )
+    throw new Error(
+      'Confirm up to two CRM writes with distinct CRM/object destinations.',
+    );
   if (!Number.isFinite(input.nextRunAt) || input.nextRunAt <= now) {
     throw new Error('Choose a future date and time.');
   }
   const rowIds = Array.from(new Set(input.rowIds ?? [])).filter(Boolean);
   return {
     id: input.id,
+    afterRunCrm: input.afterRunCrm?.length
+      ? structuredClone(input.afterRunCrm)
+      : undefined,
+    lastCrmPlanIds: undefined,
     functionInstanceId: input.functionInstanceId || undefined,
     afterRunTransfer: input.afterRunTransfer
       ? structuredClone(input.afterRunTransfer)
@@ -108,6 +128,10 @@ export function claimDueSchedule(
         : schedule.cadence !== 'once',
       nextRunAt,
       state: 'running',
+      executionId: recoveringExpiredClaim
+        ? schedule.executionId ||
+          `${schedule.id}-${schedule.lastAttemptAt ?? now}`
+        : crypto.randomUUID(),
       lastAttemptAt: now,
       leaseUntil: now + SCHEDULE_LEASE_MS,
       lastError: undefined,
@@ -185,4 +209,33 @@ export function scheduledTransfers(schedule: RecipeSchedule | undefined) {
     schedule?.afterRunTransfers ??
     (schedule?.afterRunTransfer ? [schedule.afterRunTransfer] : [])
   );
+}
+
+export function scheduledCrmRows(
+  workspace: WorkspaceSnapshot,
+  write: import('./pomade-types').ScheduledCrmWrite,
+  rowIds?: string[],
+) {
+  if (
+    write.condition &&
+    !validRunCondition(
+      write.condition,
+      new Set(workspace.columns.map((c) => c.id)),
+    )
+  )
+    throw new Error(
+      'The scheduled CRM condition refers to an unavailable field.',
+    );
+  const ids = workspace.rows
+    .filter(
+      (r) =>
+        (!rowIds || rowIds.includes(r.id)) &&
+        matchesRunCondition(write.condition, r),
+    )
+    .map((r) => r.id);
+  if (ids.length > 25)
+    throw new Error(
+      'Scheduled CRM writes support at most 25 qualifying rows per destination. Narrow the schedule or its condition.',
+    );
+  return ids;
 }

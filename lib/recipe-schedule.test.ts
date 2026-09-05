@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { RunReceipt, WorkspaceSnapshot } from './pomade-types';
 import {
+  scheduledCrmRows,
   scheduledTransfers,
   scheduledColumnIds,
   claimDueSchedule,
@@ -248,4 +249,86 @@ it('captures multiple branches, supports legacy schedules and rejects duplicate 
     }),
   ).toThrow('distinct destinations');
   expect(scheduledTransfers({ ...legacy, afterRunTransfers: [] })).toEqual([]);
+});
+
+describe('scheduled CRM destinations', () => {
+  const write = () => ({
+    mappingId: 'hs',
+    name: 'HubSpot companies',
+    config: {
+      provider: 'hubspot' as const,
+      objectType: 'company' as const,
+      mapping: { name: 'company', numberofemployees: 'employees' },
+      idColumn: 'hubspot_id',
+    },
+    condition: {
+      mode: 'all' as const,
+      rules: [
+        { field: 'employees', operator: 'greater_than' as const, value: '50' },
+        { field: 'tier', operator: 'equals' as const, value: 'High' },
+      ],
+    },
+  });
+  const input = {
+    id: 'crm',
+    cadence: 'once' as const,
+    nextRunAt: 2000,
+    now: 1000,
+  };
+  it('requires explicit recurring write consent and captures mappings independently', () => {
+    const destination = write();
+    expect(() =>
+      createRecipeSchedule({ ...input, afterRunCrm: [destination] }),
+    ).toThrow('Confirm');
+    expect(() =>
+      createRecipeSchedule({
+        ...input,
+        afterRunCrm: [destination, destination],
+        confirmCrmWrites: true,
+      }),
+    ).toThrow('distinct');
+    const schedule = createRecipeSchedule({
+      ...input,
+      afterRunCrm: [destination],
+      confirmCrmWrites: true,
+    });
+    destination.config.mapping.name = 'other';
+    expect(schedule.afterRunCrm?.[0].config.mapping.name).toBe('company');
+  });
+  it('filters the captured row scope by compound numeric criteria before the 25-row limit', () => {
+    const w = createSampleWorkspace();
+    w.columns.push(
+      ...['employees', 'tier'].map((id) => ({
+        id,
+        title: id,
+        kind: 'text' as const,
+        width: 160,
+      })),
+    );
+    w.rows = ['75', '50', '', '100'].map((employees, i) => ({
+      id: String(i),
+      values: { employees, tier: i === 3 ? 'Low' : 'High' },
+    }));
+    expect(scheduledCrmRows(w, write())).toEqual(['0']);
+    expect(scheduledCrmRows(w, write(), ['1', '3'])).toEqual([]);
+    w.rows = Array.from({ length: 26 }, (_, i) => ({
+      id: String(i),
+      values: { employees: '75', tier: 'High' },
+    }));
+    expect(() => scheduledCrmRows(w, write())).toThrow('at most 25');
+    expect(scheduledCrmRows(w, write(), ['0', '1'])).toEqual(['0', '1']);
+    w.columns = w.columns.filter((c) => c.id !== 'employees');
+    expect(() => scheduledCrmRows(w, write())).toThrow('unavailable');
+  });
+  it('reuses an execution ID on lease recovery but gives the next recurring run a new ID', () => {
+    const first = claimDueSchedule(
+      scheduledWorkspace(2000, 'every_day'),
+      2000,
+    )!;
+    const retry = claimDueSchedule(first, 902000)!;
+    expect(retry.schedule?.executionId).toBe(first.schedule?.executionId);
+    const complete = completeClaimedSchedule(retry, run, 902100);
+    const next = claimDueSchedule(complete, complete.schedule!.nextRunAt!)!;
+    expect(next.schedule?.executionId).not.toBe(first.schedule?.executionId);
+  });
 });

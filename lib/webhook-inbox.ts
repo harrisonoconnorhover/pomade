@@ -6,7 +6,12 @@ export type WebhookEvent = {
   receivedAt: number;
   records: Record<string, unknown>[];
 };
-export type WebhookSource = { id: string; tableId: string; token: string };
+export type WebhookSource = {
+  id: string;
+  tableId: string;
+  token: string;
+  mode?: 'rows' | 'signals';
+};
 export function webhookSources(raw?: string): WebhookSource[] {
   if (!raw?.trim()) return [];
   const parsed: unknown = JSON.parse(raw);
@@ -20,12 +25,18 @@ export function webhookSources(raw?: string): WebhookSource[] {
       typeof c.tableId !== 'string' ||
       !/^[a-zA-Z0-9_-]{1,80}$/.test(c.tableId) ||
       typeof c.token !== 'string' ||
-      c.token.length < 32
+      c.token.length < 32 ||
+      (c.mode !== undefined && !['rows', 'signals'].includes(c.mode))
     )
       throw new Error(
         'Webhook sources need a table ID and a token of at least 32 characters.',
       );
-    return { id, tableId: c.tableId, token: c.token };
+    return {
+      id,
+      tableId: c.tableId,
+      token: c.token,
+      ...(c.mode ? { mode: c.mode } : {}),
+    };
   });
 }
 export function webhookRecords(payload: unknown): Record<string, unknown>[] {

@@ -1,3 +1,5 @@
+import { reportedSignalBatch } from '@/lib/account-signals';
+import type { WorkspaceSnapshot } from '@/lib/pomade-types';
 import { env } from 'cloudflare:workers';
 import { ensureDatabase } from '@/db/ensure';
 import { webhookSources, webhookRecords } from '@/lib/webhook-inbox';
@@ -71,16 +73,36 @@ export async function POST(request: Request) {
     const id = await hash(`${source.id}\n${source.tableId}\n${key}`);
     const payloadHash = await hash(payload);
     const db = await ensureDatabase();
-    if (
-      !(await db
-        .prepare('SELECT id FROM workspaces WHERE id = ?')
-        .bind(source.tableId)
-        .first())
-    )
+    const target = await db
+      .prepare('SELECT snapshot FROM workspaces WHERE id = ?')
+      .bind(source.tableId)
+      .first<{ snapshot: string }>();
+    if (!target)
       return Response.json(
         { error: 'Target table does not exist.' },
         { status: 404 },
       );
+    let signalBatch;
+    if (source.mode === 'signals') {
+      try {
+        signalBatch = reportedSignalBatch(
+          JSON.parse(target.snapshot) as WorkspaceSnapshot,
+          records,
+          id,
+          source.id,
+        );
+      } catch (error) {
+        return Response.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Invalid account signals.',
+          },
+          { status: 400 },
+        );
+      }
+    }
     const insert = await db
       .prepare(
         'INSERT OR IGNORE INTO webhook_events (id, source_id, workspace_id, payload_hash, records, received_at) VALUES (?, ?, ?, ?, ?, ?)',
@@ -99,12 +121,30 @@ export async function POST(request: Request) {
         },
         { status: 409 },
       );
+    if (signalBatch)
+      await db.batch([
+        db
+          .prepare(
+            'INSERT OR IGNORE INTO signal_batches (id,workspace_id,batch,created_at,reviewed_at) VALUES (?,?,?,?,NULL)',
+          )
+          .bind(
+            id,
+            source.tableId,
+            JSON.stringify(signalBatch),
+            signalBatch.createdAt,
+          ),
+        db
+          .prepare(
+            'INSERT OR IGNORE INTO webhook_imports (event_id,imported_at) VALUES (?,?)',
+          )
+          .bind(id, Date.now()),
+      ]);
     return Response.json(
       {
         id,
         duplicate: insert.meta.changes === 0,
         recordCount: records.length,
-        state: 'inbox',
+        state: signalBatch ? 'signal_feed' : 'inbox',
       },
       { status: insert.meta.changes === 0 ? 200 : 202 },
     );

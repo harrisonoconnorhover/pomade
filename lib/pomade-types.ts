@@ -156,7 +156,16 @@ export type RecipeFunction = {
 
 export type RecipeScheduleCadence = 'once' | 'every_day' | 'every_week';
 
+export type ScheduledCrmWrite = {
+  mappingId: string;
+  name: string;
+  config: import('./crm-sync').CrmSyncConfig;
+  condition?: RecipeRunCondition;
+};
 export type RecipeSchedule = {
+  executionId?: string;
+  afterRunCrm?: ScheduledCrmWrite[];
+  lastCrmPlanIds?: string[];
   beforeRunSource?: import('./api-source').ApiSourceRefresh;
   lastSourceBatchId?: string;
   functionInstanceId?: string;
@@ -242,6 +251,7 @@ export type TableTransferRule = {
 export type WorkspaceSnapshot = {
   crmMappings?: import('./crm-mappings').CrmMapping[];
   signalWatches?: import('./change-signals').SignalWatch[];
+  signalFeedFields?: boolean;
   apiSourceRefresh?: import('./api-source').ApiSourceRefresh;
   tableTransfers?: TableTransferRule[];
   revision?: number;

@@ -585,6 +585,10 @@ export default function PomadeWorkspace({
   const [scheduleSourceEnabled, setScheduleSourceEnabled] = useState(false);
   const [scheduleSourceConfirmed, setScheduleSourceConfirmed] = useState(false);
   const [scheduleFunctionId, setScheduleFunctionId] = useState('');
+  const [scheduleCrmIds, setScheduleCrmIds] = useState<string[]>([]);
+  const [scheduleCrmConfirmed, setScheduleCrmConfirmed] = useState(false);
+  const [scheduleCrmCondition, setScheduleCrmCondition] =
+    useState<import('@/lib/pomade-types').RecipeRunCondition>();
   const [scheduleTransferIds, setScheduleTransferIds] = useState<string[]>([]);
   const [scheduleError, setScheduleError] = useState('');
   const [scheduleNow, setScheduleNow] = useState(() => Date.now());
@@ -1044,6 +1048,7 @@ export default function PomadeWorkspace({
   const scheduleTimestamp = new Date(scheduleRunAt).getTime();
   const scheduleReady =
     !scheduleScopeError &&
+    (!scheduleCrmIds.length || scheduleCrmConfirmed) &&
     (!scheduleSourceEnabled ||
       (Boolean(workspace.apiSourceRefresh) && scheduleSourceConfirmed)) &&
     recipeCount > 0 &&
@@ -2449,6 +2454,9 @@ export default function PomadeWorkspace({
       existing?.nextRunAt && existing.nextRunAt > now
         ? existing.nextRunAt
         : new Date(defaultScheduleTime()).getTime();
+    setScheduleCrmIds(existing?.afterRunCrm?.map((c) => c.mappingId) ?? []);
+    setScheduleCrmCondition(existing?.afterRunCrm?.[0]?.condition);
+    setScheduleCrmConfirmed(false);
     setScheduleSourceEnabled(Boolean(existing?.beforeRunSource));
     setScheduleSourceConfirmed(false);
     setScheduleFunctionId(existing?.functionInstanceId ?? '');
@@ -2488,6 +2496,17 @@ export default function PomadeWorkspace({
           ? workspace.apiSourceRefresh
           : undefined,
         functionInstanceId: scheduleFunctionId,
+        afterRunCrm: scheduleCrmIds.map((id) => {
+          const mapping = workspace.crmMappings?.find((m) => m.id === id);
+          if (!mapping) throw new Error('Choose existing CRM mappings.');
+          return {
+            mappingId: id,
+            name: mapping.name,
+            config: mapping.config,
+            condition: scheduleCrmCondition,
+          };
+        }),
+        confirmCrmWrites: scheduleCrmConfirmed,
         afterRunTransfers,
         cadence: scheduleCadence,
         nextRunAt: scheduleTimestamp,
@@ -4891,6 +4910,78 @@ export default function PomadeWorkspace({
                 ))}
             </fieldset>
           </div>
+          <fieldset>
+            <legend>Write to CRM after the recipes finish</legend>
+            {(workspace.crmMappings ?? []).map((mapping) => (
+              <label key={mapping.id}>
+                <input
+                  type="checkbox"
+                  checked={scheduleCrmIds.includes(mapping.id)}
+                  onChange={(e) => {
+                    setScheduleCrmIds((ids) =>
+                      e.target.checked
+                        ? [...ids, mapping.id]
+                        : ids.filter((id) => id !== mapping.id),
+                    );
+                    setScheduleCrmConfirmed(false);
+                  }}
+                />
+                {mapping.name}
+              </label>
+            ))}
+            {scheduleCrmIds
+              .filter(
+                (id) =>
+                  !workspace.crmMappings?.some((mapping) => mapping.id === id),
+              )
+              .map((id) => (
+                <label key={id}>
+                  <input
+                    type="checkbox"
+                    checked
+                    onChange={() => {
+                      setScheduleCrmIds((ids) =>
+                        ids.filter((value) => value !== id),
+                      );
+                      setScheduleCrmConfirmed(false);
+                    }}
+                  />
+                  Removed mapping: {id} — uncheck to detach it from this
+                  schedule
+                </label>
+              ))}
+            {!workspace.crmMappings?.length ? (
+              <p>Save a mapping in Write to CRM first.</p>
+            ) : null}
+            {scheduleCrmIds.length ? (
+              <>
+                <RunConditionEditor
+                  columns={workspace.columns.filter((c) => c.kind !== 'status')}
+                  condition={scheduleCrmCondition}
+                  onChange={(condition) => {
+                    setScheduleCrmCondition(condition);
+                    setScheduleCrmConfirmed(false);
+                  }}
+                  label="Write qualifying rows only when"
+                />
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={scheduleCrmConfirmed}
+                    onChange={(e) => setScheduleCrmConfirmed(e.target.checked)}
+                  />
+                  Allow these saved CRM writes after each scheduled run. Up to
+                  25 qualifying rows per destination. Property updates can
+                  trigger existing CRM workflows.
+                </label>
+                <p>
+                  The schedule captures these mappings. Later mapping edits take
+                  effect after you save the schedule again. Batches that fail
+                  verification stop for review.
+                </p>
+              </>
+            ) : null}
+          </fieldset>
           {scheduleScopeError ? <p role="alert">{scheduleScopeError}</p> : null}
           {scheduleTransferIds.length ? (
             <p>

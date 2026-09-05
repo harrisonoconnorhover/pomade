@@ -1,4 +1,4 @@
-import { detectSignalChanges } from '../lib/change-signals';
+import { detectSignalChanges, type SignalBatch } from '../lib/change-signals';
 import type { WorkspaceSnapshot } from '../lib/pomade-types';
 export function signalStatements(
   db: D1Database,
@@ -7,6 +7,12 @@ export function signalStatements(
   options: Parameters<typeof detectSignalChanges>[2],
 ) {
   const batch = detectSignalChanges(before, after, options);
+  return signalBatchStatements(db, batch);
+}
+export function signalBatchStatements(
+  db: D1Database,
+  batch: SignalBatch | null,
+) {
   return batch
     ? [
         db

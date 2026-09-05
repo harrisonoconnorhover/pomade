@@ -91,3 +91,35 @@ describe('Parallel web research client', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
+
+it('requests native structured output, retains complete JSON and extracts its source citations', async () => {
+  const payload = {
+    summary: 'x'.repeat(4500),
+    _pomade_citations: [
+      { url: 'https://example.com/news', title: 'Company news' },
+    ],
+  };
+  const { client, fetchImpl } = clientFor(
+    Response.json({
+      choices: [{ message: { content: JSON.stringify(payload) } }],
+    }),
+  );
+  const result = await client.research('Summarize the company.', [
+    { id: 'summary', title: 'Summary', valueType: 'text' },
+  ]);
+  const body = JSON.parse(fetchImpl.mock.calls[0][1].body);
+  expect(body.response_format).toMatchObject({
+    type: 'json_schema',
+    json_schema: {
+      schema: {
+        required: ['summary', '_pomade_citations'],
+        additionalProperties: false,
+      },
+    },
+  });
+  expect(JSON.parse(result.answer)).toEqual(payload);
+  expect(result.citations).toContainEqual({
+    url: 'https://example.com/news',
+    title: 'Company news',
+  });
+});

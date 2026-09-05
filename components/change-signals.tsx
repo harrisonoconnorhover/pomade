@@ -8,7 +8,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { saveSignalWatch, type SignalBatch } from '@/lib/change-signals';
+import {
+  saveSignalWatch,
+  type SignalBatch,
+  type SignalKind,
+} from '@/lib/change-signals';
+import {
+  addSignalResearch,
+  enableSignalFeedFields,
+} from '@/lib/account-signals';
 import type { WorkspaceSnapshot } from '@/lib/pomade-types';
 export default function ChangeSignals({
   workspace,
@@ -24,6 +32,10 @@ export default function ChangeSignals({
   const [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
+  const [kind, setKind] = useState<SignalKind>('field');
+  const [mode, setMode] = useState<'value' | 'set'>('value');
+  const [sourceColumnId, setSourceColumnId] = useState('');
+  const [focus, setFocus] = useState('');
   const [columnId, setColumnId] = useState(''),
     [name, setName] = useState(''),
     [ignoreEmpty, setIgnoreEmpty] = useState(true);
@@ -97,14 +109,76 @@ export default function ChangeSignals({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="template-dialog">
           <DialogHeader>
-            <DialogTitle>Change signals</DialogTitle>
+            <DialogTitle>Account signals</DialogTitle>
             <DialogDescription>
-              Watch fields for changes observed by recipe runs, scheduled API
-              refreshes and table transfers. New rows establish a baseline.
-              Manual grid edits and external events that have not been fetched
-              are not monitored.
+              Follow hiring, leadership, technology and reported intent in one
+              account feed. Research and provider refreshes establish the first
+              baseline; later observations show changes. Observation time is
+              different from the date a hire or technology change happened.
             </DialogDescription>
           </DialogHeader>
+          <label>
+            <input
+              type="checkbox"
+              checked={workspace.signalFeedFields === true}
+              disabled={!ready || busy}
+              onChange={(e) => {
+                try {
+                  onSave(enableSignalFeedFields(workspace, e.target.checked));
+                } catch (error) {
+                  setError(
+                    error instanceof Error
+                      ? error.message
+                      : 'Signal fields could not be added.',
+                  );
+                }
+              }}
+            />
+            Make latest signal and tags available to recipes and CRM mappings
+          </label>
+          <p>
+            Five table fields refresh before each recipe run, including
+            scheduled runs. Use them in qualification, formulas or saved CRM
+            mappings. Disabling refresh retains the last values.
+          </p>
+          <details>
+            <summary>Add a repeatable research check</summary>
+            <label>
+              Roles or teams to focus on (optional)
+              <input
+                value={focus}
+                onChange={(e) => setFocus(e.target.value)}
+                placeholder="HubSpot admin, SDR manager, revenue operations"
+              />
+            </label>
+            {(['hiring', 'leadership'] as const).map((type) => (
+              <Button
+                key={type}
+                variant="outline"
+                disabled={!ready || busy}
+                onClick={() => {
+                  try {
+                    onSave(addSignalResearch(workspace, type, focus));
+                    setError(
+                      'Research columns and a watch added. Run the column to establish a baseline.',
+                    );
+                  } catch (e) {
+                    setError(
+                      e instanceof Error ? e.message : 'Research setup failed.',
+                    );
+                  }
+                }}
+              >
+                Add {type} research
+              </Button>
+            ))}
+            <p>
+              Uses your configured research provider and normal spending rules.
+              Open recipe settings to edit the question or add qualification.
+              Research discoveries do not prove a complete inventory;
+              disappearing results are not treated as departures or closed jobs.
+            </p>
+          </details>
           <details>
             <summary>
               Watched fields ({workspace.signalWatches?.length ?? 0}/10)
@@ -155,6 +229,55 @@ export default function ChangeSignals({
                   ))}
               </select>
             </label>
+            <div className="lookup-fields">
+              <label>
+                Signal category
+                <select
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value as SignalKind)}
+                >
+                  {[
+                    'field',
+                    'hiring',
+                    'leadership',
+                    'technology',
+                    'website',
+                    'g2',
+                    'linkedin',
+                  ].map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Comparison
+                <select
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value as 'value' | 'set')}
+                >
+                  <option value="value">Whole value changed</option>
+                  <option value="set">Items added or no longer reported</option>
+                </select>
+              </label>
+              <label>
+                Source URL column (optional)
+                <select
+                  value={sourceColumnId}
+                  onChange={(e) => setSourceColumnId(e.target.value)}
+                >
+                  <option value="">Use run provenance</option>
+                  {workspace.columns
+                    .filter((c) => c.kind !== 'status')
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            </div>
             <label>
               Watch name
               <input
@@ -181,6 +304,9 @@ export default function ChangeSignals({
                       name,
                       columnId,
                       ignoreEmpty,
+                      kind,
+                      mode,
+                      sourceColumnId: sourceColumnId || undefined,
                     }),
                   );
                   setError(
@@ -194,6 +320,11 @@ export default function ChangeSignals({
               Add watch
             </Button>
           </details>
+          <p>
+            Website, G2 and LinkedIn events can enter through a configured
+            signal webhook. The feed records the supplied source and event date;
+            source access must be connected separately.
+          </p>
           <p>{unreviewed} unreviewed change batches</p>
           <Button variant="outline" disabled={busy} onClick={() => void load()}>
             Refresh signals
@@ -238,7 +369,32 @@ export default function ChangeSignals({
                           {event.rowLabel}
                         </Button>
                         <br />
-                        {event.watchName}
+                        {event.watchName} · {event.kind ?? 'field'}
+                        {event.change ? (
+                          <small>
+                            {event.change === 'added'
+                              ? 'Newly observed'
+                              : event.change === 'removed'
+                                ? 'No longer reported'
+                                : event.change === 'reported'
+                                  ? 'Reported activity'
+                                  : 'Changed'}
+                          </small>
+                        ) : null}
+                        {event.sourceUrl ? (
+                          <a
+                            href={event.sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Source
+                          </a>
+                        ) : null}
+                        {event.occurredAt ? (
+                          <small>
+                            Event: {new Date(event.occurredAt).toLocaleString()}
+                          </small>
+                        ) : null}
                         {event.truncated
                           ? ' (value shortened to 500 characters)'
                           : ''}

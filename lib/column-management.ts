@@ -83,6 +83,10 @@ export function findColumnDependencies(
       addDependency(dependencies, column.id, column.title, 'structured output');
     }
   }
+  for (const watch of workspace.signalWatches ?? []) {
+    if (watch.columnId === columnId || watch.sourceColumnId === columnId)
+      addDependency(dependencies, watch.id, watch.name, 'signal watch');
+  }
   for (const view of workspace.savedViews ?? []) {
     if (view.columnId === columnId) {
       addDependency(dependencies, view.id, view.name, 'saved view');
@@ -105,6 +109,19 @@ export function findColumnDependencies(
         mapping.id,
         mapping.name,
         'saved CRM mapping',
+      );
+  }
+  for (const write of workspace.schedule?.afterRunCrm ?? []) {
+    if (
+      write.config.idColumn === columnId ||
+      Object.values(write.config.mapping).includes(columnId) ||
+      conditionFields(write.condition).includes(columnId)
+    )
+      addDependency(
+        dependencies,
+        write.mappingId,
+        write.name,
+        'scheduled CRM write',
       );
   }
   return dependencies;

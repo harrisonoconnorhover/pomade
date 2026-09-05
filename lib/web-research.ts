@@ -82,7 +82,7 @@ export function renderWebResearchPrompt(
     ? structuredOutputInstruction(fields, outputCardinality, listLimit)
     : 'Return a direct answer in 90 words or fewer. If reliable evidence is unavailable, say "Not found" and explain what is missing.';
 
-  return `${compact(rendered, 4_000)}\n\nResearch target:\n${context || 'Use the task text as the complete target.'}\n\nUse current public web sources. ${outputInstruction}`;
+  return `${compact(rendered, 4_000)}\n\nResearch target:\n${context || 'Use the task text as the complete target.'}\n\nResearch date: ${new Date().toISOString().slice(0, 10)}. Use current public web sources. ${outputInstruction}`;
 }
 
 // Providers can append a Sources section even when JSON-only output is requested.
@@ -409,7 +409,13 @@ export function applyWebResearchResult(
     };
   }
   const parsed = parseStructuredResearchAnswer(result.answer, outputFields);
-  const outputValues = parsed?.values ?? { [column.id]: result.answer };
+  // Prose and invalid types belong in the raw answer/receipt, never in fields
+  // that may drive scoring, change detection or a scheduled CRM write.
+  const outputValues = outputFields.length
+    ? parsed?.valid
+      ? parsed.values
+      : Object.fromEntries(outputFields.map((field) => [field.id, '']))
+    : { [column.id]: result.answer };
   const before = outputFields.length
     ? summarizeOutputs(outputFields, row.values)
     : (row.values[column.id] ?? '');

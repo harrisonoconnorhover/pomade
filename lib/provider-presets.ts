@@ -93,6 +93,10 @@ export function createApolloCompanyColumns(
               title: 'Apollo technologies',
               path: 'organization.technology_names',
             },
+            {
+              title: 'Apollo annual revenue (USD)',
+              path: 'organization.annual_revenue',
+            },
           ]
         : []),
     ],
@@ -101,6 +105,10 @@ export function createApolloCompanyColumns(
   columns[0].http!.presetInputKey = domainColumnId;
   columns[3].valueType = 'number';
   columns[0].outputFields![3].valueType = 'number';
+  if (detailed) {
+    columns[12].valueType = 'number';
+    columns[0].outputFields![12].valueType = 'number';
+  }
   return columns;
 }
 
