@@ -122,6 +122,14 @@ type ApolloProviderStatus = {
   };
 };
 
+type ApolloBatchSummary = {
+  requested: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+  creditsConsumed: number | null;
+};
+
 type ResearchProviderStatus = {
   provider: 'parallel' | 'gemini' | null;
   configured: boolean;
@@ -457,6 +465,8 @@ export default function PomadeWorkspace() {
   const [apolloRunning, setApolloRunning] = useState(false);
   const [apolloError, setApolloError] = useState('');
   const [apolloResult, setApolloResult] = useState<ApolloEnrichmentResult>();
+  const [apolloBatchSummary, setApolloBatchSummary] =
+    useState<ApolloBatchSummary>();
   const [apolloStatus, setApolloStatus] = useState<ApolloProviderStatus>();
   const [researchStatus, setResearchStatus] =
     useState<ResearchProviderStatus>();
@@ -607,6 +617,15 @@ export default function PomadeWorkspace() {
   const selected =
     workspace.rows.find((row) => row.id === activeRowId) ?? workspace.rows[0];
   const selectedValues = selected?.values ?? {};
+  const apolloTargetRows = selectedRowIds.length
+    ? workspace.rows.filter((row) => selectedRowIds.includes(row.id))
+    : selected
+      ? [selected]
+      : [];
+  const apolloEligibleRows = apolloTargetRows.filter(
+    (row) => row.values.person?.trim() && row.values.domain?.trim(),
+  );
+  const apolloTargetValues = apolloTargetRows[0]?.values ?? {};
   const readyCount = workspace.rows.filter(
     (row) => row.values.status === 'Ready',
   ).length;
@@ -1321,6 +1340,7 @@ export default function PomadeWorkspace() {
   function openApollo() {
     setApolloError('');
     setApolloResult(undefined);
+    setApolloBatchSummary(undefined);
     setApolloOpen(true);
   }
 
@@ -1332,20 +1352,27 @@ export default function PomadeWorkspace() {
   }
 
   async function enrichSelectedWithApollo() {
-    if (!selected || apolloRunning) return;
+    if (!apolloEligibleRows.length || apolloRunning) return;
     setApolloRunning(true);
     setApolloError('');
     setApolloResult(undefined);
+    setApolloBatchSummary(undefined);
     try {
       const response = await fetch('/api/providers/apollo', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ workspace, rowId: selected.id }),
+        body: JSON.stringify({
+          workspace,
+          rowIds: apolloTargetRows.map((row) => row.id),
+          confirmCreditSpend: true,
+        }),
       });
       const result = (await response.json()) as {
         workspace?: WorkspaceSnapshot;
         run?: RunReceipt;
         enrichment?: ApolloEnrichmentResult;
+        summary?: Omit<ApolloBatchSummary, 'creditsConsumed'>;
+        failures?: Array<{ rowId: string; error: string }>;
         error?: string;
       };
       if (
@@ -1359,7 +1386,22 @@ export default function PomadeWorkspace() {
       setWorkspace(result.workspace);
       rememberRun(result.run);
       setApolloResult(result.enrichment);
+      setApolloBatchSummary({
+        requested: result.summary?.requested ?? result.run.rowCount,
+        completed: result.summary?.completed ?? result.run.rowCount,
+        failed: result.summary?.failed ?? 0,
+        skipped: result.summary?.skipped ?? 0,
+        creditsConsumed: result.run.creditsConsumed ?? null,
+      });
+      if (result.failures?.length) {
+        setApolloError(
+          `${result.failures.length} ${result.failures.length === 1 ? 'row' : 'rows'} failed and stayed unchanged. ${result.failures[0].error}`,
+        );
+      }
       setSaveState('Saved');
+      setNotice(
+        `${result.run.rowCount} Apollo ${result.run.rowCount === 1 ? 'row' : 'rows'} enriched${result.summary?.failed ? ` · ${result.summary.failed} failed` : ''}${result.summary?.skipped ? ` · ${result.summary.skipped} skipped` : ''}.`,
+      );
     } catch (error) {
       setApolloError(
         error instanceof Error ? error.message : 'Apollo enrichment failed.',
@@ -1790,7 +1832,10 @@ export default function PomadeWorkspace() {
                     <Plus /> Add blank row
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={openApollo} disabled={!selected}>
-                    <MailCheck /> Enrich active row with Apollo
+                    <MailCheck />
+                    {selectedRowIds.length
+                      ? 'Enrich selected with Apollo'
+                      : 'Enrich active row with Apollo'}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={openResearchBuilder}>
                     <Globe2 /> Add AI web research
@@ -3673,29 +3718,55 @@ export default function PomadeWorkspace() {
         <DialogContent className="apollo-dialog">
           <DialogHeader>
             <DialogTitle>
-              Enrich {selectedValues.person || 'selected person'} with Apollo
+              {apolloTargetRows.length === 1
+                ? `Enrich ${apolloTargetValues.person || 'selected person'} with Apollo`
+                : `Enrich ${apolloTargetRows.length} selected people with Apollo`}
             </DialogTitle>
             <DialogDescription>
-              Match this person at their current company and return a verified
-              business profile.
+              Match each eligible person at their current company and return a
+              verified business profile.
             </DialogDescription>
           </DialogHeader>
-          <div className="apollo-target">
-            <div>
-              <span>Person</span>
-              <strong>{selectedValues.person || 'Missing person name'}</strong>
+          {apolloTargetRows.length === 1 ? (
+            <div className="apollo-target">
+              <div>
+                <span>Person</span>
+                <strong>
+                  {apolloTargetValues.person || 'Missing person name'}
+                </strong>
+              </div>
+              <div>
+                <span>Company</span>
+                <strong>
+                  {apolloTargetValues.company || 'Unknown company'}
+                </strong>
+              </div>
+              <div>
+                <span>Domain</span>
+                <strong>
+                  {apolloTargetValues.domain || 'Missing company domain'}
+                </strong>
+              </div>
             </div>
-            <div>
-              <span>Company</span>
-              <strong>{selectedValues.company || 'Unknown company'}</strong>
+          ) : (
+            <div className="apollo-target apollo-batch-target">
+              <div>
+                <span>Selected</span>
+                <strong>{apolloTargetRows.length} rows</strong>
+              </div>
+              <div>
+                <span>Ready</span>
+                <strong>{apolloEligibleRows.length} people</strong>
+              </div>
+              <div>
+                <span>Skipped</span>
+                <strong>
+                  {apolloTargetRows.length - apolloEligibleRows.length} missing
+                  inputs
+                </strong>
+              </div>
             </div>
-            <div>
-              <span>Domain</span>
-              <strong>
-                {selectedValues.domain || 'Missing company domain'}
-              </strong>
-            </div>
-          </div>
+          )}
           <div className="apollo-safety">
             <ShieldCheck />
             <div>
@@ -3705,13 +3776,37 @@ export default function PomadeWorkspace() {
                   : 'Apollo key is not configured'}
               </strong>
               <p>
-                This action sends the person name and company domain to Apollo.
-                It may use up to 1 Apollo credit when data is found. Personal
-                emails and phone numbers stay off.
+                This action sends each eligible person name and company domain
+                to Apollo. It may use up to {apolloEligibleRows.length} Apollo{' '}
+                {apolloEligibleRows.length === 1 ? 'credit' : 'credits'}; cache
+                hits may reduce that total. Personal emails and phone numbers
+                stay off.
               </p>
             </div>
           </div>
-          {apolloResult ? (
+          {apolloBatchSummary && apolloBatchSummary.requested > 1 ? (
+            <div
+              className={`apollo-result ${apolloBatchSummary.failed ? 'apollo-result-needs_review' : ''}`}
+            >
+              <MailCheck />
+              <div>
+                <strong>
+                  {apolloBatchSummary.completed} enriched ·{' '}
+                  {apolloBatchSummary.failed} failed ·{' '}
+                  {apolloBatchSummary.skipped} skipped
+                </strong>
+                <p>
+                  Every completed row has its own identity evidence and receipt
+                  in the grid. Failed rows were left unchanged.
+                </p>
+                <small>
+                  {apolloBatchSummary.creditsConsumed === null
+                    ? 'Apollo did not report total credit usage'
+                    : `${apolloBatchSummary.creditsConsumed} total Apollo credit${apolloBatchSummary.creditsConsumed === 1 ? '' : 's'} used`}
+                </small>
+              </div>
+            </div>
+          ) : apolloResult ? (
             <div
               className={`apollo-result apollo-result-${apolloResult.status}`}
             >
@@ -3756,8 +3851,8 @@ export default function PomadeWorkspace() {
               disabled={
                 apolloRunning ||
                 !apolloStatus?.configured ||
-                !selectedValues.person ||
-                !selectedValues.domain
+                apolloEligibleRows.length === 0 ||
+                apolloTargetRows.length > 10
               }
             >
               {apolloRunning ? (
@@ -3765,7 +3860,11 @@ export default function PomadeWorkspace() {
               ) : (
                 <MailCheck />
               )}
-              {apolloRunning ? 'Checking Apollo…' : 'Use up to 1 credit'}
+              {apolloRunning
+                ? `Checking ${apolloEligibleRows.length} ${apolloEligibleRows.length === 1 ? 'person' : 'people'}…`
+                : apolloTargetRows.length > 10
+                  ? 'Select 10 rows or fewer'
+                  : `Use up to ${apolloEligibleRows.length} ${apolloEligibleRows.length === 1 ? 'credit' : 'credits'}`}
             </Button>
           </div>
         </DialogContent>

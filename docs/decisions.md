@@ -36,6 +36,20 @@ Provider results are cached in D1 for 30 days behind a hashed identity/domain
 key. Cache hits report zero new credits. Mismatched identities never expose the
 returned person's fields, and uncertain emails stay in review state.
 
+## Apollo batches are bounded and partially durable
+
+The Apollo action targets the active row or up to ten explicitly selected rows.
+The confirmation shows the maximum one-credit-per-eligible-row exposure before
+the request. Rows without both a person and company domain are skipped, while
+two provider requests may run concurrently to keep the interaction responsive
+without creating a large burst.
+
+Identical person/domain inputs share one in-flight request, and later duplicates
+are recorded as zero-credit reuse. Successful results are persisted even when a
+different row fails; failed rows remain unchanged and are reported in the batch
+summary. Every completed row retains the same identity evidence and receipt as
+the original single-row flow.
+
 ## CRM sources are read-only
 
 HubSpot contacts and Salesforce leads enter Pomade through preview-first,

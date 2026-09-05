@@ -39,6 +39,10 @@ Bitscale or Clay.
       confirmation, caching, and bounded runs.
 - [x] Selected-person Apollo enrichment with identity checks and credit-aware
       confirmation.
+- [x] Bounded Apollo batch enrichment for up to ten selected rows, with missing
+      input skips, duplicate-request coalescing, partial-success persistence,
+      per-row receipts, and a confirmed maximum credit count. Crossed off
+      2026-09-04.
 - [x] Persistent workspace, run receipts, row review states, and a governed GTM
       Control Tower preview handoff.
 
@@ -49,7 +53,6 @@ Bitscale or Clay.
 - [ ] Generic HTTP API enrichment plus inbound and outbound webhooks.
 - [ ] Background run queue with per-row progress, pause, retry, and resumable
       failures.
-- [ ] Bulk provider enrichment instead of Apollo's current one-row action.
 - [ ] CRM field mapping and governed HubSpot/Salesforce writeback through GTM
       Control Tower.
 - [ ] Multiple tables in a workbook, reusable workbook templates, and table
@@ -79,10 +82,10 @@ Bitscale or Clay.
 
 1. A background queue with per-row progress and resumable failures, so larger
    provider runs do not depend on one request staying open.
-2. Bulk provider enrichment, starting with the existing guarded Apollo person
-   match instead of requiring one active-row action at a time.
-3. CRM field mapping and governed writeback through GTM Control Tower, keeping
+2. CRM field mapping and governed writeback through GTM Control Tower, keeping
    preview, approval, receipt, and rollback outside the enrichment grid.
+3. Multiple tables per workbook with reusable table templates and relationships,
+   so prospecting, people, and campaign views do not have to share one grid.
 
 ## Official product references
 

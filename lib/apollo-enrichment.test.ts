@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyApolloEnrichment } from './apollo-enrichment';
+import {
+  applyApolloBatchEnrichment,
+  applyApolloEnrichment,
+} from './apollo-enrichment';
 import type { ApolloEnrichmentResult } from './pomade-types';
 import { createSampleWorkspace } from './sample-workspace';
 
@@ -78,5 +81,48 @@ describe('Apollo workspace enrichment', () => {
       status: 'Review',
     });
     expect(result.run.reviewCount).toBe(1);
+  });
+
+  it('applies a multi-row batch and aggregates receipts and credits', () => {
+    const workspace = createSampleWorkspace();
+    const result = applyApolloBatchEnrichment(
+      workspace,
+      [
+        { rowId: 'sample-1', result: FOUND },
+        {
+          rowId: 'sample-2',
+          result: {
+            ...FOUND,
+            personId: null,
+            fullName: null,
+            workEmail: null,
+            title: null,
+            linkedinUrl: null,
+            location: null,
+            organizationDomain: 'linear.app',
+            status: 'not_found',
+            evidence: ['No match.'],
+            creditsConsumed: 0,
+          },
+        },
+      ],
+      Date.now() - 25,
+    );
+
+    expect(result.workspace.rows[0].values.apollo_email).toBe(
+      'immad@mercury.com',
+    );
+    expect(result.workspace.rows[1].values).toMatchObject({
+      apollo_match: 'Not found',
+      status: 'Review',
+    });
+    expect(result.run).toMatchObject({
+      rowCount: 2,
+      actionCount: 2,
+      passedCount: 1,
+      reviewCount: 1,
+      creditsConsumed: 1,
+    });
+    expect(result.run.receipts).toHaveLength(2);
   });
 });

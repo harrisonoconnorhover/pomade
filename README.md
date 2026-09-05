@@ -25,7 +25,7 @@ what changed. It is an original product built on the open-source
   canonical company/domain fields without replacing the current table.
 - Schedule the whole table or a captured selection once, every 24 hours, or
   every 7 days through a durable five-minute worker clock.
-- Enrich one selected person through Apollo with exact-name/company-domain safeguards.
+- Enrich up to ten selected people through Apollo with exact-name/company-domain safeguards.
 - Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
 - Search, filter, sort, add rows, and export the resulting CSV.
 - Inspect row quality and field-level lineage, or download a bounded GTM Control Tower preview plan.
@@ -35,9 +35,12 @@ connections are read-only sources. AI web research prefers a bring-your-own
 Parallel key and falls back to Gemini when Parallel is not configured. It
 requires an explicit run confirmation, caps each run at ten research requests,
 caches results for 24 hours, and stores source links with the receipt.
-Apollo enrichment remains an explicit selected-row action that may use up to one
-credit; it never requests personal emails or phone numbers. Governed CRM writes
-remain behind GTM Control Tower's preview, approval, receipt, and rollback flow.
+Apollo enrichment remains an explicit selected-row action with a confirmed
+maximum of one credit per eligible row; it never requests personal emails or
+phone numbers. Batches run at bounded concurrency, reuse cached or duplicate
+identities, preserve partial successes, and attach a receipt to every completed
+row. Governed CRM writes remain behind GTM Control Tower's preview, approval,
+receipt, and rollback flow.
 
 ## Run locally
 
@@ -133,9 +136,9 @@ safe recipe runner       read-only sources       provider reads
 
 Pomade is a polished working vertical slice, not a complete Clay replacement.
 The grid, CSV and CRM source workflow, scoped recipe execution, grounded AI web
-research, Apollo person enrichment, persistence, cache, receipts, and Control
-Tower handoff are real. Apollo phone reveal, durable CRM OAuth, multi-user
-collaboration, and direct CRM write-back are intentionally deferred.
+research, bounded Apollo batch enrichment, persistence, cache, receipts, and
+Control Tower handoff are real. Apollo phone reveal, durable CRM OAuth,
+multi-user collaboration, and direct CRM write-back are intentionally deferred.
 
 ## License
 

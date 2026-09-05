@@ -33,19 +33,17 @@ function matchLabel(result: ApolloEnrichmentResult) {
   return result.candidateEmail ? 'Review email' : 'Review identity';
 }
 
-export function applyApolloEnrichment(
-  workspace: WorkspaceSnapshot,
-  rowId: string,
+export type ApolloBatchEnrichmentEntry = {
+  rowId: string;
+  result: ApolloEnrichmentResult;
+};
+
+function enrichedValues(
+  values: Record<string, string>,
   result: ApolloEnrichmentResult,
-  startedAt: number,
-): { workspace: WorkspaceSnapshot; run: RunReceipt } {
-  const rowIndex = workspace.rows.findIndex((row) => row.id === rowId);
-  if (rowIndex === -1) throw new Error('The selected row no longer exists.');
-  const finishedAt = Date.now();
-  const before = workspace.rows[rowIndex].values.apollo_email ?? '';
-  const after = result.workEmail ?? result.candidateEmail ?? '';
-  const values: Record<string, string> = {
-    ...workspace.rows[rowIndex].values,
+): Record<string, string> {
+  return {
+    ...values,
     apollo_email: result.workEmail ?? '',
     apollo_match: matchLabel(result),
     apollo_title: result.title ?? '',
@@ -61,39 +59,75 @@ export function applyApolloEnrichment(
     __apollo_evidence: result.evidence.join(' '),
     status: result.status === 'found' ? 'Ready' : 'Review',
   };
-  const rows = workspace.rows.map((row, index) =>
-    index === rowIndex ? { ...row, values } : row,
+}
+
+export function applyApolloBatchEnrichment(
+  workspace: WorkspaceSnapshot,
+  entries: ApolloBatchEnrichmentEntry[],
+  startedAt: number,
+): { workspace: WorkspaceSnapshot; run: RunReceipt } {
+  if (!entries.length)
+    throw new Error('At least one Apollo result is required.');
+  const resultByRow = new Map(
+    entries.map((entry) => [entry.rowId, entry.result]),
   );
-  const label = values.company || values.person || `Row ${rowIndex + 1}`;
-  const receipt: ActionReceipt = {
-    id: `${rowId}-apollo-${startedAt}`,
-    rowId,
-    rowLabel: label,
-    columnId: 'apollo_email',
-    action: 'Apollo person enrichment',
-    status: result.status === 'found' ? 'passed' : 'review',
-    durationMs: Math.max(1, finishedAt - startedAt),
-    before,
-    after: after || matchLabel(result),
-    provider: 'apollo',
-    creditsConsumed: result.creditsConsumed,
-    cached: result.cached,
-    evidence: result.evidence,
-  };
+  if (resultByRow.size !== entries.length) {
+    throw new Error('Apollo batch results must target unique rows.');
+  }
+  for (const rowId of resultByRow.keys()) {
+    if (!workspace.rows.some((row) => row.id === rowId)) {
+      throw new Error('The selected row no longer exists.');
+    }
+  }
+
+  const finishedAt = Date.now();
+  const receipts: ActionReceipt[] = [];
+  const rows = workspace.rows.map((row, rowIndex) => {
+    const result = resultByRow.get(row.id);
+    if (!result) return row;
+    const before = row.values.apollo_email ?? '';
+    const values = enrichedValues(row.values, result);
+    const after = result.workEmail ?? result.candidateEmail ?? '';
+    receipts.push({
+      id: `${row.id}-apollo-${startedAt}`,
+      rowId: row.id,
+      rowLabel: values.company || values.person || `Row ${rowIndex + 1}`,
+      columnId: 'apollo_email',
+      action: 'Apollo person enrichment',
+      status: result.status === 'found' ? 'passed' : 'review',
+      durationMs: Math.max(1, finishedAt - startedAt),
+      before,
+      after: after || matchLabel(result),
+      provider: 'apollo',
+      creditsConsumed: result.creditsConsumed,
+      cached: result.cached,
+      evidence: result.evidence,
+    });
+    return { ...row, values };
+  });
+  const reportedCredits = entries.map((entry) => entry.result.creditsConsumed);
+  const creditsConsumed = reportedCredits.some((credits) => credits === null)
+    ? null
+    : reportedCredits.reduce<number>(
+        (total, credits) => total + (credits ?? 0),
+        0,
+      );
   const run: RunReceipt = {
     id: crypto.randomUUID(),
     workspaceId: workspace.id,
     status: 'completed',
     startedAt,
     finishedAt,
-    rowCount: 1,
-    actionCount: 1,
-    passedCount: receipt.status === 'passed' ? 1 : 0,
-    reviewCount: receipt.status === 'review' ? 1 : 0,
+    rowCount: entries.length,
+    actionCount: entries.length,
+    passedCount: receipts.filter((receipt) => receipt.status === 'passed')
+      .length,
+    reviewCount: receipts.filter((receipt) => receipt.status === 'review')
+      .length,
     externalWrites: 0,
     provider: 'apollo',
-    creditsConsumed: result.creditsConsumed,
-    receipts: [receipt],
+    creditsConsumed,
+    receipts,
   };
 
   return {
@@ -105,4 +139,13 @@ export function applyApolloEnrichment(
     },
     run,
   };
+}
+
+export function applyApolloEnrichment(
+  workspace: WorkspaceSnapshot,
+  rowId: string,
+  result: ApolloEnrichmentResult,
+  startedAt: number,
+): { workspace: WorkspaceSnapshot; run: RunReceipt } {
+  return applyApolloBatchEnrichment(workspace, [{ rowId, result }], startedAt);
 }
