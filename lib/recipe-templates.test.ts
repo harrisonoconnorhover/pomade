@@ -171,6 +171,7 @@ describe('recipe templates', () => {
       prompt: 'Find companies like {{company}}.',
       outputCardinality: 'list',
       listLimit: 12,
+      listDestinationBindings: { found_company: 'account' },
       width: 260,
       outputFields: [
         { id: 'found_company', title: 'Company name', valueType: 'text' },
@@ -192,6 +193,7 @@ describe('recipe templates', () => {
       outputCardinality: 'list',
       listLimit: 12,
       inputBindings: { company: 'account', domain: '', person: '', title: '' },
+      listDestinationBindings: { company_name: 'account' },
     });
   });
 

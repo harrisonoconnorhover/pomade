@@ -99,6 +99,19 @@ touching imported or manually added records. Invalid output creates no new rows,
 preserves earlier valid children, retains raw provider evidence, and marks the
 source action for review.
 
+## ICP company lists reuse the guarded list primitive
+
+The dedicated company finder adds an editable ICP source row and one list-valued
+web-research recipe to the current workspace instead of creating a separate
+table or replacing imported data. Generated companies also populate canonical
+company and domain columns, so existing formulas, exports, and downstream
+handoff logic can consume them without special cases.
+
+Only the new source row and recipe are included in the immediate provider-cost
+confirmation. Adding any new web-research recipe pauses an active schedule,
+because prior recurring consent did not cover the expanded provider scope. The
+user may review and resave the schedule after inspecting the new recipe.
+
 ## Recipe templates use explicit contracts
 
 Any configured formula or enrichment column can be saved as a workspace-level

@@ -21,6 +21,8 @@ what changed. It is an original product built on the open-source
   first available value and its winning source kept side by side.
 - Create single-answer, structured, or list-to-row AI research recipes that use
   Parallel Web Research—or Gemini as a fallback—with clickable citations.
+- Start from an ICP description and create an evidence-backed company list with
+  canonical company/domain fields without replacing the current table.
 - Schedule the whole table or a captured selection once, every 24 hours, or
   every 7 days through a durable five-minute worker clock.
 - Enrich one selected person through Apollo with exact-name/company-domain safeguards.
@@ -79,6 +81,12 @@ one child row per result, up to a configurable 25-row limit for each source
 row. Children inherit their source-row context and retain the recipe that made
 them. A valid rerun replaces that recipe's earlier children; malformed output
 keeps existing rows intact and goes to review.
+
+The dedicated **Find companies** flow turns an ICP brief into that same guarded
+list-research primitive. It adds a source row plus company, domain, fit reason,
+employee estimate, and headquarters outputs, while preserving every existing
+row. Only the new list recipe is included in the confirmation. Adding it pauses
+an active schedule until the expanded provider scope is deliberately approved.
 
 Reusable recipe functions live with the workspace. Open **Recipe engine**, save
 a configured formula or enrichment as a template, then choose it from **Recipe

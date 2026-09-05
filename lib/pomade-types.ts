@@ -38,6 +38,7 @@ export type PomadeColumn = {
   expression?: string;
   inputBindings?: Record<string, string>;
   lineageColumnId?: string;
+  listDestinationBindings?: Record<string, string>;
   listLimit?: number;
   outputCardinality?: ResearchOutputCardinality;
   outputFields?: ResearchOutputField[];

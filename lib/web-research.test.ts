@@ -299,6 +299,10 @@ describe('web research recipe', () => {
       prompt: 'Find companies like {{company}}.',
       outputCardinality: 'list' as const,
       listLimit: 5,
+      listDestinationBindings: {
+        found_company: 'company',
+        found_domain: 'domain',
+      },
       width: 260,
       outputFields: [
         {
@@ -337,12 +341,22 @@ describe('web research recipe', () => {
       {
         parentRowId: 'sample-1',
         generatedByColumnId: 'found_company',
-        values: { found_company: 'Acme', found_domain: 'acme.example' },
+        values: {
+          company: 'Acme',
+          domain: 'acme.example',
+          found_company: 'Acme',
+          found_domain: 'acme.example',
+        },
       },
       {
         parentRowId: 'sample-1',
         generatedByColumnId: 'found_company',
-        values: { found_company: 'Bravo', found_domain: 'bravo.example' },
+        values: {
+          company: 'Bravo',
+          domain: 'bravo.example',
+          found_company: 'Bravo',
+          found_domain: 'bravo.example',
+        },
       },
     ]);
     expect(first.receipt).toMatchObject({

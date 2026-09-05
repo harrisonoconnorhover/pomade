@@ -1555,6 +1555,7 @@ button {
 .formula-builder-dialog,
 .waterfall-builder-dialog,
 .research-builder-dialog,
+.company-list-dialog,
 .research-confirm-dialog,
 .schedule-dialog {
   max-width: 620px !important;
@@ -2247,6 +2248,41 @@ button {
 .research-field textarea:focus {
   border-color: #6f9698;
   box-shadow: 0 0 0 3px rgba(43, 104, 120, 0.1);
+}
+.company-list-dialog {
+  max-width: 640px !important;
+}
+.company-list-dialog .research-field textarea {
+  min-height: 132px;
+}
+.company-list-limit {
+  padding: 10px 11px;
+  border: 1px solid #dfe2dc;
+  border-radius: 9px;
+  background: #f8f9f5;
+}
+.company-list-outputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.company-list-outputs::before {
+  width: 100%;
+  content: 'New list columns';
+  color: #66756d;
+  font-size: 9px;
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.company-list-outputs span {
+  padding: 5px 8px;
+  border: 1px solid #d7dfd6;
+  border-radius: 999px;
+  color: #3d5c4d;
+  background: #f2f7ee;
+  font-size: 9px;
+  font-weight: 650;
 }
 .research-variables {
   display: flex;

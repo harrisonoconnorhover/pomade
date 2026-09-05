@@ -235,12 +235,15 @@ export function recalculateAutomaticFormulas(
 export function executeWorkspace(
   input: WorkspaceSnapshot,
   selectedRowIds?: string[],
+  selectedColumnIds?: string[],
 ): { workspace: WorkspaceSnapshot; run: RunReceipt } {
   const startedAt = Date.now();
+  const selectedColumns = selectedColumnIds ? new Set(selectedColumnIds) : null;
   const recipeColumns = input.columns.filter(
     (column) =>
       (column.kind === 'formula' || column.kind === 'enrichment') &&
-      column.recipe !== 'web-research',
+      column.recipe !== 'web-research' &&
+      (!selectedColumns || selectedColumns.has(column.id)),
   );
   const receipts: ActionReceipt[] = [];
   let skippedCount = 0;

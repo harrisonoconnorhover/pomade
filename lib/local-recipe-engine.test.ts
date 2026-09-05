@@ -48,6 +48,19 @@ describe('Pomade recipe execution', () => {
     expect(result.workspace.rows[0].values.opener).toContain('Mercury');
   });
 
+  it('can run one recipe column for an explicit row scope', () => {
+    const workspace = createSampleWorkspace();
+    workspace.rows[0].values.opener = '';
+    const result = executeWorkspace(workspace, ['sample-1'], ['fit']);
+
+    expect(result.run.actionCount).toBe(1);
+    expect(result.run.receipts[0].columnId).toBe('fit');
+    expect(result.workspace.rows[0].values.fit).toMatch(
+      /^(Strong|Review) · \d+$/,
+    );
+    expect(result.workspace.rows[0].values.opener).toBe('');
+  });
+
   it('normalizes a domain through a formula column', () => {
     const workspace = createSampleWorkspace();
     workspace.columns.push({

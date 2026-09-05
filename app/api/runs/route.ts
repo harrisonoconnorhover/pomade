@@ -61,6 +61,7 @@ export async function POST(request: Request) {
     const body: unknown = await request.json();
     const workspace = (body as { workspace?: unknown })?.workspace;
     const requestedRowIds = (body as { rowIds?: unknown })?.rowIds;
+    const requestedColumnIds = (body as { columnIds?: unknown })?.columnIds;
     const confirmedResearch =
       (body as { confirmExternalResearch?: unknown })
         ?.confirmExternalResearch === true;
@@ -85,11 +86,38 @@ export async function POST(request: Request) {
       );
     }
 
+    if (
+      requestedColumnIds !== undefined &&
+      (!Array.isArray(requestedColumnIds) ||
+        requestedColumnIds.length === 0 ||
+        requestedColumnIds.length > workspace.columns.length ||
+        requestedColumnIds.some((columnId) => typeof columnId !== 'string'))
+    ) {
+      return Response.json(
+        { error: 'Select one or more valid recipe columns to run.' },
+        { status: 400 },
+      );
+    }
+
     const rowIds = requestedRowIds as string[] | undefined;
+    const columnIds = requestedColumnIds as string[] | undefined;
     const knownRows = new Set(workspace.rows.map((row) => row.id));
     if (rowIds?.some((rowId) => !knownRows.has(rowId))) {
       return Response.json(
         { error: 'One or more selected rows no longer exist.' },
+        { status: 409 },
+      );
+    }
+    const knownRecipeColumns = new Set(
+      workspace.columns
+        .filter(
+          (column) => column.kind === 'formula' || column.kind === 'enrichment',
+        )
+        .map((column) => column.id),
+    );
+    if (columnIds?.some((columnId) => !knownRecipeColumns.has(columnId))) {
+      return Response.json(
+        { error: 'One or more selected recipe columns no longer exist.' },
         { status: 409 },
       );
     }
@@ -99,9 +127,11 @@ export async function POST(request: Request) {
       : workspace.rows;
     const researchColumns = workspace.columns.filter(
       (column): column is PomadeColumn & { prompt: string } =>
-        column.recipe === 'web-research' && Boolean(column.prompt?.trim()),
+        column.recipe === 'web-research' &&
+        Boolean(column.prompt?.trim()) &&
+        (!columnIds || columnIds.includes(column.id)),
     );
-    const localResult = executeWorkspace(workspace, rowIds);
+    const localResult = executeWorkspace(workspace, rowIds, columnIds);
     let updated = localResult.workspace;
     const targetRows = rowIds
       ? updated.rows.filter((row) => rowIds.includes(row.id))

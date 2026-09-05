@@ -60,6 +60,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { applyCrmImport, type CrmImportMode } from '@/lib/crm-import';
+import { createCompanyListWorkspace } from '@/lib/company-list-builder';
 import { toControlTowerPreview } from '@/lib/control-tower-adapter';
 import {
   countEligibleRecipeActions,
@@ -422,6 +423,7 @@ export default function PomadeWorkspace() {
   const [waterfallBuilderOpen, setWaterfallBuilderOpen] = useState(false);
   const [recipeSettingsOpen, setRecipeSettingsOpen] = useState(false);
   const [researchBuilderOpen, setResearchBuilderOpen] = useState(false);
+  const [companyListOpen, setCompanyListOpen] = useState(false);
   const [templateSaveOpen, setTemplateSaveOpen] = useState(false);
   const [templateUseOpen, setTemplateUseOpen] = useState(false);
   const [researchConfirmOpen, setResearchConfirmOpen] = useState(false);
@@ -468,7 +470,12 @@ export default function PomadeWorkspace() {
     defaultResearchFields,
   );
   const [researchListLimit, setResearchListLimit] = useState(10);
+  const [icpBrief, setIcpBrief] = useState(
+    'B2B software companies with lean go-to-market teams that sell to revenue operations leaders in the United States.',
+  );
+  const [icpListLimit, setIcpListLimit] = useState(15);
   const [pendingRunRowIds, setPendingRunRowIds] = useState<string[]>([]);
+  const [pendingRunColumnIds, setPendingRunColumnIds] = useState<string[]>([]);
   const [scheduleCadence, setScheduleCadence] =
     useState<RecipeScheduleCadence>('once');
   const [scheduleRunAt, setScheduleRunAt] = useState(defaultScheduleTime);
@@ -639,8 +646,19 @@ export default function PomadeWorkspace() {
     waterfallSteps.every((step) => step.field) &&
     new Set(waterfallSteps.map((step) => step.field)).size ===
       waterfallSteps.length;
-  const webResearchColumns = workspace.columns.filter(
-    (column) => column.recipe === 'web-research',
+  const webResearchColumns = useMemo(
+    () =>
+      workspace.columns.filter((column) => column.recipe === 'web-research'),
+    [workspace.columns],
+  );
+  const pendingWebResearchColumns = useMemo(
+    () =>
+      pendingRunColumnIds.length
+        ? webResearchColumns.filter((column) =>
+            pendingRunColumnIds.includes(column.id),
+          )
+        : webResearchColumns,
+    [pendingRunColumnIds, webResearchColumns],
   );
   const connectedCount = [
     apolloStatus?.configured,
@@ -652,13 +670,13 @@ export default function PomadeWorkspace() {
     const pending = new Set(pendingRunRowIds);
     return countEligibleRecipeActions(
       workspace.rows.filter((row) => pending.has(row.id)),
-      webResearchColumns,
+      pendingWebResearchColumns,
     );
-  }, [pendingRunRowIds, webResearchColumns, workspace.rows]);
+  }, [pendingRunRowIds, pendingWebResearchColumns, workspace.rows]);
   const pendingListRowLimit = useMemo(() => {
     const pending = new Set(pendingRunRowIds);
     const pendingRows = workspace.rows.filter((row) => pending.has(row.id));
-    return webResearchColumns
+    return pendingWebResearchColumns
       .filter((column) => column.outputCardinality === 'list')
       .reduce(
         (total, column) =>
@@ -667,7 +685,7 @@ export default function PomadeWorkspace() {
             Math.min(25, Math.max(1, column.listLimit ?? 10)),
         0,
       );
-  }, [pendingRunRowIds, webResearchColumns, workspace.rows]);
+  }, [pendingRunRowIds, pendingWebResearchColumns, workspace.rows]);
   const maximumResearchActions =
     researchStatus?.capabilities.maximumActionsPerRun ?? 10;
   const scheduledTargetRows =
@@ -686,6 +704,7 @@ export default function PomadeWorkspace() {
     scheduledTargetRows.length > 0 &&
     scheduledResearchActionCount <= maximumResearchActions &&
     (webResearchColumns.length === 0 || scheduleConfirmsResearch);
+  const icpListReady = Boolean(icpBrief.trim()) && icpListLimit >= 1;
   const selectedReceipts = runHistory
     .flatMap((run) => run.receipts)
     .filter((receipt) => receipt.rowId === selected?.id)
@@ -734,6 +753,8 @@ export default function PomadeWorkspace() {
       ...column
     } = preset;
     const nextColumn = { id, ...column };
+    const pausesSchedule =
+      preset.recipe === 'web-research' && Boolean(workspace.schedule?.enabled);
     setWorkspace((current) => {
       const columns = [
         ...current.columns.filter((item) => item.kind !== 'status'),
@@ -746,13 +767,22 @@ export default function PomadeWorkspace() {
           columns,
         ),
       );
-      return { ...current, columns, rows, updatedAt: Date.now() };
+      return {
+        ...current,
+        columns,
+        rows,
+        schedule:
+          preset.recipe === 'web-research' && current.schedule?.enabled
+            ? pauseRecipeSchedule(current.schedule)
+            : current.schedule,
+        updatedAt: Date.now(),
+      };
     });
     setAddColumnOpen(false);
     setNotice(
       preset.kind === 'formula' && preset.autoRun
         ? `${preset.title} is live and will update with its inputs.`
-        : `${preset.title} is ready to run.`,
+        : `${preset.title} is ready to run${pausesSchedule ? ' · schedule paused for new provider scope' : ''}.`,
     );
   }
 
@@ -822,6 +852,9 @@ export default function PomadeWorkspace() {
         workspace.columns,
         templateBindings,
       );
+      const pausesSchedule =
+        activeTemplate.column.recipe === 'web-research' &&
+        Boolean(workspace.schedule?.enabled);
       setWorkspace((current) => {
         const columns = [
           ...current.columns.filter((column) => column.kind !== 'status'),
@@ -842,11 +875,21 @@ export default function PomadeWorkspace() {
             columns,
           ),
         );
-        return { ...current, columns, rows, updatedAt: Date.now() };
+        return {
+          ...current,
+          columns,
+          rows,
+          schedule:
+            activeTemplate.column.recipe === 'web-research' &&
+            current.schedule?.enabled
+              ? pauseRecipeSchedule(current.schedule)
+              : current.schedule,
+          updatedAt: Date.now(),
+        };
       });
       setTemplateUseOpen(false);
       setNotice(
-        `${activeTemplate.name} added with ${addedColumns.length} output${addedColumns.length === 1 ? '' : 's'}.`,
+        `${activeTemplate.name} added with ${addedColumns.length} output${addedColumns.length === 1 ? '' : 's'}${pausesSchedule ? ' · schedule paused for new provider scope' : ''}.`,
       );
     } catch (error) {
       setTemplateError(
@@ -876,6 +919,32 @@ export default function PomadeWorkspace() {
     setResearchFields(defaultResearchFields());
     setResearchListLimit(10);
     setResearchBuilderOpen(true);
+  }
+
+  function openCompanyListBuilder() {
+    setIcpListLimit(15);
+    setCompanyListOpen(true);
+  }
+
+  function createCompanyList() {
+    if (!icpListReady) return;
+    const result = createCompanyListWorkspace(workspace, {
+      brief: icpBrief,
+      limit: icpListLimit,
+      sourceRowId: crypto.randomUUID(),
+    });
+    setWorkspace(result.workspace);
+    setActiveRowId(result.sourceRowId);
+    setSelectedRowIds([result.sourceRowId]);
+    setFilter('All');
+    setQuery('');
+    setPendingRunRowIds([result.sourceRowId]);
+    setPendingRunColumnIds([result.researchColumnId]);
+    setCompanyListOpen(false);
+    setResearchConfirmOpen(true);
+    if (result.schedulePaused) {
+      setNotice('Schedule paused so you can approve the new research scope.');
+    }
   }
 
   function chooseResearchOutputMode(mode: ResearchOutputMode) {
@@ -1081,14 +1150,17 @@ export default function PomadeWorkspace() {
             ...Object.fromEntries(outputFields.map((field) => [field.id, ''])),
           },
         })),
+        schedule: current.schedule?.enabled
+          ? pauseRecipeSchedule(current.schedule)
+          : current.schedule,
         updatedAt: Date.now(),
       };
     });
     setResearchBuilderOpen(false);
     setNotice(
       researchOutputMode === 'list'
-        ? `${outputFields.length} fields are ready to create up to ${Math.min(25, Math.max(1, researchListLimit))} rows per source row.`
-        : `${outputFields.length} structured research columns are ready to run.`,
+        ? `${outputFields.length} fields are ready to create up to ${Math.min(25, Math.max(1, researchListLimit))} rows per source row${workspace.schedule?.enabled ? ' · schedule paused for new provider scope' : ''}.`
+        : `${outputFields.length} structured research columns are ready to run${workspace.schedule?.enabled ? ' · schedule paused for new provider scope' : ''}.`,
     );
   }
 
@@ -1300,15 +1372,19 @@ export default function PomadeWorkspace() {
   async function runEnrichment(
     rowIds = runTargetIds,
     confirmExternalResearch = false,
+    columnIds?: string[],
   ) {
     if (running || rowIds.length === 0) return;
     const target = new Set(rowIds);
     const eligibleResearchActions = countEligibleRecipeActions(
       workspace.rows.filter((row) => target.has(row.id)),
-      webResearchColumns,
+      columnIds?.length
+        ? webResearchColumns.filter((column) => columnIds.includes(column.id))
+        : webResearchColumns,
     );
     if (eligibleResearchActions > 0 && !confirmExternalResearch) {
       setPendingRunRowIds(rowIds);
+      setPendingRunColumnIds(columnIds ?? []);
       setResearchConfirmOpen(true);
       return;
     }
@@ -1328,6 +1404,7 @@ export default function PomadeWorkspace() {
         body: JSON.stringify({
           workspace,
           rowIds,
+          columnIds,
           confirmExternalResearch,
         }),
       });
@@ -1662,6 +1739,13 @@ export default function PomadeWorkspace() {
               >
                 <Upload /> Load data
               </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={openCompanyListBuilder}
+              >
+                <Building2 /> Find companies
+              </Button>
               <span className="toolbar-divider" />
               <span className="toolbar-stat">
                 <Rows3 /> {visibleRows.length} rows
@@ -1710,6 +1794,9 @@ export default function PomadeWorkspace() {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={openResearchBuilder}>
                     <Globe2 /> Add AI web research
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={openCompanyListBuilder}>
+                    <Building2 /> Find target companies
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setRecipeSettingsOpen(true)}>
                     <SlidersHorizontal /> Recipe run settings
@@ -2874,6 +2961,83 @@ export default function PomadeWorkspace() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={companyListOpen} onOpenChange={setCompanyListOpen}>
+        <DialogContent className="company-list-dialog">
+          <DialogHeader>
+            <DialogTitle>Find target companies</DialogTitle>
+            <DialogDescription>
+              Describe your ideal companies and Pomade will research a bounded,
+              evidence-backed list directly into this table.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="research-provider-state">
+            <span className="source-logo source-logo-gemini">
+              <Building2 />
+            </span>
+            <div>
+              <strong>ICP company finder</strong>
+              <small>
+                {researchStatus?.label ?? 'AI web research'} ·{' '}
+                {researchStatus?.model ?? 'Checking provider…'}
+              </small>
+            </div>
+            <span
+              className={`connection-badge ${researchStatus?.configured ? 'connection-ready' : ''}`}
+            >
+              {researchStatus?.configured ? 'Key ready' : 'Add key locally'}
+            </span>
+          </div>
+          <label className="research-field">
+            <span>Ideal customer profile</span>
+            <textarea
+              value={icpBrief}
+              maxLength={2_000}
+              onChange={(event) => setIcpBrief(event.target.value)}
+              placeholder="Who should Pomade find? Include market, geography, size, signals, and exclusions."
+            />
+          </label>
+          <label className="list-result-limit company-list-limit">
+            <span>
+              Maximum results <small>1–25 companies</small>
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={25}
+              value={icpListLimit}
+              onChange={(event) =>
+                setIcpListLimit(
+                  Math.min(25, Math.max(1, Number(event.target.value) || 1)),
+                )
+              }
+            />
+          </label>
+          <div className="company-list-outputs">
+            <span>Company</span>
+            <span>Domain</span>
+            <span>Fit reason</span>
+            <span>Employees</span>
+            <span>Headquarters</span>
+          </div>
+          <p className="research-safety">
+            Your existing rows stay in place. Pomade adds one reusable research
+            recipe and one source row, then asks you to confirm the provider
+            request before anything runs.
+            {workspace.schedule?.enabled
+              ? ' The active schedule will pause until you approve its new provider scope.'
+              : ''}
+          </p>
+          <div className="research-confirm-actions">
+            <Button variant="outline" onClick={() => setCompanyListOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={createCompanyList} disabled={!icpListReady}>
+              <Globe2 /> Continue to research
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={researchConfirmOpen} onOpenChange={setResearchConfirmOpen}>
         <DialogContent className="research-confirm-dialog">
           <DialogHeader>
@@ -2891,7 +3055,7 @@ export default function PomadeWorkspace() {
             </div>
             <div>
               <span>Research columns</span>
-              <strong>{webResearchColumns.length}</strong>
+              <strong>{pendingWebResearchColumns.length}</strong>
             </div>
             <div>
               <span>Maximum requests</span>
@@ -2929,9 +3093,15 @@ export default function PomadeWorkspace() {
             <Button
               onClick={() => {
                 const rowIds = pendingRunRowIds;
+                const columnIds = pendingRunColumnIds;
                 setResearchConfirmOpen(false);
                 setPendingRunRowIds([]);
-                void runEnrichment(rowIds, true);
+                setPendingRunColumnIds([]);
+                void runEnrichment(
+                  rowIds,
+                  true,
+                  columnIds.length ? columnIds : undefined,
+                );
               }}
               disabled={
                 !researchStatus?.configured ||

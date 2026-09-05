@@ -87,6 +87,9 @@ function cloneColumn(column: PomadeColumn): PomadeColumn {
     inputBindings: column.inputBindings
       ? { ...column.inputBindings }
       : undefined,
+    listDestinationBindings: column.listDestinationBindings
+      ? { ...column.listDestinationBindings }
+      : undefined,
     outputFields: column.outputFields?.map((field) => ({ ...field })),
     runCondition: column.runCondition ? { ...column.runCondition } : undefined,
     waterfallSteps: column.waterfallSteps?.map((step) => ({ ...step })),
@@ -252,6 +255,19 @@ export function instantiateRecipeTemplate(
         (output) => output.id === template.column.lineageColumnId,
       )
     : -1;
+  const listDestinationBindings = Object.fromEntries(
+    Object.entries(template.column.listDestinationBindings ?? {}).flatMap(
+      ([sourceOutputId, destinationId]) => {
+        const outputIndex = sourceOutputs.findIndex(
+          (output) => output.id === sourceOutputId,
+        );
+        const outputId = outputFields[outputIndex]?.id;
+        return outputId && usableIds.has(destinationId)
+          ? [[outputId, destinationId]]
+          : [];
+      },
+    ),
+  );
   const column: PomadeColumn = {
     ...cloneColumn(template.column),
     id: primary.id,
@@ -263,6 +279,9 @@ export function instantiateRecipeTemplate(
       lineageOutputIndex >= 0
         ? outputFields[lineageOutputIndex]?.id
         : undefined,
+    listDestinationBindings: Object.keys(listDestinationBindings).length
+      ? listDestinationBindings
+      : undefined,
     outputFields: template.column.outputFields ? outputFields : undefined,
     waterfallSteps: template.column.waterfallSteps?.map((step) => ({
       ...step,

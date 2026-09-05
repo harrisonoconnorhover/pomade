@@ -22,6 +22,10 @@ Bitscale or Clay.
 - [x] List-valued AI research with typed fields, configurable one-to-25-result
       limits, child-row provenance, and duplicate-free reruns. Crossed off
       2026-09-04.
+- [x] First-party ICP company-list builder with a preserved source row,
+      canonical company/domain mapping, five structured fields, scoped provider
+      confirmation, and additive insertion into the current table. Crossed off
+      2026-09-04.
 - [x] Durable delayed, every-24-hour, and every-seven-day recipe runs for the
       whole table or captured row IDs, with explicit provider consent and
       stop-on-error behavior. Crossed off 2026-09-04.
@@ -40,8 +44,8 @@ Bitscale or Clay.
 
 ## Core gaps to cross off
 
-- [ ] First-party company and people list builders from an ICP description,
-      search query, Maps, or job-board source.
+- [ ] First-party people lists plus company/people sourcing from saved searches,
+      Maps, and job-board sources.
 - [ ] Generic HTTP API enrichment plus inbound and outbound webhooks.
 - [ ] Background run queue with per-row progress, pause, retry, and resumable
       failures.
@@ -73,12 +77,12 @@ Bitscale or Clay.
 
 ## Next three slices
 
-1. Generic HTTP enrichment and webhooks, because one well-governed escape hatch
-   covers long-tail providers without hundreds of bespoke integrations.
-2. A first-party ICP company-list builder on top of list-to-row research, so a
-   user can start from a brief instead of first creating a source row manually.
-3. A background queue with per-row progress and resumable failures, so larger
+1. A background queue with per-row progress and resumable failures, so larger
    provider runs do not depend on one request staying open.
+2. Bulk provider enrichment, starting with the existing guarded Apollo person
+   match instead of requiring one active-row action at a time.
+3. CRM field mapping and governed writeback through GTM Control Tower, keeping
+   preview, approval, receipt, and rollback outside the enrichment grid.
 
 ## Official product references
 

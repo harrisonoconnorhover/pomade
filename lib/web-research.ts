@@ -343,6 +343,14 @@ export function applyWebResearchResult(
       values: {
         ...parentValues,
         ...values,
+        ...Object.fromEntries(
+          Object.entries(column.listDestinationBindings ?? {}).flatMap(
+            ([sourceId, destinationId]) =>
+              Object.hasOwn(values, sourceId)
+                ? [[destinationId, values[sourceId]]]
+                : [],
+          ),
+        ),
         [`__research_${column.id}_raw`]: result.answer,
         status: grounded ? 'Ready' : 'Review',
       },
