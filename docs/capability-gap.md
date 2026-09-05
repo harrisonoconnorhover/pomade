@@ -83,7 +83,9 @@ Bitscale or Clay.
 - [x] Authenticated durable inbound webhook inbox with delivery-key deduplication,
       payload conflict detection, paginated retrieval, nested field mapping,
       import preview and source provenance. Verified locally on 2026-09-05.
-- [ ] Automatic webhook-to-table ingestion, saved source mappings, provider-specific
+- [x] Saved per-source webhook field mappings, filtered inbox pages and validation
+      against current destination columns. Verified on 2026-09-05.
+- [ ] Automatic webhook-to-table ingestion, provider-specific
       signatures and trigger-to-recipe execution.
 - [ ] HTTP pagination, additional methods, connection portability, API-as-source,
       and outbound webhook workflows.
@@ -133,7 +135,7 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Saved webhook mappings and automatic ingestion with safe concurrent table writes;
+1. Automatic ingestion with safe concurrent table writes;
    API-as-source to feed real table workflows.
 2. Repeatable cross-table transfers, richer lookup matching/aggregation and
    reusable workbook templates.

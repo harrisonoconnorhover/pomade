@@ -62,15 +62,7 @@ export function importWebhookEvents(
   events: WebhookEvent[],
   mapping: Record<string, string>,
 ) {
-  const fields = Object.entries(mapping).filter(([, path]) => path.trim());
-  if (!fields.length) throw new Error('Map at least one input column.');
-  for (const [id, path] of fields) {
-    if (
-      !workspace.columns.some((c) => c.id === id && c.kind === 'text') ||
-      !/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/.test(path)
-    )
-      throw new Error('Map valid JSON paths to input text columns only.');
-  }
+  const fields = Object.entries(validateWebhookMapping(workspace, mapping));
   const known = new Set(workspace.rows.map((r) => r.id));
   const added: PomadeRow[] = [];
   let skipped = 0;
@@ -114,5 +106,37 @@ export function importWebhookEvents(
     },
     added: added.length,
     skipped,
+  };
+}
+
+export function validateWebhookMapping(
+  workspace: WorkspaceSnapshot,
+  mapping: Record<string, string>,
+) {
+  const fields = Object.entries(mapping).filter(([, path]) => path.trim());
+  if (!fields.length) throw new Error('Map at least one input column.');
+  for (const [id, path] of fields) {
+    if (
+      !workspace.columns.some((c) => c.id === id && c.kind === 'text') ||
+      !/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/.test(path)
+    )
+      throw new Error('Map valid JSON paths to input text columns only.');
+  }
+  return Object.fromEntries(fields.map(([id, path]) => [id, path.trim()]));
+}
+export function saveWebhookMapping(
+  workspace: WorkspaceSnapshot,
+  sourceId: string,
+  mapping: Record<string, string>,
+) {
+  if (!/^[a-zA-Z0-9_-]{1,80}$/.test(sourceId))
+    throw new Error('Choose a webhook source.');
+  return {
+    ...workspace,
+    webhookMappings: {
+      ...workspace.webhookMappings,
+      [sourceId]: validateWebhookMapping(workspace, mapping),
+    },
+    updatedAt: Date.now(),
   };
 }

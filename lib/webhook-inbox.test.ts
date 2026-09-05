@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  saveWebhookMapping,
   webhookRecords,
   webhookSources,
   importWebhookEvents,
@@ -21,6 +22,33 @@ const event: WebhookEvent = {
 };
 const table = () => createTable({ id: 'test', name: 'Test', mode: 'empty' });
 describe('webhook inbox', () => {
+  it('persists separate source mappings and rejects deleted destinations', () => {
+    const first = saveWebhookMapping(table(), 'crm', {
+      company: 'account.name',
+    });
+    const second = saveWebhookMapping(first, 'form', {
+      email: 'contact.email',
+    });
+    expect(second.webhookMappings).toEqual({
+      crm: { company: 'account.name' },
+      form: { email: 'contact.email' },
+    });
+    const reloaded = JSON.parse(JSON.stringify(second));
+    expect(
+      importWebhookEvents(
+        reloaded,
+        [{ ...event, records: [{ account: { name: 'Saved' } }] }],
+        reloaded.webhookMappings.crm,
+      ).workspace.rows[0].values.company,
+    ).toBe('Saved');
+    reloaded.columns = reloaded.columns.filter(
+      (c: { id: string }) => c.id !== 'company',
+    );
+    expect(() =>
+      importWebhookEvents(reloaded, [event], reloaded.webhookMappings.crm),
+    ).toThrow();
+    expect(first.webhookMappings).not.toHaveProperty('form');
+  });
   it('validates configured source boundaries and record batches', () => {
     expect(webhookSources()).toEqual([]);
     expect(() =>

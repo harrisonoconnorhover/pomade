@@ -56,6 +56,7 @@ export function createTable(options: {
       id,
       name,
       schedule: undefined,
+      webhookMappings: undefined,
       updatedAt: now,
     };
   }

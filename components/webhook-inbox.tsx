@@ -8,15 +8,22 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { importWebhookEvents, type WebhookEvent } from '@/lib/webhook-inbox';
+import {
+  importWebhookEvents,
+  saveWebhookMapping,
+  validateWebhookMapping,
+  type WebhookEvent,
+} from '@/lib/webhook-inbox';
 import type { WorkspaceSnapshot } from '@/lib/pomade-types';
 export default function WebhookInbox({
   workspace,
   disabled,
   onImport,
+  onSaveMapping,
 }: {
   workspace: WorkspaceSnapshot;
   disabled: boolean;
+  onSaveMapping: (workspace: WorkspaceSnapshot) => void;
   onImport: (workspace: WorkspaceSnapshot, count: number) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -25,6 +32,7 @@ export default function WebhookInbox({
   const [events, setEvents] = useState<WebhookEvent[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [sources, setSources] = useState<{ id: string; path: string }[]>([]);
+  const [sourceId, setSourceId] = useState('');
   const [offset, setOffset] = useState(0);
   const [more, setMore] = useState(false);
   const [mapping, setMapping] = useState<Record<string, string>>({
@@ -33,12 +41,14 @@ export default function WebhookInbox({
     person: 'person',
     email: 'email',
   });
-  async function load(page = 0) {
+  async function load(page = 0, source = sourceId) {
     setBusy(true);
+    setSelected([]);
+    setEvents([]);
     setError('');
     try {
       const response = await fetch(
-        `/api/webhooks?workspaceId=${encodeURIComponent(workspace.id)}&offset=${page}`,
+        `/api/webhooks?workspaceId=${encodeURIComponent(workspace.id)}&offset=${page}&source=${encodeURIComponent(source)}`,
       );
       const data = (await response.json()) as {
         error?: string;
@@ -60,13 +70,15 @@ export default function WebhookInbox({
     }
   }
   const chosen = events.filter((e) => selected.includes(e.id));
-  const validMapping = Object.fromEntries(
-    Object.entries(mapping).filter(([id]) =>
-      workspace.columns.some((c) => c.id === id && c.kind === 'text'),
-    ),
-  );
+  const validMapping = mapping;
   let preview: ReturnType<typeof importWebhookEvents> | undefined;
   let previewError = '';
+  let mappingError = '';
+  try {
+    validateWebhookMapping(workspace, mapping);
+  } catch (e) {
+    mappingError = e instanceof Error ? e.message : 'Invalid mapping.';
+  }
   if (chosen.length)
     try {
       preview = importWebhookEvents(workspace, chosen, validMapping);
@@ -154,6 +166,40 @@ export default function WebhookInbox({
               Older
             </Button>
           </div>
+          <label>
+            Mapping source
+            <select
+              value={sourceId}
+              disabled={busy}
+              onChange={(e) => {
+                const id = e.target.value;
+                setSourceId(id);
+                setMapping(
+                  workspace.webhookMappings?.[id] ??
+                    Object.fromEntries(
+                      workspace.columns
+                        .filter((c) => c.kind === 'text')
+                        .map((c) => [c.id, c.id]),
+                    ),
+                );
+                void load(0, id);
+              }}
+            >
+              <option value="">All sources · ad hoc mapping</option>
+              {[
+                ...new Set([
+                  ...sources.map((s) => s.id),
+                  ...events.map((e) => e.sourceId),
+                  ...Object.keys(workspace.webhookMappings ?? {}),
+                ]),
+              ].map((id) => (
+                <option key={id} value={id}>
+                  {id}
+                  {workspace.webhookMappings?.[id] ? ' · saved' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="http-output-grid">
             {workspace.columns
               .filter((c) => c.kind === 'text')
@@ -170,6 +216,70 @@ export default function WebhookInbox({
                 </label>
               ))}
           </div>
+          {mappingError ? (
+            <p role="alert">
+              {mappingError} Remove unavailable fields below or restore their
+              columns.
+            </p>
+          ) : null}
+          {Object.keys(mapping)
+            .filter(
+              (id) =>
+                !workspace.columns.some(
+                  (c) => c.id === id && c.kind === 'text',
+                ),
+            )
+            .map((id) => (
+              <Button
+                variant="outline"
+                key={id}
+                onClick={() =>
+                  setMapping((current) =>
+                    Object.fromEntries(
+                      Object.entries(current).filter(([key]) => key !== id),
+                    ),
+                  )
+                }
+              >
+                Remove unavailable mapping: {id}
+              </Button>
+            ))}
+          <Button
+            variant="outline"
+            disabled={disabled || busy || !sourceId || Boolean(mappingError)}
+            onClick={() => {
+              try {
+                onSaveMapping(saveWebhookMapping(workspace, sourceId, mapping));
+                setError('Mapping saved to this table.');
+              } catch (e) {
+                setError(
+                  e instanceof Error
+                    ? e.message
+                    : 'Mapping could not be saved.',
+                );
+              }
+            }}
+          >
+            Save mapping for source
+          </Button>
+          {sourceId && workspace.webhookMappings?.[sourceId] ? (
+            <Button
+              variant="outline"
+              disabled={disabled || busy}
+              onClick={() => {
+                const next = { ...workspace.webhookMappings };
+                delete next[sourceId];
+                onSaveMapping({
+                  ...workspace,
+                  webhookMappings: next,
+                  updatedAt: Date.now(),
+                });
+                setError('Saved mapping removed.');
+              }}
+            >
+              Forget saved mapping
+            </Button>
+          ) : null}
           {chosen[0] ? (
             <details>
               <summary>First source record</summary>

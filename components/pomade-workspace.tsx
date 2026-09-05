@@ -2622,6 +2622,10 @@ export default function PomadeWorkspace({
                 <Upload /> Load data
               </Button>
               <WebhookInbox
+                onSaveMapping={(next) => {
+                  setWorkspace(next);
+                  setNotice('Webhook source mapping updated.');
+                }}
                 workspace={workspace}
                 disabled={jobLocksWorkspace}
                 onImport={(next, count) => {

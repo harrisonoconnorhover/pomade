@@ -257,8 +257,11 @@ start in Review and pause any active schedule. Run enrichments when ready.
 
 Events are retained for reimport; deleting an imported row permits its deliberate
 reimport. Matching uses delivery identity, not company/domain deduplication.
-Mappings currently apply to the open dialog; saved mappings and automatic table
-ingestion are pending. Keep the installation private: bearer authentication covers
+Choose a mapping source to filter deliveries and restore its saved field map.
+Use **Save mapping for source** to reuse it after reloading; **Forget saved mapping**
+removes that preset. Deleted destination columns block import until corrected.
+Duplicating a table does not copy source-bound mappings. Automatic table ingestion
+is still pending. Keep the installation private: bearer authentication covers
 webhook delivery, while the operator UI and inbox use the existing single-user
 trust boundary. Remote senders need a reachable installation; no public endpoint
 or tunnel was created for this local build.

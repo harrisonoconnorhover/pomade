@@ -468,3 +468,13 @@ a bearer token; operator inbox reads share the rest of the application's current
 access boundary. No tunnel or public deployment was created. Events are retained,
 and mappings are currently dialog-local; automatic processing and retention
 management remain follow-on work.
+
+## Save webhook mappings with the table
+
+Each source name has its own column-to-JSON-path mapping in the table snapshot.
+Existing autosave and version history persist these presets without another
+configuration store. Selecting a source filters its deliveries before pagination
+and restores its preset; source changes clear prior selections. Validation rejects
+missing destination columns rather than silently omitting mapped values. Duplicate
+tables drop source-bound mappings because receiver routing remains server-configured.
+Automatic delivery processing still requires concurrent-write coordination.

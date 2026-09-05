@@ -2,40 +2,38 @@
 
 ## Finished
 
-- Added authenticated JSON webhook delivery into a durable, table-scoped inbox.
-- Added delivery-key deduplication, changed-payload conflict detection and bounded payload validation.
-- Added inbox pagination, delivery selection, nested JSON field mapping and import previews.
-- Imported rows preserve source provenance and existing edits; repeat imports skip existing event rows and pause active schedules.
-- Updated the competitor checklist with automatic ingestion explicitly remaining open. Local build only.
+- Added saved webhook mappings per source, restored when that source is selected.
+- Filtered inbox deliveries by source before pagination and cleared stale selections on source changes.
+- Added explicit correction for missing destination columns and removal of saved presets.
+- Kept source-bound mappings out of duplicated tables.
 
 ## Try It
 
-Set `POMADE_WEBHOOK_SOURCES` in ignored `.env.local` using `.env.example`, then run `npm run dev`. Open **Webhook inbox** beside Find companies for the table ID and endpoint. POST JSON with a bearer token and stable Idempotency-Key. Refresh the inbox, select deliveries, map fields and import. Run recipes separately. Test server stopped after verification.
+Run `npm run dev`, open **Webhook inbox**, choose a **Mapping source**, map JSON paths and click **Save mapping for source**. Select deliveries and preview the import. Reloading the table and selecting that source restores its mapping. Test server stopped after verification.
 
 ## Checks
 
-- Full suite: 127 tests passed before final schedule adjustment; focused webhook suite: 5 passed after it.
-- Final typecheck, lint and production build passed.
-- Isolated Worker + D1 passed authentication, durable receipts, retries, concurrent deduplication, changed-payload conflicts, invalid/oversized rejection, token-free catalog, table separation and pagination.
-- Receiving events left the grid unchanged; home HTTP smoke and final diff whitespace check passed.
-- No browser interaction test, real provider calls or public deployment.
+- 10 focused webhook/workbook tests passed.
+- Typecheck, lint and final production build passed.
+- Isolated Worker + D1 checks passed: save/reload, filtered source reads, duplication, persistent preset removal and home HTTP 200.
+- Final diff whitespace check passed. No browser interaction test, paid calls or public deployment.
 
 ## Decisions
 
-- Stage deliveries separately because whole-table editor saves cannot yet safely overlap automatic ingestion.
-- Reuse sender delivery keys and stable event row IDs; do not imply business-key deduplication.
-- Pause schedules when imports add rows. Keep publication and signup deferred.
+- Store mappings in existing versioned table snapshots.
+- Reject missing destinations instead of dropping values silently.
+- Keep the full competitor goal active; commit locally only.
 
 ## Remaining
 
-- Saved mappings and automatic webhook ingestion with safe overlapping table writes.
-- API-as-source, pagination, true provider fallback and richer table transfers.
-- More sourcing, signals, reusable multi-step functions and governed CRM writeback.
-- Event retention controls and provider-specific signature adapters.
+- Automatic webhook ingestion with safe concurrent table writes.
+- API-as-source, pagination and true provider fallback.
+- Richer table transfers, more sources, signals and reusable multi-step functions.
+- Governed CRM writeback and webhook retention controls.
 - Later: independent self-host packaging, account isolation, Google sign-in and public release.
 
 ## Review First
 
-- `app/api/webhooks/route.ts` for authentication, idempotency and durable receipt behavior.
-- `lib/webhook-inbox.ts` and tests for mapping, stable IDs and schedule scope.
-- `components/webhook-inbox.tsx` for inbox selection and import preview.
+- `components/webhook-inbox.tsx` for source selection and saved mapping controls.
+- `lib/webhook-inbox.ts` and tests for mapping persistence and destination validation.
+- `app/api/webhooks/route.ts` for filtering before pagination.

@@ -123,6 +123,7 @@ export async function GET(request: Request) {
   const query = new URL(request.url).searchParams;
   const tableId = query.get('workspaceId') ?? '';
   const offset = Number(query.get('offset') ?? 0);
+  const source = query.get('source') || null;
   if (!Number.isSafeInteger(offset) || offset < 0)
     return Response.json({ error: 'Invalid inbox offset.' }, { status: 400 });
   let sources;
@@ -137,9 +138,9 @@ export async function GET(request: Request) {
   const db = await ensureDatabase();
   const result = await db
     .prepare(
-      'SELECT id, source_id, records, received_at FROM webhook_events WHERE workspace_id = ? ORDER BY received_at DESC, id DESC LIMIT 51 OFFSET ?',
+      'SELECT id, source_id, records, received_at FROM webhook_events WHERE workspace_id = ? AND (? IS NULL OR source_id = ?) ORDER BY received_at DESC, id DESC LIMIT 51 OFFSET ?',
     )
-    .bind(tableId, offset)
+    .bind(tableId, source, source, offset)
     .all<{
       id: string;
       source_id: string;

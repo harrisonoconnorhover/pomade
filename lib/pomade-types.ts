@@ -165,6 +165,7 @@ export type WorkspaceSnapshot = {
   name: string;
   columns: PomadeColumn[];
   rows: PomadeRow[];
+  webhookMappings?: Record<string, Record<string, string>>;
   recipeTemplates?: RecipeTemplate[];
   savedViews?: SavedView[];
   schedule?: RecipeSchedule;
