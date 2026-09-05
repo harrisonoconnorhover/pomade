@@ -426,3 +426,25 @@ Lookup templates can be reused within this workbook and remap their local input
 and output IDs; source-table references remain explicit. Portable recipe export
 currently refuses lookups because it cannot remap a table on another installation.
 Local receipt durations now measure actual execution rather than simulated time.
+
+## Generic HTTP connections and ordered execution
+
+The operator configures named origins, allowed methods and headers in server
+configuration. Saved recipes contain a connection ID, relative path, optional
+JSON body and output mappings. Row tokens cannot change the connection origin;
+POST interpolation occurs after parsing JSON. The browser receives no configured
+headers. This deliberately supports operator-owned internal APIs and is not a
+multi-user credential permission model.
+
+Selected recipe columns run in grid order against the latest row values. Scope
+limits and consent use the maximum possible external calls, including conditions
+that upstream results could make true. Existing research caching remains; HTTP
+requests have no automatic retry or cache because their remote effects are
+unknown. Receipts retain partial successes and technical errors; background jobs
+and schedules stop on technical failures while ordinary data-review outcomes
+remain reviewable results. Explicit manual retry still needs endpoint judgment.
+
+The first HTTP slice supports GET and JSON POST, 15-second requests, 1 MiB JSON
+responses, one-to-four mapped fields and no redirects. Same-installation templates
+remap row inputs and outputs. Export rejects HTTP recipes until cross-installation
+connection mapping exists. Keep commits local and defer signup and publication.

@@ -1,3 +1,4 @@
+import { httpInputFields } from './http-enrichment';
 import type {
   PomadeColumn,
   RecipeTemplate,
@@ -55,6 +56,8 @@ function humanize(value: string) {
 }
 
 function recipeInputSpecs(column: PomadeColumn): RecipeInputSpec[] {
+  if (column.recipe === 'http-api' && column.http)
+    return httpInputFields(column.http).map((key) => ({ key, required: true }));
   if (column.recipe === 'custom-formula') {
     return templateFields(column.expression).map((key) => ({
       key,
@@ -85,6 +88,7 @@ function recipeInputSpecs(column: PomadeColumn): RecipeInputSpec[] {
 function cloneColumn(column: PomadeColumn): PomadeColumn {
   return {
     ...column,
+    http: column.http ? structuredClone(column.http) : undefined,
     lookup: column.lookup ? structuredClone(column.lookup) : undefined,
     inputBindings: column.inputBindings
       ? { ...column.inputBindings }
@@ -273,6 +277,26 @@ export function instantiateRecipeTemplate(
   const column: PomadeColumn = {
     ...cloneColumn(template.column),
     id: primary.id,
+    http: template.column.http
+      ? {
+          ...structuredClone(template.column.http),
+          outputs: template.column.http.outputs.map((output) => ({
+            ...output,
+            outputColumnId:
+              outputFields[
+                sourceOutputs.findIndex(
+                  (field) => field.id === output.outputColumnId,
+                )
+              ]?.id ?? output.outputColumnId,
+          })),
+          statusColumnId:
+            outputFields[
+              sourceOutputs.findIndex(
+                (field) => field.id === template.column.http!.statusColumnId,
+              )
+            ]?.id ?? template.column.http.statusColumnId,
+        }
+      : undefined,
     lookup: template.column.lookup
       ? {
           ...structuredClone(template.column.lookup),

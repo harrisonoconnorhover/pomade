@@ -3337,3 +3337,8 @@ button {
 .lookup-preview table { width: 100%; border-collapse: collapse; }
 .lookup-preview th, .lookup-preview td { border: 1px solid var(--border); padding: 8px; text-align: left; min-width: 100px; }
 .lookup-note { font-size: 14px; color: var(--muted-foreground); }
+
+.http-output-fields { display: grid; gap: 12px; font-size: 14px; }
+.http-output-fields input, .workbook-name textarea { border: 1px solid var(--border); padding: 8px; border-radius: 6px; min-width: 0; }
+.http-request-preview { font-size: 14px; overflow-x: auto; }
+.http-request-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; background: var(--muted); }

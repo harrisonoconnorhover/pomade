@@ -1,16 +1,16 @@
 import { env } from 'cloudflare:workers';
+import {
+  countMaximumExternalActions,
+  isExternalRecipe,
+} from '@/lib/external-recipes';
+import { executeHttpRecipe, httpConnections } from '@/lib/http-enrichment';
+import { executeRecipePipeline } from '@/lib/recipe-pipeline';
 
 import { ensureDatabase } from '@/db/ensure';
 import { versionedWorkspaceStatements } from '@/db/workspace-store';
 import { GeminiWebResearchClient } from '@/lib/gemini-client';
-import {
-  countEligibleRecipeActions,
-  executeWorkspace,
-  shouldRunRecipe,
-} from '@/lib/local-recipe-engine';
 import { ParallelWebResearchClient } from '@/lib/parallel-client';
 import type {
-  PomadeColumn,
   RunReceipt,
   WebResearchResult,
   WorkspaceSnapshot,
@@ -58,7 +58,6 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const startedAt = Date.now();
     const body: unknown = await request.json();
     const workspace = (body as { workspace?: unknown })?.workspace;
     const requestedRowIds = (body as { rowIds?: unknown })?.rowIds;
@@ -126,12 +125,6 @@ export async function POST(request: Request) {
     const originalTargetRows = rowIds
       ? workspace.rows.filter((row) => rowIds.includes(row.id))
       : workspace.rows;
-    const researchColumns = workspace.columns.filter(
-      (column): column is PomadeColumn & { prompt: string } =>
-        column.recipe === 'web-research' &&
-        Boolean(column.prompt?.trim()) &&
-        (!columnIds || columnIds.includes(column.id)),
-    );
     const db = await ensureDatabase();
     const lookupTables: Record<string, WorkspaceSnapshot> = {};
     const sourceIds = new Set(
@@ -151,51 +144,34 @@ export async function POST(request: Request) {
         .first<{ snapshot: string }>();
       if (source) lookupTables[sourceId] = JSON.parse(source.snapshot);
     }
-    const localResult = executeWorkspace(
-      workspace,
-      rowIds,
-      columnIds,
-      lookupTables,
+    const externalColumns = workspace.columns.filter(
+      (column) =>
+        isExternalRecipe(column) &&
+        (!columnIds || columnIds.includes(column.id)),
     );
-    let updated = localResult.workspace;
-    const targetRows = rowIds
-      ? updated.rows.filter((row) => rowIds.includes(row.id))
-      : updated.rows;
-    const researchActionCount = countEligibleRecipeActions(
-      targetRows,
-      researchColumns,
+    const maximumRequests = countMaximumExternalActions(
+      originalTargetRows,
+      externalColumns,
     );
-    const skippedResearchActionCount =
-      originalTargetRows.length * researchColumns.length - researchActionCount;
-    if (researchActionCount > MAX_RESEARCH_ACTIONS) {
+    if (maximumRequests > MAX_RESEARCH_ACTIONS)
       return Response.json(
         {
-          error: `This run would make ${researchActionCount} web research requests. Select fewer rows so the total is ${MAX_RESEARCH_ACTIONS} or less.`,
+          error: `This run allows up to ${maximumRequests} external requests. Select a scope of ${MAX_RESEARCH_ACTIONS} or fewer.`,
         },
         { status: 400 },
       );
-    }
-    if (researchActionCount > 0 && !confirmedResearch) {
+    if (maximumRequests > 0 && !confirmedResearch)
       return Response.json(
-        {
-          error: 'Confirm the external web research requests before running.',
-        },
+        { error: 'Confirm the external requests before running.' },
         { status: 400 },
       );
-    }
+    const connections = externalColumns.some(
+      (column) => column.recipe === 'http-api',
+    )
+      ? httpConnections(env.POMADE_HTTP_CONNECTIONS)
+      : [];
     const parallelConfigured = Boolean(env.PARALLEL_API_KEY?.trim());
     const geminiConfigured = Boolean(env.GEMINI_API_KEY?.trim());
-    if (researchActionCount > 0 && !parallelConfigured && !geminiConfigured) {
-      return Response.json(
-        {
-          error:
-            'Web research is not configured. Add PARALLEL_API_KEY or GEMINI_API_KEY to .env.local and restart Pomade.',
-        },
-        { status: 503 },
-      );
-    }
-
-    const receipts = [...localResult.run.receipts];
     const researchProvider = parallelConfigured ? 'parallel' : 'gemini';
     const model = parallelConfigured
       ? env.PARALLEL_MODEL?.trim() || 'speed'
@@ -210,98 +186,124 @@ export async function POST(request: Request) {
           model,
         });
 
-    for (const row of targetRows) {
-      for (const column of researchColumns) {
-        if (!shouldRunRecipe(column, row)) continue;
+    const result = await executeRecipePipeline(
+      workspace,
+      rowIds,
+      columnIds,
+      lookupTables,
+      async (currentWorkspace, rowId, column) => {
+        if (column.recipe === 'http-api')
+          return executeHttpRecipe(
+            currentWorkspace,
+            rowId,
+            column,
+            connections,
+          );
         const actionStartedAt = Date.now();
-        const currentRow = updated.rows.find(
-          (candidate) => candidate.id === row.id,
-        );
-        if (!currentRow) continue;
-        const prompt = renderWebResearchPrompt(
-          column.prompt,
-          currentRow,
-          column.outputFields,
-          column.inputBindings,
-          column.outputCardinality,
-          column.listLimit,
-        );
-        const cacheKey = await webResearchCacheKey(model, prompt);
-        const now = Date.now();
-        const cached = await db
-          .prepare(
-            'SELECT payload FROM provider_cache WHERE cache_key = ? AND provider = ? AND expires_at > ?',
-          )
-          .bind(cacheKey, researchProvider, now)
-          .first<{ payload: string }>();
-
-        let result: WebResearchResult;
-        if (cached) {
-          result = {
-            ...(JSON.parse(cached.payload) as WebResearchResult),
-            cached: true,
-          };
-        } else {
-          result = await researchClient.research(prompt);
-          await db
+        const currentRow = currentWorkspace.rows.find(
+          (row) => row.id === rowId,
+        )!;
+        try {
+          if (!parallelConfigured && !geminiConfigured)
+            throw new Error('Web research is not configured.');
+          const prompt = renderWebResearchPrompt(
+            column.prompt ?? '',
+            currentRow,
+            column.outputFields,
+            column.inputBindings,
+            column.outputCardinality,
+            column.listLimit,
+          );
+          const cacheKey = await webResearchCacheKey(model, prompt);
+          const now = Date.now();
+          const cached = await db
             .prepare(
-              `INSERT INTO provider_cache (cache_key, provider, payload, created_at, expires_at)
+              'SELECT payload FROM provider_cache WHERE cache_key = ? AND provider = ? AND expires_at > ?',
+            )
+            .bind(cacheKey, researchProvider, now)
+            .first<{ payload: string }>();
+
+          let result: WebResearchResult;
+          if (cached) {
+            result = {
+              ...(JSON.parse(cached.payload) as WebResearchResult),
+              cached: true,
+            };
+          } else {
+            result = await researchClient.research(prompt);
+            await db
+              .prepare(
+                `INSERT INTO provider_cache (cache_key, provider, payload, created_at, expires_at)
               VALUES (?, ?, ?, ?, ?)
               ON CONFLICT(cache_key) DO UPDATE SET
                 payload = excluded.payload,
                 created_at = excluded.created_at,
                 expires_at = excluded.expires_at`,
-            )
-            .bind(
-              cacheKey,
-              researchProvider,
-              JSON.stringify(result),
-              now,
-              now + RESEARCH_CACHE_TTL_MS,
-            )
-            .run();
+              )
+              .bind(
+                cacheKey,
+                researchProvider,
+                JSON.stringify(result),
+                now,
+                now + RESEARCH_CACHE_TTL_MS,
+              )
+              .run();
+          }
+
+          return applyWebResearchResult(
+            currentWorkspace,
+            rowId,
+            column,
+            result,
+            actionStartedAt,
+            researchProvider,
+          );
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : 'Research failed.';
+          const values = Object.fromEntries(
+            (column.outputFields ?? [{ id: column.id }]).map((field) => [
+              field.id,
+              '',
+            ]),
+          );
+          return {
+            workspace: {
+              ...currentWorkspace,
+              rows: currentWorkspace.rows.map((row) =>
+                row.id === rowId
+                  ? { ...row, values: { ...row.values, ...values } }
+                  : row,
+              ),
+            },
+            receipt: {
+              id: crypto.randomUUID(),
+              rowId,
+              rowLabel: currentRow.values.company || rowId,
+              columnId: column.id,
+              action: column.title,
+              status: 'review',
+              before: currentRow.values[column.id] ?? '',
+              after: '',
+              outputValues: values,
+              durationMs: Date.now() - actionStartedAt,
+              provider:
+                parallelConfigured || geminiConfigured
+                  ? researchProvider
+                  : 'local',
+              creditsConsumed: null,
+              evidence: [message],
+              error: message,
+            },
+          };
         }
-
-        const applied = applyWebResearchResult(
-          updated,
-          row.id,
-          column,
-          result,
-          actionStartedAt,
-          researchProvider,
-        );
-        updated = applied.workspace;
-        receipts.push(applied.receipt);
-      }
-    }
-
-    const finishedAt = Date.now();
-    const hasLocalActions = localResult.run.receipts.length > 0;
-    const hasResearchActions = researchActionCount > 0;
-    const run: RunReceipt = {
-      id: crypto.randomUUID(),
-      workspaceId: workspace.id,
-      status: 'completed',
-      startedAt,
-      finishedAt,
-      rowCount: targetRows.length,
-      actionCount: receipts.length,
-      passedCount: receipts.filter((receipt) => receipt.status === 'passed')
-        .length,
-      reviewCount: receipts.filter((receipt) => receipt.status === 'review')
-        .length,
-      skippedCount:
-        (localResult.run.skippedCount ?? 0) + skippedResearchActionCount,
-      externalWrites: 0,
-      provider:
-        hasResearchActions && hasLocalActions
-          ? 'mixed'
-          : hasResearchActions
-            ? researchProvider
-            : 'local',
-      researchProvider: hasResearchActions ? researchProvider : undefined,
-      receipts,
-    };
+      },
+    );
+    const updated = result.workspace;
+    const run = result.run;
+    if (run.receipts.some((receipt) => receipt.provider === researchProvider))
+      run.researchProvider = researchProvider;
+    const finishedAt = run.finishedAt;
 
     const workspaceStatements = await versionedWorkspaceStatements(
       db,

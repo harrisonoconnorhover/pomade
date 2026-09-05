@@ -133,6 +133,10 @@ export async function runDueSchedules(
         );
       }
       latestWorkspace = result.workspace;
+      const stepError = result.run.receipts.find(
+        (receipt) => receipt.error,
+      )?.error;
+      if (stepError) throw new Error(stepError);
       await saveWorkspace(
         env,
         completeClaimedSchedule(result.workspace, result.run, Date.now()),
@@ -292,6 +296,10 @@ export async function runQueuedJobs(
           result.error || `Background row failed (${response.status}).`,
         );
       }
+      const stepError = result.run.receipts.find(
+        (receipt) => receipt.error,
+      )?.error;
+      if (stepError) throw new Error(stepError);
       await finishRunJobStep(env, job, { runId: result.run.id });
     } catch (error) {
       const message =

@@ -48,6 +48,11 @@ import Papa from 'papaparse';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import HttpRecipeBuilder from '@/components/http-recipe-builder';
+import {
+  countMaximumExternalActions,
+  isExternalRecipe,
+} from '@/lib/external-recipes';
 import TableLookupBuilder from '@/components/table-lookup-builder';
 import {
   Dialog,
@@ -77,7 +82,6 @@ import {
   type ControlTowerFieldMapping,
 } from '@/lib/control-tower-adapter';
 import {
-  countEligibleRecipeActions,
   recalculateAutomaticFormulas,
   renderCustomFormula,
 } from '@/lib/local-recipe-engine';
@@ -427,13 +431,11 @@ function cadenceLabel(cadence: RecipeScheduleCadence) {
 }
 
 function providerLabel(run?: RunReceipt) {
+  if (run?.provider === 'http') return 'HTTP API';
   if (run?.provider === 'apollo') return 'Apollo';
   if (run?.provider === 'parallel') return 'Parallel research';
   if (run?.provider === 'gemini') return 'Gemini research';
-  if (run?.provider === 'mixed')
-    return run.researchProvider === 'parallel'
-      ? 'Pomade + Parallel'
-      : 'Pomade + Gemini';
+  if (run?.provider === 'mixed') return 'Pomade + providers';
   return 'Pomade runner';
 }
 
@@ -481,6 +483,7 @@ export default function PomadeWorkspace({
 
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [lookupBuilderOpen, setLookupBuilderOpen] = useState(false);
+  const [httpBuilderOpen, setHttpBuilderOpen] = useState(false);
   const [formulaBuilderOpen, setFormulaBuilderOpen] = useState(false);
   const [waterfallBuilderOpen, setWaterfallBuilderOpen] = useState(false);
   const [recipeSettingsOpen, setRecipeSettingsOpen] = useState(false);
@@ -863,8 +866,7 @@ export default function PomadeWorkspace({
     new Set(waterfallSteps.map((step) => step.field)).size ===
       waterfallSteps.length;
   const webResearchColumns = useMemo(
-    () =>
-      workspace.columns.filter((column) => column.recipe === 'web-research'),
+    () => workspace.columns.filter(isExternalRecipe),
     [workspace.columns],
   );
   const pendingWebResearchColumns = useMemo(
@@ -884,7 +886,7 @@ export default function PomadeWorkspace({
   ].filter(Boolean).length;
   const pendingResearchActionCount = useMemo(() => {
     const pending = new Set(pendingRunRowIds);
-    return countEligibleRecipeActions(
+    return countMaximumExternalActions(
       workspace.rows.filter((row) => pending.has(row.id)),
       pendingWebResearchColumns,
     );
@@ -897,7 +899,7 @@ export default function PomadeWorkspace({
       .reduce(
         (total, column) =>
           total +
-          countEligibleRecipeActions(pendingRows, [column]) *
+          countMaximumExternalActions(pendingRows, [column]) *
             Math.min(25, Math.max(1, column.listLimit ?? 10)),
         0,
       );
@@ -928,7 +930,7 @@ export default function PomadeWorkspace({
     scheduleTarget === 'selected'
       ? workspace.rows.filter((row) => scheduleRowIds.includes(row.id))
       : workspace.rows;
-  const scheduledResearchActionCount = countEligibleRecipeActions(
+  const scheduledResearchActionCount = countMaximumExternalActions(
     scheduledTargetRows,
     webResearchColumns,
   );
@@ -1222,7 +1224,7 @@ export default function PomadeWorkspace({
         templateBindings,
       );
       const pausesSchedule =
-        activeTemplate.column.recipe === 'web-research' &&
+        isExternalRecipe(activeTemplate.column) &&
         Boolean(workspace.schedule?.enabled);
       setWorkspace((current) => {
         const columns = [
@@ -1249,8 +1251,7 @@ export default function PomadeWorkspace({
           columns,
           rows,
           schedule:
-            activeTemplate.column.recipe === 'web-research' &&
-            current.schedule?.enabled
+            isExternalRecipe(activeTemplate.column) && current.schedule?.enabled
               ? pauseRecipeSchedule(current.schedule)
               : current.schedule,
           updatedAt: Date.now(),
@@ -2041,7 +2042,7 @@ export default function PomadeWorkspace({
   ) {
     if (running || rowIds.length === 0) return;
     const target = new Set(rowIds);
-    const eligibleResearchActions = countEligibleRecipeActions(
+    const eligibleResearchActions = countMaximumExternalActions(
       workspace.rows.filter((row) => target.has(row.id)),
       columnIds?.length
         ? webResearchColumns.filter((column) => columnIds.includes(column.id))
@@ -2140,7 +2141,7 @@ export default function PomadeWorkspace({
     const scopedResearchColumns = columnIds?.length
       ? webResearchColumns.filter((column) => columnIds.includes(column.id))
       : webResearchColumns;
-    const researchActionCount = countEligibleRecipeActions(
+    const researchActionCount = countMaximumExternalActions(
       workspace.rows.filter((row) => target.has(row.id)),
       scopedResearchColumns,
     );
@@ -3052,6 +3053,37 @@ export default function PomadeWorkspace({
         </aside>
       </div>
 
+      <HttpRecipeBuilder
+        open={httpBuilderOpen}
+        onOpenChange={setHttpBuilderOpen}
+        workspace={workspace}
+        onAdd={(addedColumns) => {
+          setWorkspace((current) => ({
+            ...current,
+            columns: [
+              ...current.columns.filter((column) => column.kind !== 'status'),
+              ...addedColumns,
+              ...current.columns.filter((column) => column.kind === 'status'),
+            ],
+            rows: current.rows.map((row) => ({
+              ...row,
+              values: {
+                ...row.values,
+                ...Object.fromEntries(
+                  addedColumns.map((column) => [column.id, '']),
+                ),
+              },
+            })),
+            schedule: current.schedule?.enabled
+              ? pauseRecipeSchedule(current.schedule)
+              : current.schedule,
+            updatedAt: Date.now(),
+          }));
+          setNotice(
+            'HTTP recipe added. Any existing schedule is paused; confirm its new request scope before restarting.',
+          );
+        }}
+      />
       <TableLookupBuilder
         open={lookupBuilderOpen}
         onOpenChange={setLookupBuilderOpen}
@@ -3099,6 +3131,16 @@ export default function PomadeWorkspace({
               }}
             >
               <Search /> Lookup another table
+            </Button>
+            <Button
+              variant="outline"
+              disabled={jobLocksWorkspace}
+              onClick={() => {
+                setAddColumnOpen(false);
+                setHttpBuilderOpen(true);
+              }}
+            >
+              <Globe2 /> HTTP API
             </Button>
             <Button
               variant="outline"
@@ -3535,7 +3577,7 @@ export default function PomadeWorkspace({
                   <strong>
                     {activeTemplate.column.kind === 'formula'
                       ? 'Local'
-                      : activeTemplate.column.recipe === 'web-research'
+                      : isExternalRecipe(activeTemplate.column)
                         ? 'Research'
                         : 'Pomade'}
                   </strong>
@@ -4235,13 +4277,13 @@ export default function PomadeWorkspace({
           <DialogHeader>
             <DialogTitle>
               {pendingRunMode === 'background'
-                ? 'Queue grounded web research?'
-                : 'Run grounded web research?'}
+                ? 'Queue external requests?'
+                : 'Run external requests?'}
             </DialogTitle>
             <DialogDescription>
-              {researchStatus?.label ?? 'Your configured provider'} will search
-              the live web for each row and research column. Each request may
-              consume provider credits
+              These recipes send configured row values to research providers or
+              HTTP connections. Each request may consume provider credits or
+              have effects defined by the endpoint
               {pendingRunMode === 'background'
                 ? ', while the durable worker continues after you close Pomade.'
                 : '.'}
@@ -4253,7 +4295,7 @@ export default function PomadeWorkspace({
               <strong>{pendingRunRowIds.length}</strong>
             </div>
             <div>
-              <span>Research columns</span>
+              <span>External recipe columns</span>
               <strong>{pendingWebResearchColumns.length}</strong>
             </div>
             <div>
@@ -4265,7 +4307,9 @@ export default function PomadeWorkspace({
               <strong>{pendingListRowLimit}</strong>
             </div>
           </div>
-          {!researchStatus?.configured ? (
+          {pendingWebResearchColumns.some(
+            (column) => column.recipe === 'web-research',
+          ) && !researchStatus?.configured ? (
             <p className="research-warning" role="alert">
               Add PARALLEL_API_KEY or GEMINI_API_KEY to .env.local and restart
               Pomade before this run.
@@ -4273,15 +4317,16 @@ export default function PomadeWorkspace({
           ) : pendingResearchActionCount > pendingResearchActionLimit ? (
             <p className="research-warning" role="alert">
               {pendingRunMode === 'background'
-                ? `One background job allows ${pendingResearchActionLimit} research requests across up to ${MAX_BACKGROUND_ROWS} rows.`
-                : `This immediate run allows ${pendingResearchActionLimit} research requests.`}{' '}
-              Select fewer rows or remove a research column.
+                ? `One background job allows ${pendingResearchActionLimit} external requests across up to ${MAX_BACKGROUND_ROWS} rows.`
+                : `This immediate run allows ${pendingResearchActionLimit} external requests.`}{' '}
+              Select fewer rows or external recipe columns.
             </p>
           ) : (
             <p className="research-safety">
-              Pomade sends the rendered prompt and visible row context. It
-              stores the answer, search queries, source URLs, and a receipt.
-              List recipes replace only the child rows they created earlier.
+              The maximum includes steps whose conditions may become true after
+              an earlier result. HTTP recipes send only configured inputs;
+              research may use row context. Receipts show results and unknown
+              costs. List recipes replace only their earlier child rows.
             </p>
           )}
           <div className="research-confirm-actions">
@@ -4315,7 +4360,10 @@ export default function PomadeWorkspace({
                 }
               }}
               disabled={
-                !researchStatus?.configured ||
+                (pendingWebResearchColumns.some(
+                  (column) => column.recipe === 'web-research',
+                ) &&
+                  !researchStatus?.configured) ||
                 pendingResearchActionCount === 0 ||
                 pendingResearchActionCount > pendingResearchActionLimit ||
                 jobSaving
@@ -4324,7 +4372,7 @@ export default function PomadeWorkspace({
               <Globe2 />
               {pendingRunMode === 'background'
                 ? `Queue ${pendingRunRowIds.length} rows`
-                : `Research ${pendingRunRowIds.length} rows`}
+                : `Run ${pendingRunRowIds.length} rows`}
             </Button>
           </div>
         </DialogContent>
@@ -4541,8 +4589,9 @@ export default function PomadeWorkspace({
                 <strong>Allow scheduled provider requests</strong>
                 <small>
                   This scope currently makes up to{' '}
-                  {scheduledResearchActionCount} research requests per run.
-                  Cached results may avoid a new provider request.
+                  {scheduledResearchActionCount} external requests per run.
+                  Research may use cached results; HTTP requests are sent each
+                  time.
                 </small>
               </label>
             </div>
@@ -4554,7 +4603,7 @@ export default function PomadeWorkspace({
           )}
           {scheduledResearchActionCount > maximumResearchActions ? (
             <p className="schedule-error" role="alert">
-              This scope would make {scheduledResearchActionCount} research
+              This scope allows up to {scheduledResearchActionCount} external
               requests. Choose a captured selection so each run stays at or
               below {maximumResearchActions}.
             </p>

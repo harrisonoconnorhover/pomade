@@ -219,7 +219,8 @@ export function recalculateAutomaticFormulas(
     if (
       column.kind !== 'formula' ||
       !column.autoRun ||
-      column.recipe === 'table-lookup'
+      column.recipe === 'table-lookup' ||
+      column.recipe === 'http-api'
     ) {
       continue;
     }
@@ -249,6 +250,7 @@ export function executeWorkspace(
     (column) =>
       (column.kind === 'formula' || column.kind === 'enrichment') &&
       column.recipe !== 'web-research' &&
+      column.recipe !== 'http-api' &&
       (!selectedColumns || selectedColumns.has(column.id)),
   );
   const lookupResolvers = new Map(
@@ -273,6 +275,7 @@ export function executeWorkspace(
     if (selected && !selected.has(row.id)) return row;
     const values = { ...row.values };
     let lookupNeedsReview = false;
+    const receiptStart = receipts.length;
 
     for (const column of recipeColumns) {
       if (!shouldRunRecipe(column, { ...row, values })) {
@@ -304,6 +307,7 @@ export function executeWorkspace(
       });
     }
 
+    if (receipts.length === receiptStart) return row;
     const hasRequiredFields = Boolean(values.company && values.domain);
     values.status =
       hasRequiredFields && !lookupNeedsReview ? 'Ready' : 'Review';

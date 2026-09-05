@@ -8,25 +8,30 @@ export type RecentUsageSummary = {
   cachedProviderActionCount: number;
   observedCredits: number;
   unreportedProviderActionCount: number;
-  providerActions: Partial<Record<'apollo' | 'gemini' | 'parallel', number>>;
+  providerActions: Partial<
+    Record<'apollo' | 'gemini' | 'parallel' | 'http', number>
+  >;
 };
 
 function isProviderAction(receipt: ActionReceipt) {
   return (
     receipt.provider === 'apollo' ||
     receipt.provider === 'gemini' ||
-    receipt.provider === 'parallel'
+    receipt.provider === 'parallel' ||
+    receipt.provider === 'http'
   );
 }
 
-export function summarizeRecentUsage(
-  runs: RunReceipt[],
-): RecentUsageSummary {
+export function summarizeRecentUsage(runs: RunReceipt[]): RecentUsageSummary {
   const receipts = runs.flatMap((run) => run.receipts);
   const providerReceipts = receipts.filter(isProviderAction);
   const providerActions: RecentUsageSummary['providerActions'] = {};
   for (const receipt of providerReceipts) {
-    const provider = receipt.provider as 'apollo' | 'gemini' | 'parallel';
+    const provider = receipt.provider as
+      | 'apollo'
+      | 'gemini'
+      | 'parallel'
+      | 'http';
     providerActions[provider] = (providerActions[provider] ?? 0) + 1;
   }
   return {

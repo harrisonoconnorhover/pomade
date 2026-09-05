@@ -1,6 +1,9 @@
 import { ensureDatabase } from '@/db/ensure';
 import { versionedWorkspaceStatements } from '@/db/workspace-store';
-import { countEligibleRecipeActions } from '@/lib/local-recipe-engine';
+import {
+  countMaximumExternalActions,
+  isExternalRecipe,
+} from '@/lib/external-recipes';
 import type {
   RunJob,
   RunJobStatus,
@@ -158,22 +161,20 @@ export async function POST(request: Request) {
       );
     }
     const targetRows = workspace.rows.filter((row) => rowIds.includes(row.id));
-    const researchColumns = selectedRecipes.filter(
-      (column) => column.recipe === 'web-research',
-    );
-    const researchActionCount = countEligibleRecipeActions(
+    const researchColumns = selectedRecipes.filter(isExternalRecipe);
+    const researchActionCount = countMaximumExternalActions(
       targetRows,
       researchColumns,
     );
     const oversizedRow = targetRows.some(
       (row) =>
-        countEligibleRecipeActions([row], researchColumns) >
+        countMaximumExternalActions([row], researchColumns) >
         MAX_RESEARCH_ACTIONS_PER_ROW,
     );
     if (oversizedRow) {
       return Response.json(
         {
-          error: `A queued row can run at most ${MAX_RESEARCH_ACTIONS_PER_ROW} web research recipes.`,
+          error: `A queued row can run at most ${MAX_RESEARCH_ACTIONS_PER_ROW} external recipes.`,
         },
         { status: 400 },
       );
@@ -181,7 +182,7 @@ export async function POST(request: Request) {
     if (researchActionCount > MAX_BACKGROUND_RESEARCH_ACTIONS) {
       return Response.json(
         {
-          error: `This job would make ${researchActionCount} web research requests. Reduce the scope to ${MAX_BACKGROUND_RESEARCH_ACTIONS} or fewer.`,
+          error: `This job would make ${researchActionCount} external requests. Reduce the scope to ${MAX_BACKGROUND_RESEARCH_ACTIONS} or fewer.`,
         },
         { status: 400 },
       );

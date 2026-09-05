@@ -37,6 +37,15 @@ export type TableLookup = {
   statusColumnId: string;
 };
 
+export type HttpRecipe = {
+  connectionId: string;
+  method: 'GET' | 'POST';
+  pathTemplate: string;
+  bodyTemplate?: string;
+  outputs: { path: string; outputColumnId: string }[];
+  statusColumnId: string;
+};
+
 export type PomadeColumn = {
   id: string;
   title: string;
@@ -55,7 +64,9 @@ export type PomadeColumn = {
   valueType?: ResearchValueType;
   waterfallSteps?: WaterfallStep[];
   lookup?: TableLookup;
+  http?: HttpRecipe;
   recipe?:
+    | 'http-api'
     | 'table-lookup'
     | 'custom-formula'
     | 'normalize-domain'
@@ -185,10 +196,11 @@ export type ActionReceipt = {
   durationMs: number;
   before: string;
   after: string;
-  provider?: 'apollo' | 'gemini' | 'parallel' | 'local';
+  provider?: 'apollo' | 'gemini' | 'parallel' | 'http' | 'local';
   creditsConsumed?: number | null;
   cached?: boolean;
   evidence?: string[];
+  error?: string;
   createdRowCount?: number;
   createdRowIds?: string[];
   outputValues?: Record<string, string>;
@@ -207,8 +219,8 @@ export type RunReceipt = {
   passedCount: number;
   reviewCount: number;
   skippedCount?: number;
-  externalWrites: 0;
-  provider?: 'apollo' | 'gemini' | 'parallel' | 'local' | 'mixed';
+  externalWrites: 0 | 'unknown';
+  provider?: 'apollo' | 'gemini' | 'parallel' | 'http' | 'local' | 'mixed';
   researchProvider?: 'gemini' | 'parallel';
   creditsConsumed?: number | null;
   receipts: ActionReceipt[];

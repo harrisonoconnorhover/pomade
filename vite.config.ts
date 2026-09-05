@@ -12,6 +12,7 @@ const { d1, r2 } = hostingConfig;
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
 const localVariableNames = [
+  'POMADE_HTTP_CONNECTIONS',
   'APOLLO_API_KEY',
   'PARALLEL_API_KEY',
   'PARALLEL_MODEL',

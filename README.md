@@ -213,6 +213,31 @@ is absent, Pomade can use `GEMINI_API_KEY` as a fallback. Add an **AI web
 research** recipe, customize the prompt with row variables such as `{{company}}`
 and `{{domain}}`, select rows, and run the recipe. Never commit real credentials.
 
+## HTTP API recipes
+
+Configure `POMADE_HTTP_CONNECTIONS` in ignored `.env.local` (see `.env.example`),
+then restart Pomade. Each named connection defines an origin, allowed GET/POST
+methods and optional authentication headers. Headers stay on the server; the
+builder receives only connection names, origins and methods. Keep access to this
+single-operator installation private: it does not yet provide account isolation.
+
+Open **Recipe library → HTTP API**, select a connection, enter a relative path
+such as `/enrich?domain={{domain}}`, and map one to four JSON response paths
+(e.g. `company.name`, `people.0.email`, or `$` for the whole response). JSON POST
+bodies support row tokens inside string values. The preview makes no request.
+Run the column or a selection and confirm the maximum external request count.
+All selected recipes execute in grid-column order, so earlier formulas can
+prepare inputs and later formulas can consume API/research results in one run.
+
+Each request has a 15-second timeout, a 1 MiB JSON response limit and 4,000-character
+mapped values. Redirects are refused. Generic HTTP calls are neither cached nor
+automatically retried; endpoints can charge or change remote data, and receipts
+therefore report cost and remote write effects as unknown. Failed requests clear
+stale outputs and preserve other results. Technical failures stop background jobs
+and schedules. Review receipts before manually retrying a request with possible
+remote effects. Pagination, PUT/PATCH/DELETE and inbound webhooks remain pending.
+HTTP templates can be reused locally; portable export awaits connection remapping.
+
 ## Check it
 
 ```bash

@@ -76,7 +76,12 @@ Bitscale or Clay.
 
 - [ ] Company and people sourcing from saved searches, Maps, and job-board
       sources.
-- [ ] Generic HTTP API enrichment plus inbound and outbound webhooks.
+- [x] Generic HTTP enrichment using server-configured connections, GET/JSON POST,
+      row-token inputs, one-to-four JSON output paths, explicit request consent,
+      column-ordered execution and manual/background/scheduled runs. Verified
+      against an isolated local API and D1 on 2026-09-05.
+- [ ] HTTP pagination, additional methods, connection portability, API-as-source,
+      and authenticated inbound/outbound webhook workflows.
 - [ ] Authenticated plan import plus governed HubSpot/Salesforce writeback
       through GTM Control Tower.
 - [x] Multiple persistent tables, blank creation, duplication, selected-row copies
@@ -123,7 +128,7 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Generic HTTP enrichment and authenticated webhooks to connect real tools.
+1. Authenticated inbound webhooks and API-as-source to feed real table workflows.
 2. Repeatable cross-table transfers, richer lookup matching/aggregation and
    reusable workbook templates.
 3. True provider fallback with per-attempt receipts and usage. Prove a valid
@@ -201,3 +206,11 @@ and describes lookup counting/aggregation use cases. Pomade now supports the
 unique-match reference-data workflow with explicit ambiguity handling. Contains,
 aggregation and repeatable write-to-table remain gaps; the new feature does not
 establish complete lookup parity.
+
+## HTTP comparison, refreshed 2026-09-05
+
+[Clay HTTP API integration](https://university.clay.com/docs/http-api-integration-overview)
+documents arbitrary API enrichment and API sources, authentication, JSON response
+mapping, more request methods and pagination. Pomade now covers bounded GET and
+JSON POST enrichment with server-stored credentials. The remaining HTTP items
+above are explicit gaps; this first slice does not establish full HTTP parity.
