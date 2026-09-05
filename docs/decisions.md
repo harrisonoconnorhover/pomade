@@ -246,6 +246,19 @@ When the renamed column is also a structured research output, its declared
 output title changes with it. Waterfall labels update only when they still match
 the former default title; a deliberately customized source label is preserved.
 
+## Column deletion cannot leave broken recipes
+
+Pomade permits deletion only when no other column or saved view references the
+target. The dependency scan covers formula and prompt tokens, explicit input
+bindings, built-in recipe inputs, run conditions, waterfall steps, structured
+outputs, list destinations, lineage outputs, and saved views. The column editor
+names every blocker instead of silently cascading through user configuration.
+
+After confirmation, deletion removes that field from every row. Child rows made
+by the deleted list recipe are preserved as ordinary static rows instead of
+being erased. If the deleted column was the final recipe, the existing schedule
+is paused. Version history remains the recovery path for the removed values.
+
 ## Column-scoped execution reuses the guarded runner
 
 A recipe column's Glide header menu can run now or queue a background job for

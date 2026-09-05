@@ -2,7 +2,7 @@
 
 ## Finished
 
-- Added guarded row deletion with descendant cleanup and captured-schedule pruning.
+- Added guarded row deletion and dependency-aware column deletion with recovery through versions.
 - Added stable-ID column renaming through native Glide header menus.
 - Added immediate and background single-recipe runs from each recipe header menu.
 - Added a transparent recent-usage summary for local/provider actions, cache hits, observed credits, and unknown cost.
@@ -10,11 +10,11 @@
 
 ## Try It
 
-Choose **Action → Version history**, select a snapshot, and confirm restore. Pomade archives the current table first and pauses any restored schedule. Open **Run history** for the separate receipt-backed usage summary.
+Open a column header menu to rename, run, or delete it. Deletion lists formula, recipe, output, and saved-view blockers before it can remove values. Use **Action → Version history** to recover an earlier table.
 
 ## Checks
 
-- `npm test`: 93 tests passed across 21 files.
+- `npm test`: 97 tests passed across 21 files.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `npm run build`: passed with `/api/workspace/versions` in the route manifest.
@@ -23,9 +23,9 @@ Choose **Action → Version history**, select a snapshot, and confirm restore. P
 
 ## Decisions
 
-- Timestamp-only saves do not create versions; changed snapshots retain the newest 20.
-- Restore is blocked during active jobs and restored schedules always return paused.
-- The API remains fixed to the existing owner workspace; arbitrary workspace discovery is still deferred pending auth.
+- Column deletion blocks known recipe, condition, output, and saved-view dependencies.
+- Generated child rows become static data when their creating recipe column is removed.
+- Deleting the final recipe pauses any schedule; version history remains the recovery path.
 
 ## Remaining
 
@@ -37,6 +37,6 @@ Choose **Action → Version history**, select a snapshot, and confirm restore. P
 
 ## Review First
 
-- `app/api/workspace/versions/route.ts` for bounded listing and guarded restore.
-- `db/workspace-store.ts` for deduplicated snapshots and latest-20 retention.
-- `components/pomade-workspace.tsx` for version-history presentation and restore flow.
+- `lib/column-management.ts` for dependency discovery and safe removal.
+- `components/pomade-workspace.tsx` for blocker presentation and confirmation.
+- `lib/column-management.test.ts` for dependency, status, schedule, and child-row coverage.

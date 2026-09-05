@@ -10,7 +10,8 @@ what changed. It is an original product built on the open-source
 ## Current vertical slice
 
 - Import any CSV and edit cells in a fast, virtualized grid with persistent
-  column widths, safe drag reordering, and stable-ID header renaming.
+  column widths, safe drag reordering, stable-ID header renaming, and
+  dependency-aware column deletion.
 - Preview and import contacts from HubSpot or leads from Salesforce without writing back.
 - Add preset formulas or build custom merge formulas with safe transforms and a
   five-row preview, then run selected or visible rows.

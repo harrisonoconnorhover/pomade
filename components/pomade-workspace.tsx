@@ -61,7 +61,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { applyCrmImport, type CrmImportMode } from '@/lib/crm-import';
-import { renameWorkspaceColumn } from '@/lib/column-management';
+import {
+  deleteWorkspaceColumn,
+  findColumnDependencies,
+  renameWorkspaceColumn,
+} from '@/lib/column-management';
 import { createCompanyListWorkspace } from '@/lib/company-list-builder';
 import {
   CONTROL_TOWER_FIELD_SPECS,
@@ -736,6 +740,9 @@ export default function PomadeWorkspace() {
   const editedColumn = workspace.columns.find(
     (column) => column.id === columnEditorId,
   );
+  const editedColumnDependencies = editedColumn
+    ? findColumnDependencies(workspace, editedColumn.id)
+    : [];
   const apolloTargetRows = selectedRowIds.length
     ? workspace.rows.filter((row) => selectedRowIds.includes(row.id))
     : selected
@@ -978,6 +985,40 @@ export default function PomadeWorkspace() {
         error instanceof Error
           ? error.message
           : 'The column could not be renamed.',
+      );
+    }
+  }
+
+  function deleteColumn() {
+    if (!editedColumn || jobLocksWorkspace) return;
+    if (editedColumnDependencies.length) {
+      setColumnEditorError(
+        'Remove the listed dependencies before deleting this column.',
+      );
+      return;
+    }
+    if (
+      !window.confirm(
+        `Delete “${editedColumn.title}” and its values from every row? Version history can restore it.`,
+      )
+    )
+      return;
+    try {
+      const hadActiveSchedule = workspace.schedule?.enabled === true;
+      const updated = deleteWorkspaceColumn(workspace, editedColumn.id);
+      setWorkspace(updated);
+      setColumnEditorOpen(false);
+      setColumnEditorId('');
+      setNotice(
+        hadActiveSchedule && updated.schedule?.state === 'paused'
+          ? 'Column deleted. The schedule was paused because no recipes remain.'
+          : 'Column and its row values deleted. Version history can restore them.',
+      );
+    } catch (error) {
+      setColumnEditorError(
+        error instanceof Error
+          ? error.message
+          : 'The column could not be deleted.',
       );
     }
   }
@@ -4697,7 +4738,7 @@ export default function PomadeWorkspace() {
       </Dialog>
 
       <Dialog open={columnEditorOpen} onOpenChange={setColumnEditorOpen}>
-        <DialogContent className="rename-dialog">
+        <DialogContent className="rename-dialog column-editor-dialog">
           <DialogHeader>
             <DialogTitle>Column settings</DialogTitle>
             <DialogDescription>
@@ -4737,8 +4778,22 @@ export default function PomadeWorkspace() {
           ) : null}
           <p className="column-editor-note">
             Drag the header to reorder it or resize its edge directly in the
-            grid. Recipe order and the status column remain protected.
+            grid. Recipe order and the status column remain protected. An unused
+            column can also be deleted with its row values.
           </p>
+          {editedColumnDependencies.length ? (
+            <div className="column-dependency-warning">
+              <strong>Used elsewhere</strong>
+              <span>Remove these references before deleting the column:</span>
+              <ul>
+                {editedColumnDependencies.map((dependency) => (
+                  <li key={`${dependency.ownerId}-${dependency.relationship}`}>
+                    {dependency.ownerTitle} · {dependency.relationship}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {editedColumn &&
           (editedColumn.kind === 'formula' ||
             editedColumn.kind === 'enrichment') ? (
@@ -4769,6 +4824,18 @@ export default function PomadeWorkspace() {
             </div>
           ) : null}
           <div className="rename-actions">
+            <Button
+              className="column-delete-button"
+              variant="destructive"
+              onClick={deleteColumn}
+              disabled={
+                editedColumn?.kind === 'status' ||
+                Boolean(editedColumnDependencies.length) ||
+                jobLocksWorkspace
+              }
+            >
+              <Trash2 /> Delete column
+            </Button>
             <Button
               variant="outline"
               onClick={() => setColumnEditorOpen(false)}
