@@ -1701,6 +1701,41 @@ button {
   border-color: #75937f;
   box-shadow: 0 0 0 3px rgba(49, 94, 72, 0.1);
 }
+.column-editor-meta {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  gap: 7px;
+}
+.column-editor-meta > span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 9px;
+  border: 1px solid #dfe2dc;
+  border-radius: 9px;
+  background: #f8f9f5;
+}
+.column-editor-meta small {
+  color: #7c8780;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.column-editor-meta code,
+.column-editor-meta strong {
+  overflow: hidden;
+  color: #30453a;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.column-editor-note {
+  margin: 0;
+  color: #738078;
+  font-size: 9px;
+  line-height: 1.5;
+}
 .rename-actions {
   display: flex;
   justify-content: flex-end;

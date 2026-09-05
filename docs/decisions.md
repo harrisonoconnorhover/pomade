@@ -235,6 +235,17 @@ empties an active selected-row schedule, Pomade pauses it rather than letting a
 future worker run appear successful with no target rows. Historical run
 receipts remain immutable.
 
+## Column names are presentation; column IDs are contracts
+
+The Glide header menu edits a column's visible title while preserving its
+stable ID. Row values, formula tokens, input mappings, saved views, and list
+destinations therefore keep working after a rename. Pomade rejects blank,
+overlong, and duplicate display names.
+
+When the renamed column is also a structured research output, its declared
+output title changes with it. Waterfall labels update only when they still match
+the former default title; a deliberately customized source label is preserved.
+
 ## Waterfalls compose upstream results
 
 A data waterfall is a local auto-updating recipe with two to six ordered input

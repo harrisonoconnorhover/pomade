@@ -61,6 +61,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { applyCrmImport, type CrmImportMode } from '@/lib/crm-import';
+import { renameWorkspaceColumn } from '@/lib/column-management';
 import { createCompanyListWorkspace } from '@/lib/company-list-builder';
 import {
   CONTROL_TOWER_FIELD_SPECS,
@@ -455,6 +456,7 @@ export default function PomadeWorkspace() {
   const [companyListOpen, setCompanyListOpen] = useState(false);
   const [peopleListOpen, setPeopleListOpen] = useState(false);
   const [savedViewOpen, setSavedViewOpen] = useState(false);
+  const [columnEditorOpen, setColumnEditorOpen] = useState(false);
   const [templateSaveOpen, setTemplateSaveOpen] = useState(false);
   const [templateUseOpen, setTemplateUseOpen] = useState(false);
   const [researchConfirmOpen, setResearchConfirmOpen] = useState(false);
@@ -523,6 +525,9 @@ export default function PomadeWorkspace() {
     useState<RunConditionOperator>('equals');
   const [savedViewValue, setSavedViewValue] = useState('Ready');
   const [savedViewError, setSavedViewError] = useState('');
+  const [columnEditorId, setColumnEditorId] = useState('');
+  const [columnEditorTitle, setColumnEditorTitle] = useState('');
+  const [columnEditorError, setColumnEditorError] = useState('');
   const [pendingRunRowIds, setPendingRunRowIds] = useState<string[]>([]);
   const [pendingRunColumnIds, setPendingRunColumnIds] = useState<string[]>([]);
   const [pendingRunMode, setPendingRunMode] =
@@ -719,6 +724,9 @@ export default function PomadeWorkspace() {
   const selected =
     workspace.rows.find((row) => row.id === activeRowId) ?? workspace.rows[0];
   const selectedValues = selected?.values ?? {};
+  const editedColumn = workspace.columns.find(
+    (column) => column.id === columnEditorId,
+  );
   const apolloTargetRows = selectedRowIds.length
     ? workspace.rows.filter((row) => selectedRowIds.includes(row.id))
     : selected
@@ -933,6 +941,33 @@ export default function PomadeWorkspace() {
     } catch (error) {
       setNotice(
         error instanceof Error ? error.message : 'That column cannot move.',
+      );
+    }
+  }
+
+  function openColumnEditor(columnId: string) {
+    const column = workspace.columns.find(
+      (candidate) => candidate.id === columnId,
+    );
+    if (!column) return;
+    setColumnEditorId(column.id);
+    setColumnEditorTitle(column.title);
+    setColumnEditorError('');
+    setColumnEditorOpen(true);
+  }
+
+  function renameColumn() {
+    try {
+      setWorkspace(
+        renameWorkspaceColumn(workspace, columnEditorId, columnEditorTitle),
+      );
+      setColumnEditorOpen(false);
+      setNotice('Column renamed without changing its recipe ID.');
+    } catch (error) {
+      setColumnEditorError(
+        error instanceof Error
+          ? error.message
+          : 'The column could not be renamed.',
       );
     }
   }
@@ -2491,6 +2526,7 @@ export default function PomadeWorkspace() {
               readOnly={jobLocksWorkspace}
               onColumnResize={resizeColumn}
               onColumnsReorder={reorderColumns}
+              onColumnMenu={openColumnEditor}
               onRowsChange={updateVisibleRows}
               onActiveRowChange={setActiveRowId}
               onSelectedRowIdsChange={updateSelectedRows}
@@ -4462,6 +4498,63 @@ export default function PomadeWorkspace() {
               </div>
             </section>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={columnEditorOpen} onOpenChange={setColumnEditorOpen}>
+        <DialogContent className="rename-dialog">
+          <DialogHeader>
+            <DialogTitle>Column settings</DialogTitle>
+            <DialogDescription>
+              Rename the visible header without changing the stable column ID
+              used by recipes, views, or row data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="column-editor-meta">
+            <span>
+              <small>Stable ID</small>
+              <code>{editedColumn?.id ?? '—'}</code>
+            </span>
+            <span>
+              <small>Type</small>
+              <strong>{editedColumn?.kind ?? '—'}</strong>
+            </span>
+            <span>
+              <small>Width</small>
+              <strong>{editedColumn?.width ?? 0}px</strong>
+            </span>
+          </div>
+          <label className="rename-field">
+            <span>Column name</span>
+            <input
+              value={columnEditorTitle}
+              maxLength={80}
+              onChange={(event) => setColumnEditorTitle(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') renameColumn();
+              }}
+            />
+          </label>
+          {columnEditorError ? (
+            <p className="apollo-error" role="alert">
+              {columnEditorError}
+            </p>
+          ) : null}
+          <p className="column-editor-note">
+            Drag the header to reorder it or resize its edge directly in the
+            grid. Recipe order and the status column remain protected.
+          </p>
+          <div className="rename-actions">
+            <Button
+              variant="outline"
+              onClick={() => setColumnEditorOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={renameColumn} disabled={!columnEditorTitle.trim()}>
+              Save name
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
