@@ -1,3 +1,9 @@
+import {
+  parseCrmFields,
+  normalizeCrmValue,
+  crmWireValue,
+  type CrmField,
+} from './crm-fields';
 import type {
   CrmObjectType,
   CrmProvider,
@@ -10,6 +16,7 @@ export type CrmSyncConfig = {
   objectType: CrmObjectType;
   mapping: Record<string, string>;
   idColumn?: string;
+  fieldSchema?: Record<string, CrmField>;
 };
 export type CrmSyncAction = {
   rowId: string;
@@ -185,6 +192,14 @@ export class CrmSyncClient {
     }
     return data;
   }
+  async fields() {
+    const data = await this.request(
+      this.config.provider === 'hubspot'
+        ? '/properties/' + objectName(this.config)
+        : this.path + '/describe',
+    );
+    return parseCrmFields(this.config.provider, data);
+  }
   async read(id: string, fields: string[]) {
     if (!/^[a-zA-Z0-9]{1,30}$/.test(id))
       throw new Error('Invalid CRM record ID.');
@@ -194,7 +209,12 @@ export class CrmSyncClient {
         : '?fields=' + encodeURIComponent(fields.join(','));
     const d = await this.request(this.path + '/' + id + query);
     const raw = this.config.provider === 'hubspot' ? d.properties : d;
-    return Object.fromEntries(fields.map((f) => [f, asText(raw?.[f])]));
+    return Object.fromEntries(
+      fields.map((f) => [
+        f,
+        normalizeCrmValue(asText(raw?.[f]), this.config.fieldSchema?.[f]),
+      ]),
+    );
   }
   async find(properties: Record<string, string>): Promise<string | undefined> {
     const company =
@@ -306,10 +326,20 @@ export class CrmSyncClient {
     return ids[0];
   }
   async write(id: string | undefined, properties: Record<string, string>) {
+    const typed = Object.fromEntries(
+      Object.entries(properties).map(([key, value]) => [
+        key,
+        crmWireValue(
+          value,
+          this.config.fieldSchema?.[key],
+          this.config.provider,
+        ),
+      ]),
+    );
     const d = await this.request(
       this.path + (id ? '/' + id : ''),
       id ? 'PATCH' : 'POST',
-      this.config.provider === 'hubspot' ? { properties } : properties,
+      this.config.provider === 'hubspot' ? { properties: typed } : typed,
     );
     const nativeId = id || d.id;
     if (!nativeId) throw new Error('CRM did not return the created record ID.');
@@ -324,12 +354,20 @@ export function validateCrmSyncConfig(
   workspace: WorkspaceSnapshot,
   config: CrmSyncConfig,
 ) {
-  const allowed = crmFields(config.provider, config.objectType);
+  const allowed = [
+    ...crmFields(config.provider, config.objectType),
+    ...Object.keys(config.fieldSchema ?? {}),
+  ];
   const mapping = Object.entries(config.mapping || {});
   const columns = new Set(workspace.columns.map((c) => c.id));
   if (
     !mapping.length ||
-    mapping.some(([key, id]) => !allowed.includes(key) || !columns.has(id)) ||
+    mapping.some(
+      ([key, id]) =>
+        !/^[A-Za-z][A-Za-z0-9_]{0,199}$/.test(key) ||
+        !allowed.includes(key) ||
+        !columns.has(id),
+    ) ||
     (config.idColumn && !columns.has(config.idColumn))
   )
     throw new Error('Choose valid mapped columns.');
@@ -348,8 +386,23 @@ export async function previewCrmSync(
   )
     throw new Error('Select 1–25 unique rows.');
   validateCrmSyncConfig(workspace, config);
-  const client = new CrmSyncClient(config, options),
-    actions: CrmSyncAction[] = [],
+  let client = new CrmSyncClient(config, options);
+  if (config.fieldSchema) {
+    // The browser's field descriptions are for mapping only; native metadata is authoritative.
+    const discovered = await client.fields();
+    const fieldSchema: Record<string, CrmField> = {};
+    for (const [key] of mapping) {
+      const field = discovered.find((f) => f.name === key);
+      if (!field)
+        throw new Error(
+          `CRM field ${key} is missing or read-only. Refresh the field list.`,
+        );
+      fieldSchema[key] = field;
+    }
+    config = { ...config, fieldSchema };
+    client = new CrmSyncClient(config, options);
+  }
+  const actions: CrmSyncAction[] = [],
     seen = new Set<string>();
   for (const rowId of rowIds) {
     const row = workspace.rows.find((r) => r.id === rowId);
@@ -368,6 +421,11 @@ export async function previewCrmSync(
       status: 'pending',
     };
     try {
+      for (const key of Object.keys(properties))
+        properties[key] = normalizeCrmValue(
+          properties[key],
+          config.fieldSchema?.[key],
+        );
       if (!Object.keys(properties).length)
         throw new Error('No nonblank mapped values.');
       const email = properties.email || properties.Email;
@@ -397,6 +455,13 @@ export async function previewCrmSync(
         throw new Error('Duplicate destination in this selection.');
       seen.add(key);
       action.nativeId = id;
+      for (const key of Object.keys(properties)) {
+        const field = config.fieldSchema?.[key];
+        if (field && !(id ? field.updateable : field.createable))
+          throw new Error(
+            `${field.label} cannot be ${id ? 'updated' : 'set on creation'}.`,
+          );
+      }
       if (id) {
         action.before = await client.read(id, Object.keys(properties));
         action.action = equal(properties, action.before)

@@ -14,7 +14,7 @@ CRMs pass live checks. Account/plan access is distinct from implemented code.
 | Website/G2/LinkedIn intent | Generic authenticated webhook inbox | Normalized account feed, explicit source adapters and source access |
 | Custom account research and structured extraction | Parallel/Gemini BYOK, citations, typed outputs live | Extraction reliability, additional configurable model endpoint and evaluation cases |
 | Conditional cost controls | Numeric AND/OR qualification, cache, request bounds; focused pipeline test skips 3 of 4 rows | Live enrichment examples and future budget controls |
-| CRM enriched fields, signal tags and scores | Standard-field reads/writes live in both dev CRMs | Custom property/field discovery, typed writes and signal/score round trips |
+| CRM enriched fields, signal tags and scores | Native field discovery, typed custom writes/reads/imports implemented; 30 tests; HubSpot firmographics round trip live | Salesforce field access approval; HubSpot schema permission/sign-in; live custom score/tag writes |
 | Automated CRM workflows/routing/sequences | Manual confirmed CRM writes and local scheduled recipes | Captured recurring write configuration, native automation triggers and configured sequence destinations |
 
 Build in dependency order: compound qualification → verified waterfalls and

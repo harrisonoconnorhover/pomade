@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { CrmField } from '@/lib/crm-fields';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -35,6 +36,11 @@ export default function CrmSyncBuilder({
   const [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
+  const [fieldResult, setFieldResult] = useState<{
+    key: string;
+    fields: CrmField[];
+    error: string;
+  }>({ key: '', fields: [], error: '' });
   const [mappingId, setMappingId] = useState('');
   const [mappingName, setMappingName] = useState('');
   const [notice, setNotice] = useState('');
@@ -85,6 +91,37 @@ export default function CrmSyncBuilder({
     objectType: 'company',
     mapping: {},
   });
+  const fieldKey = `${config.provider}/${config.objectType}`;
+  const fieldsLoading = fieldResult.key !== fieldKey;
+  const nativeFields = fieldsLoading ? [] : fieldResult.fields;
+  const fieldsError = fieldsLoading ? '' : fieldResult.error;
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch(
+      `/api/crm-sync/fields?provider=${config.provider}&objectType=${config.objectType}`,
+    )
+      .then(async (r) => {
+        const data = (await r.json()) as {
+          fields?: CrmField[];
+          error?: string;
+        };
+        if (!r.ok) throw new Error(data.error || 'Fields could not be loaded.');
+        if (!cancelled)
+          setFieldResult({
+            key: fieldKey,
+            fields: data.fields ?? [],
+            error: '',
+          });
+      })
+      .catch((e) => {
+        if (!cancelled)
+          setFieldResult({ key: fieldKey, fields: [], error: e.message });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, config.provider, config.objectType, fieldKey]);
   const [plan, setPlan] = useState<CrmSyncPlan>(),
     [history, setHistory] = useState<CrmSyncPlan[]>([]);
   function choose(
@@ -161,7 +198,13 @@ export default function CrmSyncBuilder({
       setBusy(false);
     }
   }
-  const fields = crmFields(config.provider, config.objectType);
+  const fields = [
+    ...new Set([
+      ...crmFields(config.provider, config.objectType),
+      ...Object.keys(config.mapping),
+      ...Object.keys(config.fieldSchema ?? {}),
+    ]),
+  ];
   return (
     <>
       <Button
@@ -278,10 +321,46 @@ export default function CrmSyncBuilder({
               </select>
             </label>
           </div>
+          <label>
+            Add a CRM property or custom field
+            <select
+              disabled={fieldsLoading || busy}
+              value=""
+              onChange={(e) => {
+                const field = nativeFields.find(
+                  (f) => f.name === e.target.value,
+                );
+                if (field) {
+                  setConfig({
+                    ...config,
+                    fieldSchema: { ...config.fieldSchema, [field.name]: field },
+                  });
+                  setPlan(undefined);
+                }
+              }}
+            >
+              <option value="">
+                {fieldsLoading
+                  ? 'Loading CRM fields…'
+                  : 'Choose a property, score, tag or owner field'}
+              </option>
+              {nativeFields
+                .filter((f) => !fields.includes(f.name))
+                .map((f) => (
+                  <option key={f.name} value={f.name}>
+                    {f.label} ({f.name}) · {f.type}
+                  </option>
+                ))}
+            </select>
+          </label>
+          {fieldsError ? <p role="alert">{fieldsError}</p> : null}
           <div className="lookup-fields">
             {fields.map((field) => (
               <label key={field}>
                 {field}
+                {config.fieldSchema?.[field]
+                  ? ` · ${config.fieldSchema[field].type}`
+                  : ''}
                 <select
                   disabled={busy}
                   value={config.mapping[field] || ''}
@@ -289,7 +368,16 @@ export default function CrmSyncBuilder({
                     const mapping = { ...config.mapping };
                     if (e.target.value) mapping[field] = e.target.value;
                     else delete mapping[field];
-                    setConfig({ ...config, mapping });
+                    const schema = { ...config.fieldSchema };
+                    const metadata = nativeFields.find((f) => f.name === field);
+                    if (metadata) schema[field] = metadata;
+                    setConfig({
+                      ...config,
+                      mapping,
+                      ...(Object.keys(schema).length
+                        ? { fieldSchema: schema }
+                        : {}),
+                    });
                     setPlan(undefined);
                   }}
                 >
@@ -300,6 +388,17 @@ export default function CrmSyncBuilder({
                     </option>
                   ))}
                 </select>
+                {config.fieldSchema?.[field]?.options ? (
+                  <small>
+                    Values:{' '}
+                    {config.fieldSchema[field]
+                      .options!.map((o) => o.value)
+                      .join(', ')}
+                    {config.fieldSchema[field].type === 'multiselect'
+                      ? '. Separate multiple values with semicolons.'
+                      : ''}
+                  </small>
+                ) : null}
               </label>
             ))}
           </div>

@@ -1,3 +1,4 @@
+import { normalizeCrmValue } from './crm-fields';
 import type { PomadeColumn, WorkspaceSnapshot } from './pomade-types';
 import {
   validateCrmSyncConfig,
@@ -47,6 +48,9 @@ export function saveCrmMapping(
       provider: draft.config.provider,
       objectType: draft.config.objectType,
       mapping: { ...draft.config.mapping },
+      ...(draft.config.fieldSchema
+        ? { fieldSchema: structuredClone(draft.config.fieldSchema) }
+        : {}),
       ...(draft.config.idColumn ? { idColumn: draft.config.idColumn } : {}),
     },
   };
@@ -102,8 +106,10 @@ export function copyVerifiedCrmIds(
     if (
       Object.entries(plan.config.mapping).some(
         ([field, column]) =>
-          (row.values[column] || '').trim() !==
-          (action.properties[field] || ''),
+          normalizeCrmValue(
+            row.values[column] || '',
+            plan.config.fieldSchema?.[field],
+          ) !== (action.properties[field] || ''),
       )
     ) {
       issues.push(

@@ -351,6 +351,7 @@ export type CrmProvider = 'hubspot' | 'salesforce';
 export type CrmObjectType = 'contact' | 'company' | 'lead' | 'account';
 
 export type CrmSourceContact = {
+  properties?: Record<string, string>;
   nativeId: string;
   objectType: CrmObjectType;
   description?: string;

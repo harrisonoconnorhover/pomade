@@ -591,6 +591,10 @@ export default function PomadeWorkspace({
 
   const [crmCatalog, setCrmCatalog] =
     useState<CrmCatalogStatus>(emptyCrmCatalog);
+  const [sourceFields, setSourceFields] = useState({
+    hubspot: '',
+    salesforce: '',
+  });
   const [sourceObjects, setSourceObjects] = useState({
     hubspot: 'contact',
     salesforce: 'lead',
@@ -2366,6 +2370,10 @@ export default function PomadeWorkspace({
         body: JSON.stringify({
           provider,
           objectType: sourceObjects[provider],
+          fields: sourceFields[provider]
+            .split(',')
+            .map((f) => f.trim())
+            .filter(Boolean),
           limit: 50,
         }),
       });
@@ -5306,6 +5314,25 @@ export default function PomadeWorkspace({
                       ))}
                     </select>
                   </div>
+                  <label>
+                    Extra CRM properties (optional)
+                    <input
+                      aria-label={`${provider} extra properties`}
+                      value={sourceFields[provider]}
+                      placeholder={
+                        provider === 'hubspot'
+                          ? 'pomade_icp_score, pomade_signal_tags'
+                          : 'Pomade_ICP_Score__c, Pomade_Signal_Tags__c'
+                      }
+                      onChange={(e) => {
+                        setSourceFields({
+                          ...sourceFields,
+                          [provider]: e.target.value,
+                        });
+                        setSourcePreview(undefined);
+                      }}
+                    />
+                  </label>
                   <span
                     className={`connection-badge ${status.configured ? 'connection-ready' : ''}`}
                   >

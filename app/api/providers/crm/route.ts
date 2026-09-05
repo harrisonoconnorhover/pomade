@@ -54,6 +54,7 @@ export async function POST(request: Request) {
 
     const preview = await readCrmSource(provider, limit, {
       objectType: (body as { objectType?: CrmObjectType }).objectType,
+      fields: (body as { fields?: string[] }).fields,
       recordIds: (body as { recordIds?: string[] }).recordIds,
       hubSpotAccessToken: env.HUBSPOT_ACCESS_TOKEN,
       salesforceInstanceUrl: env.SALESFORCE_INSTANCE_URL,

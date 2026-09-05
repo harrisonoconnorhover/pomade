@@ -55,6 +55,12 @@ function contactValues(
   contact: CrmSourceContact,
 ) {
   return {
+    ...Object.fromEntries(
+      Object.entries(contact.properties ?? {}).map(([field, value]) => [
+        `crm_property_${field}`,
+        value,
+      ]),
+    ),
     company: contact.company,
     person: contact.fullName,
     title: contact.jobTitle,
@@ -117,14 +123,38 @@ export function applyCrmImport(
   preview: CrmSourcePreview,
   mode: CrmImportMode,
 ): WorkspaceSnapshot {
-  const columns = mergedColumns(workspace.columns);
+  const properties = [
+    ...new Set(
+      preview.contacts.flatMap((c) => Object.keys(c.properties ?? {})),
+    ),
+  ];
+  const propertyColumns: PomadeColumn[] = properties
+    .filter(
+      (name) => !workspace.columns.some((c) => c.id === `crm_property_${name}`),
+    )
+    .map((name) => ({
+      id: `crm_property_${name}`,
+      title: `CRM: ${name}`,
+      kind: 'text',
+      width: 200,
+    }));
+  const columns = mergedColumns([...workspace.columns, ...propertyColumns]);
+  if (columns.length > 100)
+    throw new Error(
+      'The imported properties exceed this table’s 100-column capacity.',
+    );
   const incoming = preview.contacts.map((contact) =>
     sourceRow(preview, contact, columns),
   );
   const rows =
     mode === 'replace'
       ? incoming
-      : appendRows(workspace.rows, incoming, columns);
+      : appendRows(
+          workspace.rows,
+          incoming,
+          columns,
+          properties.map((name) => `crm_property_${name}`),
+        );
 
   return {
     ...workspace,
@@ -144,6 +174,7 @@ function appendRows(
   current: PomadeRow[],
   incoming: PomadeRow[],
   columns: PomadeColumn[],
+  propertyIds: string[] = [],
 ) {
   const normalized = current.map((row) => ({
     ...row,
@@ -176,8 +207,9 @@ function appendRows(
       values: {
         ...normalized[index].values,
         ...Object.fromEntries(
-          Object.entries(row.values).filter(([columnId]) =>
-            importedFieldIds.has(columnId),
+          Object.entries(row.values).filter(
+            ([columnId]) =>
+              importedFieldIds.has(columnId) || propertyIds.includes(columnId),
           ),
         ),
       },

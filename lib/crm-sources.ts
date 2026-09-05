@@ -8,6 +8,7 @@ import type {
 export type CrmSourceOptions = {
   objectType?: CrmObjectType;
   recordIds?: string[];
+  fields?: string[];
   hubSpotAccessToken?: string;
   salesforceInstanceUrl?: string;
   salesforceAccessToken?: string;
@@ -123,9 +124,14 @@ async function readHubSpot(
   const object = company ? 'companies' : 'contacts';
   const url = new URL(`https://api.hubapi.com/crm/objects/2026-03/${object}`);
   url.searchParams.set('limit', String(limit));
-  const properties = company
-    ? ['name', 'domain', 'website', 'phone', 'description']
-    : HUBSPOT_PROPERTIES;
+  const properties = [
+    ...new Set([
+      ...(company
+        ? ['name', 'domain', 'website', 'phone', 'description']
+        : HUBSPOT_PROPERTIES),
+      ...(options.fields ?? []),
+    ]),
+  ];
   url.searchParams.set('properties', properties.join(','));
   url.searchParams.set('archived', 'false');
 
@@ -161,7 +167,14 @@ async function readHubSpot(
   }
   return body.results
     .map((value: unknown) => {
-      if (!company) return hubSpotContact(value);
+      const rawProperties = record(record(value)?.properties);
+      const extra = options.fields?.length
+        ? { properties: extractProperties(rawProperties, options.fields) }
+        : {};
+      if (!company) {
+        const contact = hubSpotContact(value);
+        return contact ? { ...contact, ...extra } : null;
+      }
       const item = record(value),
         props = record(item?.properties),
         nativeId = stringValue(item?.id);
@@ -169,6 +182,7 @@ async function readHubSpot(
         ? {
             nativeId,
             objectType: 'company' as const,
+            ...extra,
             company: stringValue(props?.name),
             website: stringValue(props?.domain) || stringValue(props?.website),
             description: stringValue(props?.description),
@@ -202,12 +216,18 @@ async function readSalesforce(
       : options.objectType === 'contact'
         ? 'Contact'
         : 'Lead';
-  const fields =
+  const defaultFields =
     object === 'Account'
       ? 'Id, Name, Website, Phone, Description'
       : object === 'Contact'
         ? 'Id, FirstName, LastName, Email, Phone, MobilePhone, Title, AccountId, Account.Name, Account.Website'
         : 'Id, FirstName, LastName, Email, Company, Phone, MobilePhone, Title, Website';
+  const fields = [
+    ...new Set([
+      ...defaultFields.split(', ').map((f) => f.trim()),
+      ...(options.fields ?? []),
+    ]),
+  ].join(', ');
   const where = options.recordIds?.length
     ? ` WHERE Id IN (${options.recordIds.map((id) => "'" + id + "'").join(',')})`
     : object === 'Lead'
@@ -232,13 +252,20 @@ async function readSalesforce(
     .map((value: unknown) => {
       const item = record(value);
       if (!item) return null;
-      if (object === 'Lead') return salesforceLead(item);
+      const extra = options.fields?.length
+        ? { properties: extractProperties(item, options.fields) }
+        : {};
+      if (object === 'Lead') {
+        const contact = salesforceLead(item);
+        return contact ? { ...contact, ...extra } : null;
+      }
       if (object === 'Contact') {
         const contact = salesforceLead(item);
         const account = record(item.Account);
         return contact
           ? {
               ...contact,
+              ...extra,
               objectType: 'contact' as const,
               accountId: stringValue(item.AccountId),
               company: stringValue(account?.Name),
@@ -251,6 +278,7 @@ async function readSalesforce(
         ? {
             nativeId,
             objectType: 'account' as const,
+            ...extra,
             company: stringValue(item.Name),
             website: stringValue(item.Website),
             description: stringValue(item.Description),
@@ -266,6 +294,28 @@ async function readSalesforce(
     .filter((contact): contact is CrmSourceContact => Boolean(contact));
 }
 
+function extractProperties(
+  raw: Record<string, unknown> | undefined,
+  fields: string[],
+): Record<string, string> {
+  return Object.fromEntries(
+    fields.map((name) => {
+      const value = raw?.[name];
+      return [
+        name,
+        value === undefined || value === null
+          ? ''
+          : typeof value === 'object'
+            ? JSON.stringify(value)
+            : typeof value === 'string'
+              ? value
+              : typeof value === 'number' || typeof value === 'boolean'
+                ? String(value)
+                : '',
+      ];
+    }),
+  );
+}
 export async function readCrmSource(
   provider: CrmProvider,
   requestedLimit: number,
@@ -290,6 +340,16 @@ export async function readCrmSource(
       ))
   )
     throw new Error('Invalid CRM record IDs.');
+  if (
+    options.fields &&
+    (!Array.isArray(options.fields) ||
+      options.fields.length > 20 ||
+      options.fields.some(
+        (f) =>
+          typeof f !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,199}$/.test(f),
+      ))
+  )
+    throw new Error('Choose up to 20 valid CRM property names.');
   const limit = normalizeLimit(requestedLimit);
   const contacts =
     provider === 'hubspot'

@@ -759,3 +759,14 @@ technical-error continuation is enabled, because Hunter uses it for removal
 requests. Keep keys in reserved server connections. Existing basic Apollo recipes
 remain unchanged unless upgraded to the rich preset. Real technology lists needed
 a 20,000-character array limit; other text retains the existing smaller bound.
+
+## Typed CRM properties (2026-09-05)
+
+Keep the original standard-field path compatible. Adding a native/custom field
+captures metadata for the editor and saved mapping; the server refreshes native
+metadata before preview and does not trust client-supplied types or writability.
+Normalize numbers, booleans, ISO dates and option values before writes and native
+read-back. Only requested extra CRM properties are imported and refreshed in
+`crm_property_` columns, preserving other local columns. Blank values still do
+not clear CRM fields. Native property updates may trigger existing CRM workflows;
+no prospect messaging was authorized or sent.
