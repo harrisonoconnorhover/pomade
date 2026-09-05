@@ -93,6 +93,18 @@ export function findColumnDependencies(
       Object.values(rule.mapping).includes(columnId)
     )
       addDependency(dependencies, rule.id, rule.name, 'table transfer');
+  for (const mapping of workspace.crmMappings ?? []) {
+    if (
+      mapping.config.idColumn === columnId ||
+      Object.values(mapping.config.mapping).includes(columnId)
+    )
+      addDependency(
+        dependencies,
+        mapping.id,
+        mapping.name,
+        'saved CRM mapping',
+      );
+  }
   return dependencies;
 }
 

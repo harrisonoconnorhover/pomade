@@ -320,20 +320,12 @@ const equal = (a: Record<string, string>, b: Record<string, string>) =>
   Object.entries(a).every(
     ([k, v]) => comparable(k, v) === comparable(k, b[k] ?? ''),
   );
-export async function previewCrmSync(
+export function validateCrmSyncConfig(
   workspace: WorkspaceSnapshot,
-  rowIds: string[],
   config: CrmSyncConfig,
-  options: CrmSourceOptions,
-): Promise<CrmSyncPlan> {
-  const allowed = crmFields(config.provider, config.objectType),
-    mapping = Object.entries(config.mapping || {});
-  if (
-    !rowIds.length ||
-    rowIds.length > 25 ||
-    new Set(rowIds).size !== rowIds.length
-  )
-    throw new Error('Select 1–25 unique rows.');
+) {
+  const allowed = crmFields(config.provider, config.objectType);
+  const mapping = Object.entries(config.mapping || {});
   const columns = new Set(workspace.columns.map((c) => c.id));
   if (
     !mapping.length ||
@@ -341,6 +333,21 @@ export async function previewCrmSync(
     (config.idColumn && !columns.has(config.idColumn))
   )
     throw new Error('Choose valid mapped columns.');
+}
+export async function previewCrmSync(
+  workspace: WorkspaceSnapshot,
+  rowIds: string[],
+  config: CrmSyncConfig,
+  options: CrmSourceOptions,
+): Promise<CrmSyncPlan> {
+  const mapping = Object.entries(config.mapping || {});
+  if (
+    !rowIds.length ||
+    rowIds.length > 25 ||
+    new Set(rowIds).size !== rowIds.length
+  )
+    throw new Error('Select 1–25 unique rows.');
+  validateCrmSyncConfig(workspace, config);
   const client = new CrmSyncClient(config, options),
     actions: CrmSyncAction[] = [],
     seen = new Set<string>();

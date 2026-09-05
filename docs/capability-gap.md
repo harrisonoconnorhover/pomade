@@ -6,6 +6,11 @@ Bitscale or Clay.
 
 ## Already working
 
+- [x] Named CRM mappings per table and verified native-ID copying from receipts.
+      Exact matching saved mappings reuse copied IDs; changed/conflicting rows
+      remain untouched. Four saved mappings verified against the 12 existing
+      dev CRM records on 2026-09-05 with unchanged-only actions.
+
 - [x] Apollo company enrichment preset with server-side existing-key connection,
       domain normalization/match checking and four mapped outputs. Docs plus
       live three-company Free-tier enrichment verified 2026-09-05; actual credit

@@ -14,18 +14,72 @@ import {
   type CrmSyncPlan,
 } from '@/lib/crm-sync';
 import type { WorkspaceSnapshot } from '@/lib/pomade-types';
+import {
+  copyVerifiedCrmIds,
+  saveCrmMapping,
+  removeCrmMapping,
+  sameCrmConfig,
+  type CrmMapping,
+} from '@/lib/crm-mappings';
 export default function CrmSyncBuilder({
   workspace,
   rowIds,
   ready,
+  onSave,
 }: {
   workspace: WorkspaceSnapshot;
   rowIds: string[];
   ready: boolean;
+  onSave: (workspace: WorkspaceSnapshot) => void;
 }) {
   const [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
+  const [mappingId, setMappingId] = useState('');
+  const [mappingName, setMappingName] = useState('');
+  const [notice, setNotice] = useState('');
+  const [copyIssues, setCopyIssues] = useState<string[]>([]);
+  function loadMapping(mapping: CrmMapping) {
+    setMappingId(mapping.id);
+    setMappingName(mapping.name);
+    setConfig(structuredClone(mapping.config));
+    setPlan(undefined);
+    setError('');
+    setNotice('');
+    setCopyIssues([]);
+  }
+  function saveMapping() {
+    try {
+      const id = mappingId || crypto.randomUUID();
+      onSave(saveCrmMapping(workspace, { id, name: mappingName, config }));
+      setMappingId(id);
+      setMappingName(mappingName.replace(/\s+/g, ' ').trim());
+      setPlan(undefined);
+      setError('');
+      setNotice(
+        'Mapping updated. Preview again when the table finishes saving.',
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Mapping could not be saved.');
+    }
+  }
+  function copyIds() {
+    if (!plan) return;
+    try {
+      const result = copyVerifiedCrmIds(workspace, plan);
+      if (result.copied) {
+        onSave(result.workspace);
+        setConfig({ ...plan.config, idColumn: result.idColumn });
+      }
+      setCopyIssues(result.issues);
+      setError('');
+      setNotice(
+        `${result.copied} verified CRM IDs copied to the table. ${result.issues.length} rows not copied.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'CRM IDs could not be copied.');
+    }
+  }
   const [config, setConfig] = useState<CrmSyncConfig>({
     provider: 'hubspot',
     objectType: 'company',
@@ -66,6 +120,12 @@ export default function CrmSyncBuilder({
           : [],
       ),
     );
+    setMappingId('');
+    setMappingName(
+      `${provider === 'hubspot' ? 'HubSpot' : 'Salesforce'} ${objectType}`,
+    );
+    setNotice('');
+    setCopyIssues([]);
     setConfig({ provider, objectType, mapping });
     setPlan(undefined);
     setError('');
@@ -79,6 +139,8 @@ export default function CrmSyncBuilder({
   async function run(commit = false) {
     setBusy(true);
     setError('');
+    setNotice('');
+    setCopyIssues([]);
     try {
       const r = await fetch('/api/crm-sync', {
         method: 'POST',
@@ -106,7 +168,11 @@ export default function CrmSyncBuilder({
         variant="outline"
         disabled={!ready}
         onClick={() => {
-          choose(config.provider, config.objectType);
+          const saved =
+            workspace.crmMappings?.find((m) => m.id === mappingId) ||
+            workspace.crmMappings?.[0];
+          if (saved) loadMapping(saved);
+          else choose(config.provider, config.objectType);
           setOpen(true);
           void loadHistory().catch(() =>
             setError('Could not load CRM history.'),
@@ -132,6 +198,27 @@ export default function CrmSyncBuilder({
               (Salesforce). Existing CRM record IDs take priority.
             </DialogDescription>
           </DialogHeader>
+          <label>
+            Saved mapping
+            <select
+              value={mappingId}
+              disabled={busy || !ready}
+              onChange={(e) => {
+                const saved = workspace.crmMappings?.find(
+                  (m) => m.id === e.target.value,
+                );
+                if (saved) loadMapping(saved);
+                else choose(config.provider, config.objectType);
+              }}
+            >
+              <option value="">New mapping</option>
+              {workspace.crmMappings?.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="lookup-fields">
             <label>
               CRM
@@ -216,6 +303,42 @@ export default function CrmSyncBuilder({
               </label>
             ))}
           </div>
+          <div className="lookup-fields">
+            <label>
+              Mapping name
+              <input
+                value={mappingName}
+                maxLength={80}
+                disabled={busy || !ready}
+                onChange={(e) => setMappingName(e.target.value)}
+                placeholder="e.g. HubSpot account research"
+              />
+            </label>
+            <Button disabled={busy || !ready} onClick={saveMapping}>
+              {mappingId ? 'Save mapping changes' : 'Save mapping'}
+            </Button>
+            {mappingId ? (
+              <Button
+                variant="outline"
+                disabled={busy || !ready}
+                onClick={() => {
+                  onSave(removeCrmMapping(workspace, mappingId));
+                  setMappingId('');
+                  setPlan(undefined);
+                  setError('');
+                  setNotice(
+                    'Saved mapping removed. Table values and CRM records are unchanged.',
+                  );
+                }}
+              >
+                Remove saved mapping
+              </Button>
+            ) : null}
+          </div>
+          <p>
+            Saved mappings keep field choices for this table. Each preview uses
+            your current row selection.
+          </p>
           <p>
             {rowIds.length} rows in this selection. Only mapped nonblank fields
             are written. Salesforce contacts need LastName, and leads also need
@@ -228,6 +351,17 @@ export default function CrmSyncBuilder({
             Preview CRM changes
           </Button>
           {error ? <p role="alert">{error}</p> : null}
+          {notice ? <output>{notice}</output> : null}
+          {copyIssues.length ? (
+            <details open>
+              <summary>Rows not copied ({copyIssues.length})</summary>
+              <ul>
+                {copyIssues.map((issue, index) => (
+                  <li key={index}>{issue}</li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
           {plan ? (
             <section>
               <strong>
@@ -263,6 +397,17 @@ export default function CrmSyncBuilder({
                   </table>
                 </details>
               ))}
+              {plan.actions.some(
+                (a) => a.status === 'verified' && a.nativeId,
+              ) ? (
+                <Button
+                  variant="outline"
+                  disabled={busy || !ready}
+                  onClick={copyIds}
+                >
+                  Copy verified IDs to table
+                </Button>
+              ) : null}
               {plan.status === 'preview' ? (
                 <Button
                   disabled={
@@ -287,9 +432,19 @@ export default function CrmSyncBuilder({
                   key={p.id}
                   disabled={busy}
                   onClick={() => {
+                    const saved = workspace.crmMappings?.find((m) =>
+                      sameCrmConfig(m.config, p.config),
+                    );
+                    setMappingId(saved?.id || '');
+                    setMappingName(
+                      saved?.name ||
+                        `${p.config.provider} ${p.config.objectType}`,
+                    );
                     setConfig(p.config);
                     setPlan(p);
                     setError('');
+                    setNotice('');
+                    setCopyIssues([]);
                   }}
                 >
                   {new Date(p.createdAt).toLocaleString()} · {p.config.provider}{' '}

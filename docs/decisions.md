@@ -725,3 +725,19 @@ Live source snapshots and private CRM receipts belong in ignored `outputs`,
 not a future open-source release. The assignment retains raw AI results and
 reviewed scores separately; buyer titles are candidate signals, not proof of
 code ownership or purchase authority.
+
+
+## 2026-09-05 — Repeatable CRM mapping setup
+
+- Keep up to 20 named CRM mappings in each existing workspace snapshot, so the
+  ordinary save, version history and table duplication preserve them. Save only
+  provider/object, field bindings and optional ID column; row scope is chosen
+  anew at preview. Reuse the same mapping validation as live CRM previews.
+- Copy verified native IDs as an explicit local table action. Use the configured
+  ID column or a provider/object text column, then update saved mappings with the
+  exact same configuration to use it. Skip unverified receipts, changed/removed
+  rows and conflicting IDs. This avoids attaching an old receipt to a new entity
+  after research inputs or CSV data change. No additional CRM request is made.
+- Treat saved mapping inputs and ID columns as deletion dependencies. Keep this
+  slice within manual writes; continuous sync, portable mapping templates and
+  native HubSpot associations remain separate work.

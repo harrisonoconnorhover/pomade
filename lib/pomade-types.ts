@@ -228,6 +228,7 @@ export type TableTransferRule = {
   mapping: Record<string, string>;
 };
 export type WorkspaceSnapshot = {
+  crmMappings?: import('./crm-mappings').CrmMapping[];
   signalWatches?: import('./change-signals').SignalWatch[];
   apiSourceRefresh?: import('./api-source').ApiSourceRefresh;
   tableTransfers?: TableTransferRule[];

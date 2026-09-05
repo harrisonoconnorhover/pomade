@@ -652,3 +652,30 @@ is no automatic uncertain-write recovery.
 
 The private assignment, source snapshots and CRM receipts are under ignored
 `outputs/demanddrive/REPORT.md`. They are not included in a public source release.
+
+
+### Save CRM mappings and keep record IDs
+
+In **Write to CRM**, name the mapping and choose **Save mapping**. Each table
+can keep up to 20 named mappings, including separate company/contact setups for
+HubSpot and Salesforce. Choose one from **Saved mapping** when you reopen the
+dialog. It restores the CRM, object, mapped fields and optional native ID column;
+the next preview uses the current selected or visible rows. Mapping changes use
+the table's ordinary persistent save and version history.
+
+After a verified batch, choose **Copy verified IDs to table**. Pomade uses the
+configured ID column or adds a text column for that CRM and object. Saved
+mappings matching the batch are updated to use those IDs on subsequent previews.
+Copying makes no CRM request. Only verified records with unchanged mapped table
+values are eligible; uncertain results, removed/changed rows and conflicting IDs
+are listed without overwriting them. Recent batch receipts also support copying.
+
+Mapped columns cannot be deleted until the saved mapping is edited or removed.
+Removing a mapping leaves table values and CRM records intact. Mappings survive
+CRM imports and table duplication; portable workbook-template mapping export is
+not included yet. Saving or reusing a mapping does not enable continuous sync.
+
+The private DemandDrive tables now include **HubSpot — account research**,
+**Salesforce — account research**, **HubSpot — buyer contacts** and
+**Salesforce — buyer contacts**. The buyer committee's **Named CRM contacts**
+view shows its three identified people for the contact mappings.

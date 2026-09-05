@@ -2,41 +2,41 @@
 
 ## Finished
 
-- Completed the three-company DemandDrive/HeroDevs exercise: cited signals, reviewed scores, 15 buyer roles and three verified public candidates.
-- Added direct mapped CRM create/update previews, native receipts and read-back checks.
-- Created three companies and three contacts in each dev CRM; imported all 12 records into four Pomade tables.
-- Fixed research list parsing with appended citations and HubSpot URL normalization.
-- Moved local start persistence outside build output so rebuilds retain tables/receipts.
+- Added persistent named CRM mappings with save, update, reuse and removal.
+- Added copying of verified native CRM IDs from batch receipts into table columns; matching saved mappings reuse those IDs.
+- Protected saved mapping columns from accidental deletion and left changed/conflicting rows for review during ID copying.
+- Saved four working mappings in the DemandDrive tables and a three-person **Named CRM contacts** view.
 
 ## Try It
 
-Open http://localhost:8798/ → **Tables** → **DemandDrive — 3 ICP accounts** or **DemandDrive — Buyer committee**. Select rows → **Write to CRM**, choose object/mappings/native ID column, preview and confirm. **Load data** previews companies/contacts from either CRM. Full assignment and private receipts: `outputs/demanddrive/REPORT.md`.
+Open http://localhost:8798/ → **Tables** → **DemandDrive — 3 ICP accounts** → **Write to CRM** → choose **HubSpot — account research** or **Salesforce — account research**. Preview the selected/visible rows, then confirm.
+
+For the buyer committee, choose **Named CRM contacts**, then a saved buyer-contact mapping. After a verified batch, use **Copy verified IDs to table**. New mappings can be named and saved in the same dialog.
 
 ## Checks
 
-- 34 focused CRM import/write and research tests passed.
+- 31 focused tests passed: CRM mappings, writes, imports, column dependencies and table duplication.
 - Typecheck, lint and production build passed.
-- Live company/contact creates, native read-back and all four imports passed.
-- Both CRMs passed a mapped description update and unchanged repeat; replaying a completed batch returned its saved receipt.
-- Contact re-matching and duplicate-free import refresh passed in both CRMs. New migration passed repeat application while preserving a receipt.
-- Local home HTTP 200. No browser interaction test or deployment.
+- Four mappings persisted/reloaded and verified all 12 existing dev CRM records with unchanged-only actions. ID copying persisted/reloaded successfully.
+- Named-contact view returned exactly three rows. Local home HTTP 200.
+- No browser interaction test, Parallel/Apollo requests, new CRM records or deployment.
 
 ## Decisions
 
-- Use existing dev credentials and bounded direct writes; retain Control Tower preview export.
-- Prefer native IDs, then domain/email or full name plus company context. Keep blank emails when enrichment is unavailable.
-- Preserve raw AI outputs separately from reviewed scores and keep private assignment/CRM data out of Git.
+- Reuse workspace persistence and version history; mappings store no credentials or row selection.
+- Copy IDs only from verified receipts whose mapped row values still match; preserve conflicting existing IDs.
+- Keep this a manual CRM workflow; saved mappings do not enable continuous sync.
 
 ## Remaining
 
-- Apollo Free plan blocks People Enrichment (HTTP 403); company enrichment passed live.
-- Reusable scoring/research review and saved CRM mappings.
-- Native HubSpot associations, continuous sync and custom fields/objects.
-- Durable Salesforce OAuth and interrupted-write reconciliation UI; a running batch requires native inspection before recovery.
+- Reusable scoring and research review.
+- Native HubSpot contact/company associations and continuous CRM sync.
+- Durable Salesforce OAuth and interrupted-write reconciliation UI.
+- Portable mapping templates, custom fields/objects and broader providers. Apollo Free still blocks People Enrichment.
 - Self-host packaging, hosted accounts and public release later.
 
 ## Review First
 
-- `outputs/demanddrive/REPORT.md` for assignment and native CRM IDs.
-- `lib/crm-sync.ts` and `app/api/crm-sync/route.ts` for matching, writes and receipts.
-- `components/crm-sync-builder.tsx` for the mapped preview/write flow.
+- `lib/crm-mappings.ts` for mapping persistence and verified-ID copying.
+- `components/crm-sync-builder.tsx` for saved mapping and receipt actions.
+- `outputs/demanddrive/crm-mappings-check.json` for the live reuse receipts.

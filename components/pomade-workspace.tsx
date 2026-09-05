@@ -2840,6 +2840,8 @@ export default function PomadeWorkspace({
                 }}
               />
               <CrmSyncBuilder
+                key={workspace.id}
+                onSave={setWorkspace}
                 workspace={workspace}
                 rowIds={handoffRowIds}
                 ready={canLeaveTable && !jobLocksWorkspace}
