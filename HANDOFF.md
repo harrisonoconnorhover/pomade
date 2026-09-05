@@ -2,40 +2,40 @@
 
 ## Finished
 
-- Added saved API refresh configurations from complete mapped fetches.
-- Added scheduled fetch before existing recipes and optional table transfer.
-- Updated stable-ID rows while preserving unmapped fields and absent records.
-- Retained failed/partial batches and stopped before input changes.
-- Supported empty source results and zero-action runs on empty tables.
+- Added capture/reuse of one-to-ten-table workbook templates.
+- Created empty connected tables with fresh IDs in one database batch.
+- Remapped active and saved lookups, function libraries, transfers and schedules.
+- Required compatible explicit mappings for outside-table references.
+- Paused schedules and removed webhook ingestion/data history from copies.
 
 ## Try It
 
-In **Import from API**, fetch a complete batch with stable IDs, map fields and save its refresh configuration. Enable it in **Schedule recipe runs**, approve the source request bound and choose recipe/transfer scope. Keep the local Worker and `npm run clock` running. Test Worker and fixture stopped after checks.
+Open **Workbook templates** in the table bar. Select connected tables and save a template. Choose it, name the new workbook, map outside references and create. Add data to the new tables; review paused schedule scope and connections before enabling runs. Test Worker stopped after checks.
 
 ## Checks
 
-- 22 focused API-source, schedule and pipeline tests passed.
+- 15 focused workbook/template/recipe-template tests passed.
 - Typecheck, lint and production build passed.
-- Isolated Worker + D1 with a local fake API passed pagination, stable-ID update, formula execution, transfer and unmapped-field preservation.
-- Later-page failure retained its batch and left table data unchanged; empty-source zero-action completion and home HTTP 200 passed.
-- Diff review/whitespace passed. No browser interaction test, real provider calls or deployment.
+- Isolated Worker + D1 passed template persistence, empty connected copies, copied lookup/transfer execution and unchanged original tables.
+- Missing outside mapping created no tables; explicit mapping and home HTTP 200 passed.
+- Diff review/whitespace passed. No browser interaction test, provider calls or deployment.
 
 ## Decisions
 
-- Successful source input changes persist before downstream recipes.
-- Partial/limited fetches stop; absent records are never deleted.
-- Refresh schedules use all table rows; provider execution is not exactly-once.
+- Templates are independent local configuration snapshots.
+- Outside mappings require matching column IDs; new tables retain their column IDs.
+- Empty tables and paused/disconnected automation are the creation defaults.
 
 ## Remaining
 
-- Workbook templates and branching/generated-row routing.
-- Versioned function updates and native provider presets.
-- Signals and numeric/grouped aggregations.
+- Branching workflows and generated-row routing.
+- Versioned function rollout and portable workbook export.
+- Native provider presets, signals and numeric/grouped aggregations.
 - Governed CRM writeback and retained-history controls.
 - Self-host packaging, hosted accounts and public release later.
 
 ## Review First
 
-- `lib/api-source.ts` for mapped update semantics.
-- `worker.ts` and schedule UI for source-to-recipe ordering and limits.
+- `lib/workbook-template.ts` for deep remapping and capture semantics.
+- `app/api/workbook-templates/route.ts` and template UI for creation flow.
 - `docs/capability-gap.md` for remaining competitor gaps.

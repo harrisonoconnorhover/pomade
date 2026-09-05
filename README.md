@@ -493,3 +493,24 @@ later recipe or transfer fails. Completed stages can repeat after an expired
 lease; there is no exactly-once provider guarantee. Source and recipe request
 limits are separate; recipe estimates conservatively allow for the source's
 maximum new rows. Keep the local Worker and clock running.
+
+
+### Reusable workbook templates
+
+Open **Workbook templates** in the table bar. Name the template, select one to
+ten connected tables and save them. Choose a saved template, name the new
+workbook, map any references to tables outside the selected group, then create.
+All selected tables are created together and the first one opens automatically.
+
+Templates preserve columns, recipes, saved functions/templates, views, API source
+settings and transfer/schedule configurations. Rows, run history, source-import
+provenance and webhook ingestion bindings are excluded. Internal table references
+are remapped in active columns, recipe libraries, transfers and schedules.
+External mappings must provide the required column IDs; column remapping across
+different external schemas is not yet supported.
+
+Every new table starts empty. Schedules start paused with timing, previous run
+IDs and captured row IDs cleared. Review row scope, source/provider settings and
+transfer destinations before enabling them. Local connection IDs are retained;
+creating tables sends no provider requests. Templates are independent snapshots
+stored in this installation, not portable exports or live shared versions.

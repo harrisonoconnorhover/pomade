@@ -619,3 +619,17 @@ source mutations or numeric/grouped aggregation.
   recipe scope and post-run transfer behavior. Bound source requests separately
   and estimate recipe scope using maximum potential new rows. No deletion sync,
   arbitrary branching or exactly-once provider guarantee.
+
+
+## 2026-09-05 — Local multi-table workbook templates
+
+- Save structures for one to ten tables without rows or import/run provenance.
+  Preserve local recipes, functions, views, source settings and transfer rules;
+  recursively remap their table references on creation.
+- Outside references require an explicit compatible table binding. Validate lookup
+  fields and transfer mappings before creating every new table in one D1 batch.
+  Preserve column IDs within each new table; different outside schemas need a
+  later field-remapping interface.
+- New tables are empty, schedules paused with row/time/history fields cleared,
+  and webhook ingestion disconnected. Local provider connections remain named
+  references. No public export, shared version rollout or provider execution.

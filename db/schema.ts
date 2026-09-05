@@ -139,3 +139,10 @@ export const tableTransferRuns = sqliteTable(
     index('idx_table_transfer_runs_source').on(table.sourceId, table.createdAt),
   ],
 );
+
+export const workbookTemplates = sqliteTable('workbook_templates', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  template: text('template').notNull(),
+  createdAt: integer('created_at').notNull(),
+});

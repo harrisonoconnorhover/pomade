@@ -5,6 +5,9 @@ let schemaReady = false;
 export async function ensureDatabaseSchema(db: D1Database) {
   await db.batch([
     db.prepare(
+      `CREATE TABLE IF NOT EXISTS workbook_templates (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, template TEXT NOT NULL, created_at INTEGER NOT NULL)`,
+    ),
+    db.prepare(
       `CREATE TABLE IF NOT EXISTS table_transfer_runs (id TEXT PRIMARY KEY NOT NULL, source_id TEXT NOT NULL, target_id TEXT NOT NULL, receipt TEXT NOT NULL, created_at INTEGER NOT NULL)`,
     ),
     db.prepare(
