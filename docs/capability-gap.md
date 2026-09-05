@@ -79,8 +79,11 @@ Bitscale or Clay.
 - [ ] Generic HTTP API enrichment plus inbound and outbound webhooks.
 - [ ] Authenticated plan import plus governed HubSpot/Salesforce writeback
       through GTM Control Tower.
-- [ ] Multiple tables in a workbook, reusable workbook templates, and table
-      relationships.
+- [x] Multiple persistent tables, blank creation, duplication, selected-row copies
+      with source-record links, and independently scoped history/jobs. Crossed off
+      2026-09-05; verified through an isolated Worker + D1 workflow.
+- [ ] Cross-table lookups, repeatable transfer/update rules, reusable workbook
+      templates, and deeper table relationships.
 - [ ] Event-driven workflows with triggers, branching, code steps, and actions.
 - [ ] Persistent people/company profiles, deduplicated audiences, and dynamic
       segments.
@@ -113,15 +116,20 @@ Bitscale or Clay.
 
 ## Build order after this slice
 
-1. Account-scoped storage and authorization, then Google sign-in. Prove that two
-   accounts cannot read, run, restore, or spend using each other's resources.
-2. Multiple related tables with reusable workbook templates. Prove a
-   company-to-people workflow preserves relationships without mixing both lists.
+User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
+our own work before spending time on other users, signup, or public hosting.
+
+1. Cross-table lookups and repeatable transfers, extending the working table
+   switcher, duplication and selected-row copies with source-record links.
+2. Generic HTTP enrichment and authenticated webhooks to connect real tools.
 3. True provider fallback with per-attempt receipts and usage. Prove a valid
    first-provider result prevents the second call; record misses and unknown cost.
-4. Generic HTTP enrichment and authenticated webhooks, then governed CRM
-   writeback through Control Tower.
-5. Saved-search sources, recurring signals, and composable multi-step functions.
+4. Saved-search sources, recurring signals and composable multi-step functions.
+5. Governed CRM writeback through Control Tower and reusable workbook templates.
+
+Defer account isolation, Google sign-in, billing and public onboarding until our
+own core workflows are working well. They remain required before a public
+multi-user launch, but they are not the next implementation slice.
 
 Standalone packaging is an explicit delivery milestone before calling this
 self-host-ready. Keep the current runtime while proving the next product slices;
@@ -145,7 +153,8 @@ They do not establish competitive scale, full feature parity, or superior data.
 The refreshed references below support this assessment alongside
 [Clay custom signals](https://www.clay.com/signals),
 [Claygent](https://university.clay.com/lessons/enriching-with-claygent), and
-[Bitscale enrichment](https://bitscale.ai/solutions/lp-data-enrichment).
+[Bitscale enrichment](https://bitscale.ai/solutions/lp-data-enrichment), and
+[Bitscale Workbooks](https://docs.bitscale.ai/ingredients/workbooks).
 
 ## Official product references
 

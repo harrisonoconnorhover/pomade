@@ -1,5 +1,5 @@
-import PomadeWorkspace from '@/components/pomade-workspace';
+import PomadeWorkbook from '@/components/pomade-workbook';
 
 export default function Home() {
-  return <PomadeWorkspace />;
+  return <PomadeWorkbook />;
 }

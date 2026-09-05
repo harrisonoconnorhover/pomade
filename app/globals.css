@@ -3310,3 +3310,19 @@ button {
     grid-row: 2;
   }
 }
+
+/* The workbook keeps related stages within reach without changing the grid surface. */
+.workbook-bar {
+  min-height: 54px; display: flex; align-items: center; gap: 12px;
+  padding: 8px 18px; border-bottom: 1px solid var(--border);
+  background: #fff; color: #234b39; font-size: 14px;
+}
+.workbook-bar select { min-width: 200px; max-width: 340px; padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.workbook-bar > span { margin-left: auto; color: var(--muted-foreground); }
+.workbook-bar output { color: var(--destructive); }
+.pomade-workbook .pomade-shell { height: calc(100vh - 54px); }
+.workbook-loading { display: grid; place-content: center; gap: 16px; font-size: 16px; }
+.workbook-name { display: grid; gap: 8px; font-size: 14px; }
+.workbook-name input { border: 1px solid var(--border); border-radius: 6px; padding: 10px; }
+.source-record-link { margin: 12px 0; max-width: 100%; white-space: normal; }

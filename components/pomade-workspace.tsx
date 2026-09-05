@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Copy,
   ArrowDown,
   ArrowDownUp,
   ArrowUp,
@@ -114,6 +115,7 @@ import {
   importRecipeFile,
   MAX_RECIPE_FILE_BYTES,
 } from '@/lib/recipe-file';
+import { summarizeTable, type TableSummary } from '@/lib/workbook';
 import { summarizeRecentUsage } from '@/lib/usage-summary';
 import {
   MAX_BACKGROUND_RESEARCH_ACTIONS,
@@ -442,16 +444,33 @@ function LogoMark() {
   );
 }
 
-export default function PomadeWorkspace() {
-  const [workspace, setWorkspace] = useState<WorkspaceSnapshot>(() =>
-    createSampleWorkspace(),
-  );
+export default function PomadeWorkspace({
+  workspaceId,
+  initialRowId = '',
+  onTableState,
+  onOpenTable,
+  onCopyRows,
+}: {
+  workspaceId: string;
+  initialRowId?: string;
+  onTableState: (summary: TableSummary, canLeave: boolean) => void;
+  onOpenTable: (tableId: string, rowId?: string) => void;
+  onCopyRows: (rowIds: string[]) => void;
+}) {
+  const workspaceUrl = `/api/workspace?workspaceId=${encodeURIComponent(workspaceId)}`;
+  const versionsUrl = `/api/workspace/versions?workspaceId=${encodeURIComponent(workspaceId)}`;
+  const [workspace, setWorkspace] = useState<WorkspaceSnapshot>(() => ({
+    ...createSampleWorkspace(),
+    id: workspaceId,
+    rows: [],
+  }));
   const [activeRowId, setActiveRowId] = useState('sample-1');
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [runHistory, setRunHistory] = useState<RunReceipt[]>([]);
   const [latestRun, setLatestRun] = useState<RunReceipt>();
   const [receiptRun, setReceiptRun] = useState<RunReceipt>();
   const [saveState, setSaveState] = useState<SaveState>('Loading');
+  const [saveAttempt, setSaveAttempt] = useState(0);
   const [running, setRunning] = useState(false);
   const [filter, setFilter] = useState<FilterMode>('All');
   const [activeSavedViewId, setActiveSavedViewId] = useState('');
@@ -573,22 +592,26 @@ export default function PomadeWorkspace() {
   const [sourcePreview, setSourcePreview] = useState<CrmSourcePreview>();
 
   const hydrated = useRef(false);
+  const [savedWorkspace, setSavedWorkspace] = useState<WorkspaceSnapshot>();
+  const [loaded, setLoaded] = useState(false);
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const jobRevision = useRef(0);
-  const suppressNextWorkspaceSave = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const recipeFileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      fetch('/api/workspace').then((response) => {
+      fetch(workspaceUrl).then((response) => {
         if (!response.ok) throw new Error('Workspace failed to load');
         return response.json() as Promise<{ workspace: WorkspaceSnapshot }>;
       }),
-      fetch('/api/runs?workspaceId=founder-targets').then((response) => {
-        if (!response.ok) throw new Error('Runs failed to load');
-        return response.json() as Promise<{ runs: RunReceipt[] }>;
-      }),
+      fetch(`/api/runs?workspaceId=${encodeURIComponent(workspaceId)}`).then(
+        (response) => {
+          if (!response.ok) throw new Error('Runs failed to load');
+          return response.json() as Promise<{ runs: RunReceipt[] }>;
+        },
+      ),
       fetch('/api/providers/apollo')
         .then((response) => {
           if (!response.ok) throw new Error('Apollo status failed to load');
@@ -627,8 +650,17 @@ export default function PomadeWorkspace() {
     ])
       .then(([workspaceResponse, runsResponse, apollo, crm, research]) => {
         if (cancelled) return;
+        setSavedWorkspace(workspaceResponse.workspace);
+        setLoaded(true);
         setWorkspace(workspaceResponse.workspace);
-        setActiveRowId(workspaceResponse.workspace.rows[0]?.id ?? '');
+        const focused = workspaceResponse.workspace.rows.find(
+          (row) => row.id === initialRowId,
+        );
+        setActiveRowId(
+          focused?.id ?? workspaceResponse.workspace.rows[0]?.id ?? '',
+        );
+        if (initialRowId && !focused)
+          setNotice('The linked source row no longer exists.');
         setRunHistory(runsResponse.runs);
         setLatestRun(runsResponse.runs[0]);
         setApolloStatus(apollo);
@@ -640,19 +672,20 @@ export default function PomadeWorkspace() {
       .catch(() => {
         if (!cancelled) {
           setSaveState('Offline');
-          hydrated.current = true;
         }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [workspaceUrl, workspaceId, initialRowId]);
 
   useEffect(() => {
     let cancelled = false;
     async function pollJobs() {
       try {
-        const response = await fetch('/api/jobs?workspaceId=founder-targets');
+        const response = await fetch(
+          `/api/jobs?workspaceId=${encodeURIComponent(workspaceId)}`,
+        );
         if (!response.ok) return;
         const result = (await response.json()) as { jobs: RunJob[] };
         if (cancelled) return;
@@ -666,8 +699,8 @@ export default function PomadeWorkspace() {
         setRunJobs(result.jobs);
         if (changed) {
           const [workspaceResponse, runsResponse] = await Promise.all([
-            fetch('/api/workspace'),
-            fetch('/api/runs?workspaceId=founder-targets'),
+            fetch(workspaceUrl),
+            fetch(`/api/runs?workspaceId=${encodeURIComponent(workspaceId)}`),
           ]);
           if (cancelled || !workspaceResponse.ok || !runsResponse.ok) return;
           const workspaceResult = (await workspaceResponse.json()) as {
@@ -677,7 +710,7 @@ export default function PomadeWorkspace() {
             runs: RunReceipt[];
           };
           if (cancelled) return;
-          suppressNextWorkspaceSave.current = true;
+          setSavedWorkspace(workspaceResult.workspace);
           setWorkspace(workspaceResult.workspace);
           setRunHistory(runsResult.runs);
           setLatestRun(runsResult.runs[0]);
@@ -693,29 +726,58 @@ export default function PomadeWorkspace() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [workspaceId, workspaceUrl]);
 
   useEffect(() => {
-    if (!hydrated.current) return;
-    if (suppressNextWorkspaceSave.current) {
-      suppressNextWorkspaceSave.current = false;
-      return;
-    }
-    setSaveState('Saving');
+    if (!hydrated.current || running || apolloRunning || jobSaving) return;
+    if (savedWorkspace === workspace) return;
+    let cancelled = false;
     const timer = window.setTimeout(() => {
-      fetch('/api/workspace', {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ workspace }),
-      })
-        .then((response) => {
+      setSaveState('Saving');
+      // Serialize saves so an older request cannot finish over a newer edit.
+      saveQueue.current = saveQueue.current
+        .catch(() => {})
+        .then(async () => {
+          const response = await fetch(workspaceUrl, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ workspace }),
+          });
           if (!response.ok) throw new Error('Save failed');
-          setSaveState('Saved');
+          if (!cancelled) {
+            setSavedWorkspace(workspace);
+            setSaveState('Saved');
+          }
         })
-        .catch(() => setSaveState('Offline'));
+        .catch(() => {
+          if (!cancelled) setSaveState('Offline');
+        });
     }, 500);
-    return () => window.clearTimeout(timer);
-  }, [workspace]);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    workspace,
+    workspaceUrl,
+    savedWorkspace,
+    running,
+    apolloRunning,
+    jobSaving,
+    saveAttempt,
+  ]);
+
+  const canLeaveTable =
+    saveState === 'Saved' &&
+    savedWorkspace === workspace &&
+    !running &&
+    !apolloRunning &&
+    !jobSaving &&
+    !restoringVersionId;
+  useEffect(() => {
+    if (hydrated.current)
+      onTableState(summarizeTable(workspace), canLeaveTable);
+  }, [workspace, canLeaveTable, onTableState]);
 
   useEffect(() => {
     if (!notice) return;
@@ -851,10 +913,14 @@ export default function PomadeWorkspace() {
       ? latestRunJob
       : undefined;
   const jobLocksWorkspace = Boolean(
-    currentRunJob &&
-    (currentRunJob.status === 'queued' ||
-      currentRunJob.status === 'running' ||
-      (currentRunJob.status === 'paused' && currentRunJob.leaseUntil)),
+    running ||
+    apolloRunning ||
+    jobSaving ||
+    restoringVersionId ||
+    (currentRunJob &&
+      (currentRunJob.status === 'queued' ||
+        currentRunJob.status === 'running' ||
+        (currentRunJob.status === 'paused' && currentRunJob.leaseUntil))),
   );
   const scheduledTargetRows =
     scheduleTarget === 'selected'
@@ -1803,6 +1869,7 @@ export default function PomadeWorkspace() {
     if (!window.confirm('Reset this table to the Pomade sample workspace?'))
       return;
     const sample = createSampleWorkspace();
+    sample.id = workspace.id;
     sample.recipeTemplates = workspace.recipeTemplates ?? [];
     const sampleColumnIds = new Set(sample.columns.map((column) => column.id));
     sample.savedViews = (workspace.savedViews ?? []).filter((view) =>
@@ -1822,7 +1889,7 @@ export default function PomadeWorkspace() {
     setVersionsLoading(true);
     setVersionsError('');
     try {
-      const response = await fetch('/api/workspace/versions');
+      const response = await fetch(versionsUrl);
       const result = (await response.json()) as {
         versions?: WorkspaceVersionSummary[];
         error?: string;
@@ -1853,7 +1920,8 @@ export default function PomadeWorkspace() {
     setRestoringVersionId(version.id);
     setVersionsError('');
     try {
-      const response = await fetch('/api/workspace/versions', {
+      await saveQueue.current;
+      const response = await fetch(versionsUrl, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ versionId: version.id }),
@@ -1865,7 +1933,7 @@ export default function PomadeWorkspace() {
       if (!response.ok || !result.workspace) {
         throw new Error(result.error || 'The version could not be restored.');
       }
-      suppressNextWorkspaceSave.current = true;
+      setSavedWorkspace(result.workspace);
       setWorkspace(result.workspace);
       setActiveRowId(result.workspace.rows[0]?.id ?? '');
       setSelectedRowIds([]);
@@ -1909,6 +1977,7 @@ export default function PomadeWorkspace() {
     setApolloResult(undefined);
     setApolloBatchSummary(undefined);
     try {
+      await saveQueue.current;
       const response = await fetch('/api/providers/apollo', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -1934,6 +2003,7 @@ export default function PomadeWorkspace() {
       ) {
         throw new Error(result.error || 'Apollo enrichment failed.');
       }
+      setSavedWorkspace(result.workspace);
       setWorkspace(result.workspace);
       rememberRun(result.run);
       setApolloResult(result.enrichment);
@@ -1992,6 +2062,7 @@ export default function PomadeWorkspace() {
       ),
     }));
     try {
+      await saveQueue.current;
       const response = await fetch('/api/runs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -2010,6 +2081,7 @@ export default function PomadeWorkspace() {
       if (!response.ok || !result.workspace || !result.run) {
         throw new Error(result.error || 'The recipe run failed.');
       }
+      setSavedWorkspace(result.workspace);
       setWorkspace(result.workspace);
       rememberRun(result.run);
       setSaveState('Saved');
@@ -2081,6 +2153,7 @@ export default function PomadeWorkspace() {
     setJobSaving(true);
     setJobError('');
     try {
+      await saveQueue.current;
       const response = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -2302,6 +2375,20 @@ export default function PomadeWorkspace() {
     setScheduleOpen(false);
     setNotice('Scheduled recipe runs paused.');
   }
+
+  if (!loaded)
+    return (
+      <main className="pomade-shell workbook-loading">
+        <p>
+          {saveState === 'Offline'
+            ? 'This table could not be loaded. Your saved data has not been replaced.'
+            : 'Loading table…'}
+        </p>
+        {saveState === 'Offline' ? (
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        ) : null}
+      </main>
+    );
 
   return (
     <main className="pomade-shell">
@@ -2668,6 +2755,16 @@ export default function PomadeWorkspace() {
                   >
                     <Cloud /> Run in background
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onCopyRows(selectedRowIds)}
+                    disabled={
+                      !canLeaveTable ||
+                      jobLocksWorkspace ||
+                      selectedRowIds.length === 0
+                    }
+                  >
+                    <Copy /> Send selected rows to new table
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={exportCsv}>
                     <Download /> Export CSV
                   </DropdownMenuItem>
@@ -2741,9 +2838,17 @@ export default function PomadeWorkspace() {
                 className={`status-dot ${saveState === 'Offline' ? 'status-dot-warning' : ''}`}
               />{' '}
               {saveState === 'Offline'
-                ? 'Working locally'
+                ? 'Save failed — changes are only in this tab'
                 : 'Changes persist automatically'}
             </span>
+            {saveState === 'Offline' ? (
+              <button
+                type="button"
+                onClick={() => setSaveAttempt((attempt) => attempt + 1)}
+              >
+                Retry save
+              </button>
+            ) : null}
             <span>
               {workspace.rows.length} records · {recipeCount} recipes
             </span>
@@ -2791,6 +2896,21 @@ export default function PomadeWorkspace() {
               </a>
             ) : null}
           </div>
+          {selected?.sourceRecord ? (
+            <Button
+              className="source-record-link"
+              variant="outline"
+              disabled={!canLeaveTable}
+              onClick={() =>
+                onOpenTable(
+                  selected.sourceRecord!.tableId,
+                  selected.sourceRecord!.rowId,
+                )
+              }
+            >
+              Source: {selected.sourceRecord.tableName}
+            </Button>
+          ) : null}
           <div className="record-signals">
             <div>
               <span>Email</span>
@@ -2965,9 +3085,7 @@ export default function PomadeWorkspace() {
             Importing does not run a recipe.
           </p>
           {recipeFileMessage ? (
-            <output className="template-no-inputs">
-              {recipeFileMessage}
-            </output>
+            <output className="template-no-inputs">{recipeFileMessage}</output>
           ) : null}
           {recipeTemplates.length ? (
             <section className="recipe-group template-library">

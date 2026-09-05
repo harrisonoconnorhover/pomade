@@ -121,6 +121,7 @@ export type RunJob = {
 };
 
 export type PomadeRow = {
+  sourceRecord?: { tableId: string; rowId: string; tableName: string };
   id: string;
   generatedByColumnId?: string;
   generatedAt?: number;

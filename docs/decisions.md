@@ -377,3 +377,32 @@ child rows, avoiding accidental writes into a same-named destination column on
 another installation. Text explicitly placed inside prompts/descriptions remains
 in the file and should be reviewed before sharing. This is a single recipe
 exchange format, not a full workspace backup or synchronized multi-step function.
+
+## Personal usability comes before signup (2026-09-05)
+
+The active objective is a practical Clay/Bitscale competitor that works well for
+our own use. This supersedes the earlier build order putting account isolation
+and Google sign-in next. Keep both on the eventual hosted-product roadmap, but
+build table workflows, real integrations, provider fallback, signals and reusable
+multi-step recipes first. Keep local commits and defer publication.
+
+## Tables reuse the existing workspace execution contract
+
+A table is an independently stored WorkspaceSnapshot. The initial table keeps
+its original ID and data. The workbook selector remounts the editor by table ID;
+workspace saves, run history, jobs and version APIs all use that ID. A new blank
+table starts without sample rows. Duplication copies configuration and values
+but never copies an active schedule or historical runs.
+
+Selected-row transfers create a new table containing observed values, with a
+source table/row reference on each record. Upstream recipe columns become text
+columns, and local generation lineage is cleared so later list reruns or row
+deletions in one stage cannot remove another stage's records. Transfers are
+snapshot copies, not live sync. The inspector opens the linked source record
+and explains when that row no longer exists.
+
+Table switching waits for the current save and foreground actions. Autosaves
+are serialized, and failed loads no longer turn a sample fallback into saved
+data. Failed saves retain edits in the tab and expose a retry. Background runs
+remain scoped to their table and can continue while another table is open.
+This is one operator's workbook, not multi-user authorization.

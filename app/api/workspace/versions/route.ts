@@ -6,7 +6,7 @@ import {
   summarizeWorkspaceVersion,
 } from '@/lib/workspace-version';
 
-const WORKSPACE_ID = 'founder-targets';
+import { DEFAULT_TABLE_ID, isTableId } from '@/lib/workbook';
 
 type VersionRecord = {
   id: string;
@@ -19,7 +19,11 @@ function isVersionId(value: unknown): value is string {
   return typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const tableId =
+    new URL(request.url).searchParams.get('workspaceId') ?? DEFAULT_TABLE_ID;
+  if (!isTableId(tableId))
+    return Response.json({ error: 'Invalid table ID.' }, { status: 400 });
   const db = await ensureDatabase();
   const result = await db
     .prepare(`SELECT id, reason, snapshot, created_at
@@ -27,7 +31,7 @@ export async function GET() {
       WHERE workspace_id = ?
       ORDER BY created_at DESC, id DESC
       LIMIT 20`)
-    .bind(WORKSPACE_ID)
+    .bind(tableId)
     .all<VersionRecord>();
 
   return Response.json({
@@ -50,6 +54,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const tableId =
+    new URL(request.url).searchParams.get('workspaceId') ?? DEFAULT_TABLE_ID;
+  if (!isTableId(tableId))
+    return Response.json({ error: 'Invalid table ID.' }, { status: 400 });
   let body: unknown;
   try {
     body = await request.json();
@@ -72,7 +80,7 @@ export async function POST(request: Request) {
     .prepare(`SELECT status FROM run_jobs
       WHERE workspace_id = ? AND status IN ('queued', 'running', 'paused')
       LIMIT 1`)
-    .bind(WORKSPACE_ID)
+    .bind(tableId)
     .first<{ status: RunJobStatus }>();
   if (activeJob) {
     return Response.json(
@@ -84,7 +92,7 @@ export async function POST(request: Request) {
   const record = await db
     .prepare(`SELECT snapshot FROM workspace_versions
       WHERE id = ? AND workspace_id = ?`)
-    .bind(versionId, WORKSPACE_ID)
+    .bind(versionId, tableId)
     .first<{ snapshot: string }>();
   if (!record) {
     return Response.json(
@@ -95,7 +103,7 @@ export async function POST(request: Request) {
 
   try {
     const stored = JSON.parse(record.snapshot) as WorkspaceSnapshot;
-    if (stored.id !== WORKSPACE_ID) throw new Error('Workspace mismatch');
+    if (stored.id !== tableId) throw new Error('Workspace mismatch');
     const restored = prepareRestoredWorkspace(stored, Date.now());
     await db.batch(
       await versionedWorkspaceStatements(

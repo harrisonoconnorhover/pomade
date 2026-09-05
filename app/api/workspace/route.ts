@@ -3,13 +3,13 @@ import { versionedWorkspaceStatements } from '@/db/workspace-store';
 import { createSampleWorkspace } from '@/lib/sample-workspace';
 import type { WorkspaceSnapshot } from '@/lib/pomade-types';
 
-const WORKSPACE_ID = 'founder-targets';
+import { DEFAULT_TABLE_ID, isTableId } from '@/lib/workbook';
 
 function isWorkspaceSnapshot(value: unknown): value is WorkspaceSnapshot {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<WorkspaceSnapshot>;
   return (
-    candidate.id === WORKSPACE_ID &&
+    isTableId(candidate.id) &&
     typeof candidate.name === 'string' &&
     Array.isArray(candidate.columns) &&
     candidate.columns.length > 0 &&
@@ -27,17 +27,23 @@ async function saveWorkspace(workspace: WorkspaceSnapshot) {
   );
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const tableId =
+    new URL(request.url).searchParams.get('workspaceId') ?? DEFAULT_TABLE_ID;
+  if (!isTableId(tableId))
+    return Response.json({ error: 'Invalid table ID.' }, { status: 400 });
   const db = await ensureDatabase();
   const record = await db
     .prepare('SELECT snapshot FROM workspaces WHERE id = ?')
-    .bind(WORKSPACE_ID)
+    .bind(tableId)
     .first<{ snapshot: string }>();
 
   if (record) {
     return Response.json({ workspace: JSON.parse(record.snapshot) });
   }
 
+  if (tableId !== DEFAULT_TABLE_ID)
+    return Response.json({ error: 'Table not found.' }, { status: 404 });
   const workspace = createSampleWorkspace();
   await saveWorkspace(workspace);
   return Response.json({ workspace });
@@ -54,6 +60,17 @@ export async function PUT(request: Request) {
     );
   }
 
+  const requestedId =
+    new URL(request.url).searchParams.get('workspaceId') ?? DEFAULT_TABLE_ID;
+  if (requestedId !== workspace.id)
+    return Response.json({ error: 'Table ID mismatch.' }, { status: 400 });
+  const db = await ensureDatabase();
+  const exists = await db
+    .prepare('SELECT id FROM workspaces WHERE id = ?')
+    .bind(workspace.id)
+    .first();
+  if (!exists)
+    return Response.json({ error: 'Table not found.' }, { status: 404 });
   const updated = { ...workspace, updatedAt: Date.now() };
   await saveWorkspace(updated);
   return Response.json({ workspace: updated });

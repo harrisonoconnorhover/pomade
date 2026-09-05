@@ -60,11 +60,29 @@ receipt, and rollback flow.
 ## Product direction
 
 One open-source product, usable through an independent installation or an
-optional Pomade-hosted account. Google sign-in is planned after workspace
-ownership and account isolation. Hosted signup and complete standalone
+optional Pomade-hosted account. Our current priority is daily usability: table workflows, integrations and
+reliable enrichment. Google sign-in and account isolation are deferred until
+those workflows work well for us. Hosted signup and complete standalone
 self-host packaging are not implemented yet. Development currently uses
 Workers/D1 and Sites tooling. Build slices are committed locally; GitHub pushes
 and site publication wait for a requested release milestone.
+
+## Work across tables
+
+Use the **Tables** selector above the grid to switch stages. **New table** starts
+an empty grid; **Duplicate** copies values, recipes and views without carrying
+an active schedule. Runs and version history belong to the selected table.
+
+Select rows and choose **Action → Send selected rows to new table** to make a
+separate stage, such as a people list researched from company accounts. The new
+table keeps the values and a **Source** button linking each row to its original
+record. Upstream recipes become ordinary columns, so using the new table cannot
+accidentally rerun the list research. These are snapshot copies; cross-table
+lookups and repeatable sync rules are next. Existing source rows stay unchanged.
+
+Switching waits for edits to save. If a save fails, use **Retry save** before
+leaving the table. Background jobs can continue in their own table while you
+work elsewhere.
 
 ## Share a recipe between installations
 
