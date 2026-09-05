@@ -238,6 +238,32 @@ and schedules. Review receipts before manually retrying a request with possible
 remote effects. Pagination, PUT/PATCH/DELETE and inbound webhooks remain pending.
 HTTP templates can be reused locally; portable export awaits connection remapping.
 
+## Repeatable table transfers
+
+Choose **Transfer to table** once the source table has finished saving. Select a
+destination, match columns and exact/text/domain normalization, then choose
+add-only, update-only or add-and-update mode. Map source fields to destination
+input columns and save the rule. The match key is populated automatically on new
+rows; existing destination key formatting and unmapped fields are preserved.
+Blank source values are skipped by default; turn that option off to clear mapped
+fields deliberately.
+
+Preview all source rows or the captured selection, review the totals and sample
+changes, then apply. Missing keys and duplicate source/destination keys are skipped
+with explicit review reasons. Apply requires current source and target revisions;
+changes after preview require a new preview. A destination with active background
+work cannot be transferred into until that work finishes or is cancelled.
+
+The transfer leaves the source unchanged, updates only mapped destination values,
+refreshes local automatic formulas and pauses an active destination schedule.
+Changed rows retain a source-record link. No external providers are called.
+Rerunning the same values is a no-op. Rule and receipt history persist locally;
+duplicating a source table drops its destination-bound rules. Preview displays up
+to 20 changes; receipts retain up to 100 sampled changes with values capped at
+500 characters for display. Counts cover the full scope. Saved rules currently
+require manual execution; scheduled synchronization and deletion propagation are
+not implemented.
+
 ## Provider fallback waterfalls
 
 Open **Recipe library → Provider waterfall** to configure two to four HTTP

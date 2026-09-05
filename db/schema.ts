@@ -125,3 +125,17 @@ export const apiSourceBatches = sqliteTable(
     ),
   ],
 );
+
+export const tableTransferRuns = sqliteTable(
+  'table_transfer_runs',
+  {
+    id: text('id').primaryKey(),
+    sourceId: text('source_id').notNull(),
+    targetId: text('target_id').notNull(),
+    receipt: text('receipt').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_table_transfer_runs_source').on(table.sourceId, table.createdAt),
+  ],
+);

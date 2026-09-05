@@ -51,6 +51,7 @@ import { Button } from '@/components/ui/button';
 import ProviderWaterfallBuilder from '@/components/provider-waterfall-builder';
 import HttpRecipeBuilder from '@/components/http-recipe-builder';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
+import TableTransferBuilder from '@/components/table-transfer-builder';
 import ApiSourceBuilder from '@/components/api-source-builder';
 import WebhookInbox from '@/components/webhook-inbox';
 import {
@@ -2710,6 +2711,12 @@ export default function PomadeWorkspace({
               >
                 <Upload /> Load data
               </Button>
+              <TableTransferBuilder
+                source={workspace}
+                saved={canLeaveTable}
+                selectedRowIds={selectedRowIds}
+                onSave={setWorkspace}
+              />
               <ApiSourceBuilder
                 workspace={workspace}
                 disabled={jobLocksWorkspace}

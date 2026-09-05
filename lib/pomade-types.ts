@@ -177,7 +177,19 @@ export type SavedView = {
   createdAt: number;
 };
 
+export type TableTransferRule = {
+  id: string;
+  name: string;
+  targetTableId: string;
+  sourceKey: string;
+  targetKey: string;
+  normalization: TableLookup['normalization'];
+  mode: 'add' | 'update' | 'upsert';
+  skipBlank: boolean;
+  mapping: Record<string, string>;
+};
 export type WorkspaceSnapshot = {
+  tableTransfers?: TableTransferRule[];
   revision?: number;
   webhookAutoImport?: Record<string, boolean>;
   webhookImportErrors?: Record<string, string>;

@@ -231,7 +231,7 @@ export function recalculateAutomaticFormulas(
       }
       continue;
     }
-    if (column.lineageColumnId === editedColumnId) continue;
+    if (editedColumnId && column.lineageColumnId === editedColumnId) continue;
     const currentRow = { ...row, values };
     if (!shouldRunRecipe(column, currentRow)) continue;
     Object.assign(values, runRecipeOutputs(column, currentRow));

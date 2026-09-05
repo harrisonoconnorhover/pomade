@@ -105,8 +105,11 @@ Bitscale or Clay.
       domain matching; one-to-four outputs, a five-row preview, match status,
       source evidence, fresh reads on each run, and manual/background/scheduled
       execution. Crossed off 2026-09-05.
-- [ ] Lookup contains matching, multi-match aggregation/list outputs, repeatable
-      transfer/update rules, reusable workbook templates, and deeper relationships.
+- [x] Saved repeatable table transfer rules with mapped add/update modes,
+      exact/text/domain keys, blank handling, duplicate review, revision-checked
+      previews, source links and durable receipts. Verified 2026-09-05.
+- [ ] Lookup contains matching, multi-match aggregation/list outputs, automatic
+      table synchronization, reusable workbook templates and deeper relationships.
 - [ ] Event-driven workflows with triggers, branching, code steps, and actions.
 - [ ] Persistent people/company profiles, deduplicated audiences, and dynamic
       segments.
@@ -145,9 +148,8 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Repeatable table transfer/update rules and richer relationships.
-2. Repeatable cross-table transfers, richer lookup matching/aggregation and
-   reusable workbook templates.
+1. Richer lookups: contains matching and multiple-result aggregation.
+2. Reusable multi-step/workbook templates and scheduled table workflows.
 3. Scheduled source refresh and update-existing-record rules with visible results.
 4. Saved-search sources, recurring signals and composable multi-step functions.
 5. Governed CRM writeback through Control Tower and reusable workbook templates.

@@ -541,3 +541,24 @@ Real Worker testing found and corrected a prior unsaved-row execution issue:
 foreground result merging now uses the stored table as its execution baseline,
 while revision checks reject stale requests before provider calls. This preserves
 new unsaved rows and concurrent additions without repeating enrichment requests.
+
+## Repeatable transfers preview destination mutations before applying
+
+Rules live in the source snapshot and specify destination, match keys,
+normalization, mapped fields, add/update mode and blank-value policy. Matching
+accepts only unique keys within the selected source scope and destination table.
+Missing/duplicate keys become review entries without writes. Existing unmapped
+fields and destination key formatting remain intact. Changed rows link to their
+source; local automatic formulas refresh without provider calls.
+
+Preview reads saved snapshots. Applying requires the same source and target
+revisions and commits the target snapshot and receipt atomically. Active target
+jobs/running schedules block transfers; successful changes pause an enabled
+schedule. Receipts retain the applied rule, counts and up to 100 sampled changes
+with bounded display values. They are not an exhaustive field audit for large
+transfers. Repeated unchanged transfers skip existing values. Source rules are
+not copied into duplicated tables, and missing target columns fail validation.
+
+Saved rules are manually rerunnable, not scheduled synchronization or deletion
+propagation. Testing also corrected automatic formula refresh when no single
+edited-column ID is supplied, as required by multi-field transfers.

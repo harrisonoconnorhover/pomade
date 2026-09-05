@@ -5,6 +5,12 @@ let schemaReady = false;
 export async function ensureDatabaseSchema(db: D1Database) {
   await db.batch([
     db.prepare(
+      `CREATE TABLE IF NOT EXISTS table_transfer_runs (id TEXT PRIMARY KEY NOT NULL, source_id TEXT NOT NULL, target_id TEXT NOT NULL, receipt TEXT NOT NULL, created_at INTEGER NOT NULL)`,
+    ),
+    db.prepare(
+      `CREATE INDEX IF NOT EXISTS idx_table_transfer_runs_source ON table_transfer_runs(source_id,created_at)`,
+    ),
+    db.prepare(
       `CREATE TABLE IF NOT EXISTS api_source_batches (id TEXT PRIMARY KEY NOT NULL, workspace_id TEXT NOT NULL, batch TEXT NOT NULL, created_at INTEGER NOT NULL)`,
     ),
     db.prepare(

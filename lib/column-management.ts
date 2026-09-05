@@ -87,6 +87,12 @@ export function findColumnDependencies(
       addDependency(dependencies, view.id, view.name, 'saved view');
     }
   }
+  for (const rule of workspace.tableTransfers ?? [])
+    if (
+      rule.sourceKey === columnId ||
+      Object.values(rule.mapping).includes(columnId)
+    )
+      addDependency(dependencies, rule.id, rule.name, 'table transfer');
   return dependencies;
 }
 
