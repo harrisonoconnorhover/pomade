@@ -1,6 +1,6 @@
 # Pomade capability gap
 
-Baseline: 2026-09-04. This is a living product checklist, not a claim that
+Baseline: 2026-09-05 (official documentation refreshed). This is a living product checklist, not a claim that
 Pomade matches the maturity, throughput, provider coverage, or reliability of
 Bitscale or Clay.
 
@@ -35,7 +35,7 @@ Bitscale or Clay.
 - [x] Durable delayed, every-24-hour, and every-seven-day recipe runs for the
       whole table or captured row IDs, with explicit provider consent and
       stop-on-error behavior. Crossed off 2026-09-04.
-- [x] Save configured columns as reusable recipe functions with declared input
+- [x] Save configured columns as reusable single-column recipe templates with declared input
       mapping, collision-safe typed outputs, conditions, and auto-update
       behavior. Crossed off 2026-09-04.
 - [x] Ordered two-to-six-step enrichment-field waterfalls with configurable
@@ -68,6 +68,10 @@ Bitscale or Clay.
       projection, child-row lineage, and an Apollo-ready follow-on. Crossed off
       2026-09-05.
 
+- [x] Portable versioned recipe JSON import/export with input remapping across
+      installations; imports add library entries without executing recipes.
+      Crossed off 2026-09-05.
+
 ## Core gaps to cross off
 
 - [ ] Company and people sourcing from saved searches, Maps, and job-board
@@ -87,7 +91,14 @@ Bitscale or Clay.
 - [x] Bounded structural version history and restore with latest-20 retention,
       current-state preservation, background-job exclusion, and paused restored
       schedules. Crossed off 2026-09-05.
-- [ ] Team collaboration and access controls.
+- [ ] Team collaboration and access controls, Google sign-in, and account-scoped
+      workspaces, jobs, history, caches, and provider credentials.
+- [ ] True provider waterfalls that call fallback providers only when needed;
+      current waterfalls select already-computed values.
+- [ ] Multi-step reusable functions with versioned changes and explicit rollout;
+      current templates are copied single-column configurations.
+- [ ] Complete standalone self-host packaging, persistence, and scheduled worker
+      operation without a Pomade-hosted account or Sites service dependency.
 - [ ] Real provider-credit ledger, per-step cost estimates, budgets, and usage
       reporting beyond the recent receipt snapshot.
 - [ ] Reusable research agents with business context, documents, tools, model
@@ -100,14 +111,41 @@ Bitscale or Clay.
 - [ ] Native advertising-audience sync. This is a later distribution surface,
       not a prerequisite for a strong enrichment grid.
 
-## Next three slices
+## Build order after this slice
 
-1. Authenticated Control Tower plan import and governed CRM writeback, keeping
-   approval, receipt, and rollback outside the enrichment grid.
-2. Multiple tables per workbook with reusable table templates and relationships,
-   so prospecting, people, and campaign views do not have to share one grid.
-3. Saved-search, Maps, and job-board sources so list building is not limited to
-   ICP company and company-to-people research.
+1. Account-scoped storage and authorization, then Google sign-in. Prove that two
+   accounts cannot read, run, restore, or spend using each other's resources.
+2. Multiple related tables with reusable workbook templates. Prove a
+   company-to-people workflow preserves relationships without mixing both lists.
+3. True provider fallback with per-attempt receipts and usage. Prove a valid
+   first-provider result prevents the second call; record misses and unknown cost.
+4. Generic HTTP enrichment and authenticated webhooks, then governed CRM
+   writeback through Control Tower.
+5. Saved-search sources, recurring signals, and composable multi-step functions.
+
+Standalone packaging is an explicit delivery milestone before calling this
+self-host-ready. Keep the current runtime while proving the next product slices;
+do not build a second product or a speculative storage framework now.
+
+## Competitive targets, refreshed 2026-09-05
+
+These are documented capabilities, not independently measured product tests.
+Provider counts and coverage percentages on marketing pages are vendor claims.
+
+| Area | Current competitor evidence | Pomade's concrete target |
+| --- | --- | --- |
+| Reuse | Bitscale saves enrichment templates; Clay Functions bundle steps and propagate updates across tables. | Portable recipes now; versioned multi-step functions later, with preview before updating dependents. |
+| Data coverage | Both advertise multi-provider waterfalls. | Sequential fallback, visible attempt results, stop on success, then compare identical sample inputs for accepted data and actual cost. |
+| Research | Claygent browses for dynamic context; Bitscale advertises live BitAgent research. | Preserve citations and typed outputs; measure grounded answer accuracy on the same questions. |
+| Automation | Clay documents Workflows and custom signals; Bitscale documents programmatic grid execution. | Add event-driven runs with visible progress and receipts; prove retries do not duplicate successful actions. |
+| Ownership | Our product requirement is hosted convenience plus independent installation. | Same recipe format and engine in both; account-independent exports and documented self-host setup. No claim about competitor self-host support. |
+
+The current grid, receipts, bounded jobs and local recipe engine are foundations.
+They do not establish competitive scale, full feature parity, or superior data.
+The refreshed references below support this assessment alongside
+[Clay custom signals](https://www.clay.com/signals),
+[Claygent](https://university.clay.com/lessons/enriching-with-claygent), and
+[Bitscale enrichment](https://bitscale.ai/solutions/lp-data-enrichment).
 
 ## Official product references
 

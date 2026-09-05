@@ -1065,7 +1065,7 @@ button {
 .template-library-list article {
   min-height: 62px;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto 30px;
+  grid-template-columns: 34px minmax(0, 1fr) auto 30px 30px;
   align-items: center;
   gap: 9px;
   padding: 8px;

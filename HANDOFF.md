@@ -2,41 +2,39 @@
 
 ## Finished
 
-- Added guarded row deletion and dependency-aware column deletion with recovery through versions.
-- Added stable-ID column renaming through native Glide header menus.
-- Added immediate and background single-recipe runs from each recipe header menu.
-- Added a transparent recent-usage summary for local/provider actions, cache hits, observed credits, and unknown cost.
-- Added bounded latest-20 workspace versions with reversible, automation-safe restore.
+- Added versioned recipe JSON export/import to the recipe library, using existing input mapping and execution paths.
+- Preserved formula, research, typed list output, condition, and waterfall configuration across installations.
+- Imported files add fresh library entries without executing recipes or replacing table rows; invalid files show feedback inside the library.
+- Refreshed Clay/Bitscale capability targets, distinguishing single-column templates from multi-step functions and value selection from provider fallback.
+- Recorded one open-source core with optional hosted accounts, Google sign-in after account isolation, and local-only commits during building.
 
 ## Try It
 
-Open a column header menu to rename, run, or delete it. Deletion lists formula, recipe, output, and saved-view blockers before it can remove values. Use **Action → Version history** to recover an earlier table.
+From this folder run `npm run dev`, open the printed URL, save a configured recipe as a template, and open **Recipe library**. Use its download icon, then **Import recipe file**. Click **Use**, map inputs, and add the recipe. Imported research still needs provider configuration and execution confirmation. The preview server used during verification was stopped after the check.
 
 ## Checks
 
-- `npm test`: 97 tests passed across 21 files.
-- `npm run typecheck`: passed.
-- `npm run lint`: passed.
-- `npm run build`: passed with `/api/workspace/versions` in the route manifest.
-- Isolated Worker + D1 E2E: queued formula row completed with its scoped receipt.
-- Local D1 E2E: edit created a version, restore matched original content, and the displaced current table was archived.
+- Focused recipe-file and existing template tests: 12 passed across two files, including cross-table execution, research/list and waterfall preservation, and invalid-file rejection.
+- Final `npm run typecheck`, `npm run lint`, and `npm run build`: passed.
+- Local page request: HTTP 200; no browser interaction test or paid provider call performed.
+- `git diff --check`: passed before commit.
 
 ## Decisions
 
-- Column deletion blocks known recipe, condition, output, and saved-view dependencies.
-- Generated child rows become static data when their creating recipe column is removed.
-- Deleting the final recipe pauses any schedule; version history remains the recovery path.
+- Version 1 recipe files contain configuration, not rows, secrets, history, schedules, or existing-column list projections. Literal prompt text remains and should be reviewed before sharing.
+- Keep current Workers/D1 runtime while building; complete independent self-host packaging remains a delivery milestone.
+- Local Git commits preserve work; no GitHub push or site publication for this iteration.
 
 ## Remaining
 
-- Add generic HTTP enrichment plus inbound and outbound webhooks.
-- Add saved-search, Maps, and job-board sources.
-- Add authenticated plan import and governed HubSpot/Salesforce writeback.
-- Add owner-authenticated multiple related tables and workbook templates.
-- Publish the local feature slices after review and fresh approval.
+- Account-scoped storage and authorization, then Google sign-in; current fixed-workspace API is not multi-user ready.
+- Multiple related tables and workbook templates.
+- True sequential provider fallback, HTTP integrations and authenticated webhooks.
+- Governed CRM writeback, additional sources, signals and multi-step functions.
+- Standalone self-host packaging and an eventual reviewed public release.
 
 ## Review First
 
-- `lib/column-management.ts` for dependency discovery and safe removal.
-- `components/pomade-workspace.tsx` for blocker presentation and confirmation.
-- `lib/column-management.test.ts` for dependency, status, schedule, and child-row coverage.
+- `lib/recipe-file.ts` and its focused tests for the portable format and remapping.
+- `components/pomade-workspace.tsx` for recipe library import/export.
+- `docs/capability-gap.md` and `docs/decisions.md` for build order and hosting direction.

@@ -19,7 +19,7 @@ what changed. It is an original product built on the open-source
   an input cell changes.
 - Run or queue one recipe directly from its column header against the current
   selected or visible rows.
-- Save any configured recipe as a reusable function, then map its declared
+- Save any configured recipe as a reusable column template, then map its declared
   inputs to another table and recreate its outputs.
 - Build ordered data waterfalls across two to six enrichment columns, with the
   first available value and its winning source kept side by side.
@@ -56,6 +56,29 @@ phone numbers. Batches run at bounded concurrency, reuse cached or duplicate
 identities, preserve partial successes, and attach a receipt to every completed
 row. Governed CRM writes remain behind GTM Control Tower's preview, approval,
 receipt, and rollback flow.
+
+## Product direction
+
+One open-source product, usable through an independent installation or an
+optional Pomade-hosted account. Google sign-in is planned after workspace
+ownership and account isolation. Hosted signup and complete standalone
+self-host packaging are not implemented yet. Development currently uses
+Workers/D1 and Sites tooling. Build slices are committed locally; GitHub pushes
+and site publication wait for a requested release milestone.
+
+## Share a recipe between installations
+
+Save a configured column as a template, open **Recipe library**, and use its
+export button to download a `.pomade-recipe.json` file. On another installation,
+choose **Import recipe file**, then **Use** and map the inputs to that table.
+Import only adds a library entry; it does not run an enrichment or replace rows.
+The current workspace save retains the imported library.
+
+Files preserve prompts, formulas, conditions, typed outputs and waterfall order.
+They exclude table rows, provider credentials, schedules, receipts and mappings
+that project list results into existing columns. List results use new output
+columns instead. Review literal prompt and description text before sharing.
+Only version 1 files up to 256 KB are supported; this is not a workspace backup.
 
 ## Run locally
 

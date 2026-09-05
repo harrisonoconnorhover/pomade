@@ -109,6 +109,11 @@ import {
 } from '@/lib/recipe-schedule';
 import { deleteWorkspaceRows } from '@/lib/row-management';
 import { createSavedView, rowMatchesSavedView } from '@/lib/saved-views';
+import {
+  exportRecipeFile,
+  importRecipeFile,
+  MAX_RECIPE_FILE_BYTES,
+} from '@/lib/recipe-file';
 import { summarizeRecentUsage } from '@/lib/usage-summary';
 import {
   MAX_BACKGROUND_RESEARCH_ACTIONS,
@@ -501,6 +506,7 @@ export default function PomadeWorkspace() {
   const [templateDescription, setTemplateDescription] = useState('');
   const [activeTemplateId, setActiveTemplateId] = useState('');
   const [templateError, setTemplateError] = useState('');
+  const [recipeFileMessage, setRecipeFileMessage] = useState('');
   const [templateBindings, setTemplateBindings] = useState<
     Record<string, string>
   >({});
@@ -570,6 +576,7 @@ export default function PomadeWorkspace() {
   const jobRevision = useRef(0);
   const suppressNextWorkspaceSave = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const recipeFileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1188,6 +1195,54 @@ export default function PomadeWorkspace() {
     } catch (error) {
       setTemplateError(
         error instanceof Error ? error.message : 'Template could not be added.',
+      );
+    }
+  }
+
+  function downloadRecipe(template: RecipeTemplate) {
+    try {
+      const contents = exportRecipeFile(template);
+      const url = URL.createObjectURL(
+        new Blob([contents], { type: 'application/json' }),
+      );
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${slugify(template.name)}.pomade-recipe.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setRecipeFileMessage(
+        `${template.name} exported. Review prompt text before sharing.`,
+      );
+    } catch (error) {
+      setRecipeFileMessage(
+        error instanceof Error ? error.message : 'Recipe export failed.',
+      );
+    }
+  }
+
+  async function loadRecipeFile(file: File) {
+    if (jobLocksWorkspace) return;
+    setRecipeFileMessage('');
+    const revision = jobRevision.current;
+    try {
+      if (file.size > MAX_RECIPE_FILE_BYTES)
+        throw new Error('Recipe files must be smaller than 256 KB.');
+      const template = importRecipeFile(await file.text(), crypto.randomUUID());
+      if (revision !== jobRevision.current)
+        throw new Error(
+          'Background work changed. Please import the recipe again when it finishes.',
+        );
+      setWorkspace((current) => ({
+        ...current,
+        recipeTemplates: [...(current.recipeTemplates ?? []), template],
+        updatedAt: Date.now(),
+      }));
+      setRecipeFileMessage(
+        `${template.name} imported into your recipe library. Map its inputs with Use.`,
+      );
+    } catch (error) {
+      setRecipeFileMessage(
+        error instanceof Error ? error.message : 'Recipe import failed.',
       );
     }
   }
@@ -2884,6 +2939,36 @@ export default function PomadeWorkspace() {
               research step. Results stay editable after every run.
             </DialogDescription>
           </DialogHeader>
+          <div className="recipe-group-heading">
+            <Button
+              variant="outline"
+              disabled={jobLocksWorkspace}
+              onClick={() => recipeFileInput.current?.click()}
+            >
+              <Upload /> Import recipe file
+            </Button>
+            <input
+              ref={recipeFileInput}
+              className="file-input"
+              type="file"
+              accept=".json,application/json"
+              aria-label="Import Pomade recipe"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void loadRecipeFile(file);
+                event.target.value = '';
+              }}
+            />
+          </div>
+          <p className="template-no-inputs">
+            Recipe files contain configuration and prompts, not table rows.
+            Importing does not run a recipe.
+          </p>
+          {recipeFileMessage ? (
+            <output className="template-no-inputs">
+              {recipeFileMessage}
+            </output>
+          ) : null}
           {recipeTemplates.length ? (
             <section className="recipe-group template-library">
               <div className="recipe-group-heading">
@@ -2919,6 +3004,15 @@ export default function PomadeWorkspace() {
                         onClick={() => openTemplateUse(template)}
                       >
                         Use
+                      </button>
+                      <button
+                        className="template-delete-button"
+                        type="button"
+                        aria-label={`Export ${template.name}`}
+                        title="Export recipe file"
+                        onClick={() => downloadRecipe(template)}
+                      >
+                        <Download />
                       </button>
                       <button
                         className="template-delete-button"

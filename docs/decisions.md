@@ -338,3 +338,42 @@ consume provider credits. Pomade caps a run at ten requests and caches identical
 provider, model, and prompt results for 24 hours. Each receipt records the actual
 provider and source URLs. External page text is evidence rather than instruction,
 and answers without usable citations are held for review.
+
+## One product, two ways to run it (2026-09-05)
+
+Pomade is intended to be open source and independently self-hostable, with an
+optional Pomade-hosted account offering the same core grid and execution engine.
+Hosting buys convenience and operations. It must not become a requirement to
+run the core product. The existing MIT license remains in place; GitHub release
+and hosting publication are separate from local commits. During this build
+phase, commit useful slices locally and do not push or publish each iteration.
+
+Google sign-in is the preferred initial hosted identity option. Authentication
+identifies a person; authorization decides which workspace that person can use.
+Before hosted signup, replace the fixed workspace ID with server-authorized
+ownership and scope jobs, versions, receipts, caches, and credentials consistently.
+Do not expose the current single-workspace API as a public multi-user service.
+Select a maintained standards-based login integration when implementing that
+slice; do not build password storage. Self-hosting must not depend on a central
+Pomade account. Keep provider integrations configurable by the installation.
+
+The present app still depends on the Workers/D1 runtime and Sites integration;
+local development is not complete standalone self-host packaging. Defer runtime
+migration until that delivery slice needs it. This direction supersedes any
+interpretation of earlier execution-boundary notes as requiring separate hosted
+and self-hosted core products. Provider and CRM action rules still apply.
+
+## Portable recipes are configuration, not active workflows
+
+Version 1 recipe files carry one recipe, output types, conditions, prompt or
+formula text, ordered waterfall sources, and input labels. Import creates a fresh
+library entry; existing input mapping and execution controls still apply when
+using it. Required inputs are derived from the recipe instead of trusted from
+imported metadata. Unknown versions and malformed configurations are rejected.
+
+Exports omit table rows, account configuration, history, schedules, and list
+projections into existing columns. List outputs remain new adjacent fields and
+child rows, avoiding accidental writes into a same-named destination column on
+another installation. Text explicitly placed inside prompts/descriptions remains
+in the file and should be reviewed before sharing. This is a single recipe
+exchange format, not a full workspace backup or synchronized multi-step function.
