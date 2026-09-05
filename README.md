@@ -17,6 +17,8 @@ what changed. It is an original product built on the open-source
   an input cell changes.
 - Save any configured recipe as a reusable function, then map its declared
   inputs to another table and recreate its outputs.
+- Build ordered data waterfalls across two to six enrichment columns, with the
+  first available value and its winning source kept side by side.
 - Create single-answer or structured AI research recipes that use Parallel Web
   Research—or Gemini as a fallback—with clickable citations.
 - Enrich one selected person through Apollo with exact-name/company-domain safeguards.
@@ -69,6 +71,11 @@ a configured formula or enrichment as a template, then choose it from **Recipe
 library**. Pomade declares the fields the recipe reads, asks you to map them to
 the current table, creates collision-safe output columns, and preserves output
 types, run conditions, and local auto-update behavior.
+
+Data waterfalls are deterministic local recipes. Choose the source columns in
+priority order, reorder them at any time while building, and Pomade creates a
+value column plus a source-lineage column. The pair updates automatically as
+upstream CRM, Apollo, research, or formula results change.
 
 To enable grounded web research locally, set `PARALLEL_API_KEY` in the ignored
 `.env.local` file and restart Pomade. `PARALLEL_MODEL=speed` is the fast default;

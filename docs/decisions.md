@@ -100,6 +100,20 @@ different schemas and lets later recipe columns consume its outputs in visual
 column order. Templates remain workspace data, so CSV and CRM source changes do
 not require a separate template service or database migration.
 
+## Waterfalls compose upstream results
+
+A data waterfall is a local auto-updating recipe with two to six ordered input
+columns. It chooses the first non-empty value and writes both that value and the
+winning column label into adjacent outputs. Reordering happens while the recipe
+is configured, and the saved order becomes part of its template contract. A
+direct value edit is preserved and changes lineage to `Manual override`.
+
+The waterfall does not hide or duplicate provider execution. CRM imports,
+Apollo results, research recipes, and formulas remain visible upstream columns,
+so their receipts and credit controls stay intact. Conditions can gate those
+recipes, while the waterfall resolves their outputs without another external
+request.
+
 ## GTM Control Tower owns mutation
 
 Pomade can export a bounded preview plan containing only the rows and fields

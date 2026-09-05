@@ -220,4 +220,57 @@ describe('recipe templates', () => {
       value: 'Enterprise',
     });
   });
+
+  it('recreates waterfall outputs and lineage against mapped sources', () => {
+    const columns = [
+      textColumn('crm_email', 'CRM email'),
+      textColumn('apollo_email', 'Apollo email'),
+    ];
+    const column: PomadeColumn = {
+      id: 'best_email',
+      title: 'Best email',
+      kind: 'formula',
+      recipe: 'waterfall',
+      autoRun: true,
+      width: 220,
+      lineageColumnId: 'email_source',
+      outputFields: [
+        { id: 'best_email', title: 'Best email', valueType: 'text' },
+        { id: 'email_source', title: 'Email source', valueType: 'text' },
+      ],
+      waterfallSteps: [
+        { field: 'crm_email', label: 'CRM email' },
+        { field: 'apollo_email', label: 'Apollo email' },
+      ],
+    };
+    const template = createRecipeTemplate(column, [...columns, column], {
+      id: 'template-5',
+      name: 'Best email waterfall',
+    });
+    const targetColumns = [
+      textColumn('hubspot_work_email', 'HubSpot work email'),
+      textColumn('apollo_work_email', 'Apollo verified email'),
+    ];
+    const added = instantiateRecipeTemplate(template, targetColumns, {
+      crm_email: 'hubspot_work_email',
+      apollo_email: 'apollo_work_email',
+    });
+
+    expect(added[0]).toMatchObject({
+      recipe: 'waterfall',
+      inputBindings: {
+        crm_email: 'hubspot_work_email',
+        apollo_email: 'apollo_work_email',
+      },
+      lineageColumnId: 'email_source',
+      waterfallSteps: [
+        { field: 'crm_email', label: 'HubSpot work email' },
+        { field: 'apollo_email', label: 'Apollo verified email' },
+      ],
+    });
+    expect(added.map((item) => item.id)).toEqual([
+      'best_email',
+      'email_source',
+    ]);
+  });
 });

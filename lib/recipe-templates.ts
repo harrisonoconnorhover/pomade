@@ -72,6 +72,12 @@ function recipeInputSpecs(column: PomadeColumn): RecipeInputSpec[] {
     }
     return promptInputs;
   }
+  if (column.recipe === 'waterfall') {
+    return (column.waterfallSteps ?? []).map((step) => ({
+      key: step.field,
+      required: true,
+    }));
+  }
   return column.recipe ? (builtinRecipeInputs[column.recipe] ?? []) : [];
 }
 
@@ -83,6 +89,7 @@ function cloneColumn(column: PomadeColumn): PomadeColumn {
       : undefined,
     outputFields: column.outputFields?.map((field) => ({ ...field })),
     runCondition: column.runCondition ? { ...column.runCondition } : undefined,
+    waterfallSteps: column.waterfallSteps?.map((step) => ({ ...step })),
   };
 }
 
@@ -240,6 +247,11 @@ export function instantiateRecipeTemplate(
         (input) => input.sourceColumnId === template.column.runCondition?.field,
       )
     : undefined;
+  const lineageOutputIndex = template.column.lineageColumnId
+    ? sourceOutputs.findIndex(
+        (output) => output.id === template.column.lineageColumnId,
+      )
+    : -1;
   const column: PomadeColumn = {
     ...cloneColumn(template.column),
     id: primary.id,
@@ -247,7 +259,17 @@ export function instantiateRecipeTemplate(
     valueType: primary.valueType,
     inputBindings:
       Object.keys(inputBindings).length > 0 ? inputBindings : undefined,
+    lineageColumnId:
+      lineageOutputIndex >= 0
+        ? outputFields[lineageOutputIndex]?.id
+        : undefined,
     outputFields: template.column.outputFields ? outputFields : undefined,
+    waterfallSteps: template.column.waterfallSteps?.map((step) => ({
+      ...step,
+      label:
+        columns.find((candidate) => candidate.id === bindings[step.field])
+          ?.title ?? step.label,
+    })),
     runCondition: template.column.runCondition
       ? {
           ...template.column.runCondition,

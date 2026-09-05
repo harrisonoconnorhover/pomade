@@ -126,6 +126,8 @@ function runRecipe(column: PomadeColumn, row: PomadeRow) {
       const score = stableScore(column, row);
       return `${score >= 82 ? 'Strong' : 'Review'} · ${score}`;
     }
+    case 'waterfall':
+      return waterfallWinner(column, row).value;
     case 'write-opener':
       return firstName
         ? `${firstName}, ${company} stands out for turning a complex operating problem into a clear customer experience.`
@@ -135,6 +137,27 @@ function runRecipe(column: PomadeColumn, row: PomadeRow) {
     default:
       return row.values[column.id] ?? '';
   }
+}
+
+function waterfallWinner(column: PomadeColumn, row: PomadeRow) {
+  for (const step of column.waterfallSteps ?? []) {
+    const value = recipeValue(column, row, step.field).trim();
+    if (value) return { value, source: step.label };
+  }
+  return { value: '', source: '' };
+}
+
+function runRecipeOutputs(column: PomadeColumn, row: PomadeRow) {
+  if (column.recipe === 'waterfall') {
+    const winner = waterfallWinner(column, row);
+    return {
+      [column.id]: winner.value,
+      ...(column.lineageColumnId
+        ? { [column.lineageColumnId]: winner.source }
+        : {}),
+    };
+  }
+  return { [column.id]: runRecipe(column, row) };
 }
 
 export function matchesRunCondition(
@@ -185,16 +208,19 @@ export function recalculateAutomaticFormulas(
 ) {
   const values = { ...row.values };
   for (const column of columns) {
-    if (
-      column.kind !== 'formula' ||
-      !column.autoRun ||
-      column.id === editedColumnId
-    ) {
+    if (column.kind !== 'formula' || !column.autoRun) {
       continue;
     }
+    if (column.id === editedColumnId) {
+      if (column.recipe === 'waterfall' && column.lineageColumnId) {
+        values[column.lineageColumnId] = 'Manual override';
+      }
+      continue;
+    }
+    if (column.lineageColumnId === editedColumnId) continue;
     const currentRow = { ...row, values };
     if (!shouldRunRecipe(column, currentRow)) continue;
-    values[column.id] = runRecipe(column, currentRow);
+    Object.assign(values, runRecipeOutputs(column, currentRow));
   }
   return { ...row, values };
 }
@@ -226,8 +252,9 @@ export function executeWorkspace(
         continue;
       }
       const before = values[column.id] ?? '';
-      const after = runRecipe(column, { ...row, values });
-      values[column.id] = after;
+      const outputValues = runRecipeOutputs(column, { ...row, values });
+      const after = outputValues[column.id] ?? '';
+      Object.assign(values, outputValues);
       receipts.push({
         id: `${row.id}-${column.id}-${startedAt}`,
         rowId: row.id,
@@ -238,6 +265,8 @@ export function executeWorkspace(
         durationMs: 18 + (((rowIndex + 1) * (columnIndex + 3) * 17) % 780),
         before,
         after,
+        outputValues:
+          Object.keys(outputValues).length > 1 ? outputValues : undefined,
       });
     }
 

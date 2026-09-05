@@ -22,6 +22,11 @@ export type ResearchOutputField = {
   valueType: ResearchValueType;
 };
 
+export type WaterfallStep = {
+  field: string;
+  label: string;
+};
+
 export type PomadeColumn = {
   id: string;
   title: string;
@@ -30,10 +35,12 @@ export type PomadeColumn = {
   autoRun?: boolean;
   expression?: string;
   inputBindings?: Record<string, string>;
+  lineageColumnId?: string;
   outputFields?: ResearchOutputField[];
   prompt?: string;
   runCondition?: RecipeRunCondition;
   valueType?: ResearchValueType;
+  waterfallSteps?: WaterfallStep[];
   recipe?:
     | 'custom-formula'
     | 'normalize-domain'
@@ -41,6 +48,7 @@ export type PomadeColumn = {
     | 'email-domain'
     | 'dedupe-key'
     | 'score-fit'
+    | 'waterfall'
     | 'write-opener'
     | 'company-summary'
     | 'web-research';

@@ -22,6 +22,9 @@ Bitscale or Clay.
 - [x] Save configured columns as reusable recipe functions with declared input
       mapping, collision-safe typed outputs, conditions, and auto-update
       behavior. Crossed off 2026-09-04.
+- [x] Ordered two-to-six-step enrichment-field waterfalls with configurable
+      priority, automatic recalculation, and winning-source lineage. Crossed off
+      2026-09-04.
 - [x] Bring-your-own-key web research through Parallel or Gemini with citations,
       confirmation, caching, and bounded runs.
 - [x] Selected-person Apollo enrichment with identity checks and credit-aware
@@ -35,8 +38,6 @@ Bitscale or Clay.
       refreshes for external providers.
 - [ ] List-valued AI output that can be exploded into new rows. Scalar typed
       multi-column output is complete.
-- [ ] Ordered enrichment waterfalls with fallback rules and winning-provider
-      lineage.
 - [ ] First-party company and people list builders from an ICP description,
       search query, Maps, or job-board source.
 - [ ] Generic HTTP API enrichment plus inbound and outbound webhooks.
@@ -70,12 +71,12 @@ Bitscale or Clay.
 
 ## Next three slices
 
-1. Ordered enrichment waterfalls, because fallback providers and winning-source
-   lineage make enrichment coverage materially better.
-2. List outputs that can become rows, because company pages and search results
+1. List outputs that can become rows, because company pages and search results
    should be able to create prospect records without CSV glue.
-3. Delayed and scheduled recipe execution, because recurring refreshes turn a
+2. Delayed and scheduled recipe execution, because recurring refreshes turn a
    one-time table into an operating system.
+3. Generic HTTP enrichment and webhooks, because one well-governed escape hatch
+   covers long-tail providers without hundreds of bespoke integrations.
 
 ## Official product references
 

@@ -229,6 +229,143 @@ describe('Pomade recipe execution', () => {
     expect(updated.values.label).toBe('Immy @ Mercury');
   });
 
+  it('runs an ordered waterfall and records the winning source', () => {
+    const workspace = createSampleWorkspace();
+    workspace.columns.splice(
+      -1,
+      0,
+      { id: 'apollo_email', title: 'Apollo email', kind: 'text', width: 220 },
+      {
+        id: 'best_email',
+        title: 'Best email',
+        kind: 'formula',
+        recipe: 'waterfall',
+        autoRun: true,
+        width: 220,
+        lineageColumnId: 'email_source',
+        outputFields: [
+          { id: 'best_email', title: 'Best email', valueType: 'text' },
+          { id: 'email_source', title: 'Email source', valueType: 'text' },
+        ],
+        waterfallSteps: [
+          { field: 'email', label: 'CRM email' },
+          { field: 'apollo_email', label: 'Apollo email' },
+        ],
+      },
+      { id: 'email_source', title: 'Email source', kind: 'text', width: 160 },
+    );
+    workspace.rows[0].values.email = '';
+    workspace.rows[0].values.apollo_email = 'immad@mercury.com';
+
+    const result = executeWorkspace(workspace, ['sample-1']);
+    const receipt = result.run.receipts.find(
+      (candidate) => candidate.columnId === 'best_email',
+    );
+
+    expect(result.workspace.rows[0].values.best_email).toBe(
+      'immad@mercury.com',
+    );
+    expect(result.workspace.rows[0].values.email_source).toBe('Apollo email');
+    expect(receipt?.outputValues).toEqual({
+      best_email: 'immad@mercury.com',
+      email_source: 'Apollo email',
+    });
+  });
+
+  it('auto-updates a waterfall when a higher-priority value appears', () => {
+    const workspace = createSampleWorkspace();
+    const columns = [
+      {
+        id: 'crm_email',
+        title: 'CRM email',
+        kind: 'text' as const,
+        width: 200,
+      },
+      {
+        id: 'apollo_email',
+        title: 'Apollo email',
+        kind: 'text' as const,
+        width: 200,
+      },
+      {
+        id: 'best_email',
+        title: 'Best email',
+        kind: 'formula' as const,
+        recipe: 'waterfall' as const,
+        autoRun: true,
+        width: 220,
+        lineageColumnId: 'email_source',
+        waterfallSteps: [
+          { field: 'crm_email', label: 'CRM email' },
+          { field: 'apollo_email', label: 'Apollo email' },
+        ],
+      },
+      {
+        id: 'email_source',
+        title: 'Email source',
+        kind: 'text' as const,
+        width: 160,
+      },
+    ];
+    const row = {
+      ...workspace.rows[0],
+      values: {
+        ...workspace.rows[0].values,
+        crm_email: 'crm@example.com',
+        apollo_email: 'apollo@example.com',
+        best_email: '',
+        email_source: '',
+      },
+    };
+
+    const updated = recalculateAutomaticFormulas(row, columns, 'crm_email');
+
+    expect(updated.values.best_email).toBe('crm@example.com');
+    expect(updated.values.email_source).toBe('CRM email');
+  });
+
+  it('labels a directly edited waterfall value as a manual override', () => {
+    const workspace = createSampleWorkspace();
+    const columns = [
+      {
+        id: 'crm_email',
+        title: 'CRM email',
+        kind: 'text' as const,
+        width: 200,
+      },
+      {
+        id: 'best_email',
+        title: 'Best email',
+        kind: 'formula' as const,
+        recipe: 'waterfall' as const,
+        autoRun: true,
+        width: 220,
+        lineageColumnId: 'email_source',
+        waterfallSteps: [{ field: 'crm_email', label: 'CRM email' }],
+      },
+      {
+        id: 'email_source',
+        title: 'Email source',
+        kind: 'text' as const,
+        width: 160,
+      },
+    ];
+    const row = {
+      ...workspace.rows[0],
+      values: {
+        ...workspace.rows[0].values,
+        crm_email: 'crm@example.com',
+        best_email: 'chosen@example.com',
+        email_source: 'CRM email',
+      },
+    };
+
+    const updated = recalculateAutomaticFormulas(row, columns, 'best_email');
+
+    expect(updated.values.best_email).toBe('chosen@example.com');
+    expect(updated.values.email_source).toBe('Manual override');
+  });
+
   it('runs only selected rows when a row scope is supplied', () => {
     const workspace = createSampleWorkspace();
     const untouched = workspace.rows[1].values.opener;

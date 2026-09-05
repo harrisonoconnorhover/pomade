@@ -1,7 +1,9 @@
 'use client';
 
 import {
+  ArrowDown,
   ArrowDownUp,
+  ArrowUp,
   BookmarkPlus,
   Braces,
   Building2,
@@ -35,6 +37,7 @@ import {
   Trash2,
   Upload,
   WandSparkles,
+  Workflow,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Papa from 'papaparse';
@@ -72,6 +75,7 @@ import type {
   ResearchValueType,
   RunReceipt,
   RunConditionOperator,
+  WaterfallStep,
   WorkspaceSnapshot,
 } from '@/lib/pomade-types';
 import {
@@ -94,6 +98,11 @@ type ResearchFieldDraft = {
   key: string;
   title: string;
   valueType: ResearchValueType;
+};
+
+type WaterfallStepDraft = {
+  key: string;
+  field: string;
 };
 
 type ApolloProviderStatus = {
@@ -180,6 +189,17 @@ const recipePresets: RecipePreset[] = [
     description:
       'Merge columns and transform their values with a live preview.',
     requires: 'Any visible columns',
+  },
+  {
+    title: 'Data waterfall',
+    kind: 'formula',
+    recipe: 'waterfall',
+    autoRun: true,
+    width: 240,
+    group: 'Transform',
+    description:
+      'Choose the first available value from ordered enrichment columns.',
+    requires: 'Two or more source columns',
   },
   {
     title: 'Normalized domain',
@@ -354,6 +374,7 @@ export default function PomadeWorkspace() {
 
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [formulaBuilderOpen, setFormulaBuilderOpen] = useState(false);
+  const [waterfallBuilderOpen, setWaterfallBuilderOpen] = useState(false);
   const [recipeSettingsOpen, setRecipeSettingsOpen] = useState(false);
   const [researchBuilderOpen, setResearchBuilderOpen] = useState(false);
   const [templateSaveOpen, setTemplateSaveOpen] = useState(false);
@@ -368,6 +389,12 @@ export default function PomadeWorkspace() {
   const [formulaColumnName, setFormulaColumnName] = useState('Personal label');
   const [formulaExpression, setFormulaExpression] = useState(
     '{{person | first}} at {{company}}',
+  );
+  const [waterfallColumnName, setWaterfallColumnName] = useState(
+    'Best available value',
+  );
+  const [waterfallSteps, setWaterfallSteps] = useState<WaterfallStepDraft[]>(
+    [],
   );
   const [templateColumnId, setTemplateColumnId] = useState('');
   const [templateName, setTemplateName] = useState('');
@@ -548,6 +575,12 @@ export default function PomadeWorkspace() {
       ? Boolean(researchColumnName.trim())
       : researchFields.length >= 2 &&
         researchFields.every((field) => field.title.trim());
+  const waterfallReady =
+    Boolean(waterfallColumnName.trim()) &&
+    waterfallSteps.length >= 2 &&
+    waterfallSteps.every((step) => step.field) &&
+    new Set(waterfallSteps.map((step) => step.field)).size ===
+      waterfallSteps.length;
   const webResearchColumns = workspace.columns.filter(
     (column) => column.recipe === 'web-research',
   );
@@ -767,6 +800,41 @@ export default function PomadeWorkspace() {
     setFormulaBuilderOpen(true);
   }
 
+  function openWaterfallBuilder() {
+    setAddColumnOpen(false);
+    setWaterfallColumnName('Best available value');
+    const available = workspace.columns.filter(
+      (column) => column.kind !== 'status',
+    );
+    const preferred = ['email', 'apollo_email', 'phone', 'domain']
+      .map((id) => available.find((column) => column.id === id))
+      .filter((column): column is PomadeColumn => Boolean(column));
+    const picked = [...preferred];
+    for (const column of available) {
+      if (picked.length >= 2) break;
+      if (!picked.some((candidate) => candidate.id === column.id)) {
+        picked.push(column);
+      }
+    }
+    setWaterfallSteps(
+      Array.from({ length: Math.max(2, picked.length) }, (_, index) => ({
+        key: crypto.randomUUID(),
+        field: picked[index]?.id ?? '',
+      })),
+    );
+    setWaterfallBuilderOpen(true);
+  }
+
+  function moveWaterfallStep(index: number, offset: -1 | 1) {
+    setWaterfallSteps((current) => {
+      const target = index + offset;
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
   function addCustomFormulaColumn() {
     const title = formulaColumnName.trim();
     const expression = formulaExpression.trim();
@@ -783,6 +851,68 @@ export default function PomadeWorkspace() {
       requires: 'Visible grid columns',
     });
     setFormulaBuilderOpen(false);
+  }
+
+  function addWaterfallColumn() {
+    const title = waterfallColumnName.trim();
+    if (!title || !waterfallReady) return;
+    const used = new Set(workspace.columns.map((column) => column.id));
+    const valueId = uniqueId(slugify(title), used);
+    const sourceTitle = `${title} source`;
+    const sourceId = uniqueId(slugify(sourceTitle), used);
+    const configuredSteps: WaterfallStep[] = waterfallSteps.map((step) => ({
+      field: step.field,
+      label:
+        workspace.columns.find((column) => column.id === step.field)?.title ??
+        step.field,
+    }));
+    const waterfallColumn: PomadeColumn = {
+      id: valueId,
+      title,
+      kind: 'formula',
+      recipe: 'waterfall',
+      autoRun: true,
+      width: 240,
+      lineageColumnId: sourceId,
+      outputFields: [
+        { id: valueId, title, valueType: 'text' },
+        { id: sourceId, title: sourceTitle, valueType: 'text' },
+      ],
+      waterfallSteps: configuredSteps,
+    };
+    const sourceColumn: PomadeColumn = {
+      id: sourceId,
+      title: sourceTitle,
+      kind: 'text',
+      valueType: 'text',
+      width: 180,
+    };
+    setWorkspace((current) => {
+      const columns = [
+        ...current.columns.filter((column) => column.kind !== 'status'),
+        waterfallColumn,
+        sourceColumn,
+        ...current.columns.filter((column) => column.kind === 'status'),
+      ];
+      const rows = current.rows.map((row) =>
+        recalculateAutomaticFormulas(
+          {
+            ...row,
+            values: {
+              ...row.values,
+              [valueId]: '',
+              [sourceId]: '',
+            },
+          },
+          columns,
+        ),
+      );
+      return { ...current, columns, rows, updatedAt: Date.now() };
+    });
+    setWaterfallBuilderOpen(false);
+    setNotice(
+      `${title} now uses ${configuredSteps.length} fallbacks with source lineage.`,
+    );
   }
 
   function addWebResearchColumn() {
@@ -1658,9 +1788,11 @@ export default function PomadeWorkspace() {
                       onClick={() =>
                         preset.recipe === 'custom-formula'
                           ? openFormulaBuilder()
-                          : preset.recipe === 'web-research'
-                            ? openResearchBuilder()
-                            : addRecipeColumn(preset)
+                          : preset.recipe === 'waterfall'
+                            ? openWaterfallBuilder()
+                            : preset.recipe === 'web-research'
+                              ? openResearchBuilder()
+                              : addRecipeColumn(preset)
                       }
                     >
                       <span
@@ -1672,6 +1804,8 @@ export default function PomadeWorkspace() {
                       >
                         {preset.recipe === 'web-research' ? (
                           <Globe2 />
+                        ) : preset.recipe === 'waterfall' ? (
+                          <Workflow />
                         ) : preset.kind === 'formula' ? (
                           <FunctionSquare />
                         ) : (
@@ -1734,7 +1868,9 @@ export default function PomadeWorkspace() {
                           : 'ai-preset'
                       }
                     >
-                      {column.kind === 'formula' ? (
+                      {column.recipe === 'waterfall' ? (
+                        <Workflow />
+                      ) : column.kind === 'formula' ? (
                         <FunctionSquare />
                       ) : (
                         <Sparkles />
@@ -1743,11 +1879,13 @@ export default function PomadeWorkspace() {
                     <div>
                       <strong>{column.title}</strong>
                       <small>
-                        {column.kind === 'formula'
-                          ? 'Deterministic formula'
-                          : column.recipe === 'web-research'
-                            ? 'Credit-gated web research'
-                            : 'Manual enrichment'}
+                        {column.recipe === 'waterfall'
+                          ? `${column.waterfallSteps?.length ?? 0}-step waterfall + lineage`
+                          : column.kind === 'formula'
+                            ? 'Deterministic formula'
+                            : column.recipe === 'web-research'
+                              ? 'Credit-gated web research'
+                              : 'Manual enrichment'}
                       </small>
                     </div>
                     <div className="recipe-setting-controls">
@@ -1877,7 +2015,9 @@ export default function PomadeWorkspace() {
                     : 'ai-preset'
                 }
               >
-                {templateColumn.kind === 'formula' ? (
+                {templateColumn.recipe === 'waterfall' ? (
+                  <Workflow />
+                ) : templateColumn.kind === 'formula' ? (
                   <FunctionSquare />
                 ) : (
                   <Sparkles />
@@ -2140,6 +2280,141 @@ export default function PomadeWorkspace() {
               disabled={!formulaColumnName.trim() || !formulaExpression.trim()}
             >
               <Plus /> Add formula column
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={waterfallBuilderOpen}
+        onOpenChange={setWaterfallBuilderOpen}
+      >
+        <DialogContent className="waterfall-builder-dialog">
+          <DialogHeader>
+            <DialogTitle>Build a data waterfall</DialogTitle>
+            <DialogDescription>
+              Check enrichment columns in order, keep the first available value,
+              and record which source won.
+            </DialogDescription>
+          </DialogHeader>
+          <label className="research-field">
+            <span>Output column</span>
+            <input
+              value={waterfallColumnName}
+              maxLength={80}
+              onChange={(event) => setWaterfallColumnName(event.target.value)}
+              placeholder="Best work email"
+            />
+          </label>
+          <div className="waterfall-builder">
+            <div className="structured-field-heading">
+              <span>Fallback order</span>
+              <small>First non-empty value wins</small>
+            </div>
+            <div className="waterfall-step-list">
+              {waterfallSteps.map((step, index) => (
+                <div key={step.key}>
+                  <span>{index + 1}</span>
+                  <select
+                    value={step.field}
+                    aria-label={`Waterfall source ${index + 1}`}
+                    onChange={(event) =>
+                      setWaterfallSteps((current) =>
+                        current.map((candidate) =>
+                          candidate.key === step.key
+                            ? { ...candidate, field: event.target.value }
+                            : candidate,
+                        ),
+                      )
+                    }
+                  >
+                    <option value="">Choose a source…</option>
+                    {workspace.columns
+                      .filter((column) => column.kind !== 'status')
+                      .map((column) => (
+                        <option
+                          value={column.id}
+                          key={column.id}
+                          disabled={waterfallSteps.some(
+                            (candidate) =>
+                              candidate.key !== step.key &&
+                              candidate.field === column.id,
+                          )}
+                        >
+                          {column.title}
+                        </option>
+                      ))}
+                  </select>
+                  <div className="waterfall-order-buttons">
+                    <button
+                      type="button"
+                      aria-label={`Move source ${index + 1} up`}
+                      disabled={index === 0}
+                      onClick={() => moveWaterfallStep(index, -1)}
+                    >
+                      <ArrowUp />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Move source ${index + 1} down`}
+                      disabled={index === waterfallSteps.length - 1}
+                      onClick={() => moveWaterfallStep(index, 1)}
+                    >
+                      <ArrowDown />
+                    </button>
+                  </div>
+                  <button
+                    className="waterfall-remove-button"
+                    type="button"
+                    aria-label={`Remove source ${index + 1}`}
+                    disabled={waterfallSteps.length <= 2}
+                    onClick={() =>
+                      setWaterfallSteps((current) =>
+                        current.filter(
+                          (candidate) => candidate.key !== step.key,
+                        ),
+                      )
+                    }
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              className="add-structured-field"
+              type="button"
+              disabled={waterfallSteps.length >= 6}
+              onClick={() =>
+                setWaterfallSteps((current) => [
+                  ...current,
+                  { key: crypto.randomUUID(), field: '' },
+                ])
+              }
+            >
+              <Plus /> Add fallback
+            </button>
+          </div>
+          <div className="waterfall-output-preview">
+            <span>
+              <Workflow /> {waterfallColumnName.trim() || 'Value'}
+            </span>
+            <span>+</span>
+            <span>{waterfallColumnName.trim() || 'Value'} source</span>
+          </div>
+          <div className="research-builder-actions">
+            <p>
+              Both columns update locally when an upstream result changes; no
+              provider request is added.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => setWaterfallBuilderOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={addWaterfallColumn} disabled={!waterfallReady}>
+              <Plus /> Add waterfall
             </Button>
           </div>
         </DialogContent>
