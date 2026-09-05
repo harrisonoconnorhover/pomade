@@ -1736,6 +1736,29 @@ button {
   font-size: 9px;
   line-height: 1.5;
 }
+.column-editor-run {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid #d5e2d1;
+  border-radius: 10px;
+  background: #f4f9f1;
+}
+.column-editor-run > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.column-editor-run strong {
+  font-size: 10px;
+}
+.column-editor-run small {
+  color: #708078;
+  font-size: 8px;
+  line-height: 1.4;
+}
 .rename-actions {
   display: flex;
   justify-content: flex-end;

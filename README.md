@@ -16,6 +16,8 @@ what changed. It is an original product built on the open-source
   five-row preview, then run selected or visible rows.
 - Gate any recipe by a row condition and auto-update safe formula columns when
   an input cell changes.
+- Run or queue one recipe directly from its column header against the current
+  selected or visible rows.
 - Save any configured recipe as a reusable function, then map its declared
   inputs to another table and recreate its outputs.
 - Build ordered data waterfalls across two to six enrichment columns, with the

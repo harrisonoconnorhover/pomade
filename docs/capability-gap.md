@@ -14,7 +14,8 @@ Bitscale or Clay.
       2026-09-05.
 - [x] Read-only HubSpot contact and Salesforce lead preview/import.
 - [x] Deterministic formula and enrichment recipe columns with selected-row or
-      visible-row execution.
+      visible-row execution, including immediate or background single-column
+      runs from the grid header. Crossed off 2026-09-05.
 - [x] Custom merge formulas with column tokens, safe transforms, column-order
       dependencies, and a five-row preview. Crossed off 2026-09-04.
 - [x] Row-level recipe conditions with empty, equality, and contains operators;

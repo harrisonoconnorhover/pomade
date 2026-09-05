@@ -972,6 +972,20 @@ export default function PomadeWorkspace() {
     }
   }
 
+  function runEditedColumn(mode: PendingRunMode) {
+    if (
+      !editedColumn ||
+      (editedColumn.kind !== 'formula' && editedColumn.kind !== 'enrichment')
+    )
+      return;
+    setColumnEditorOpen(false);
+    if (mode === 'background') {
+      void queueBackgroundRun(runTargetIds, false, [editedColumn.id]);
+    } else {
+      void runEnrichment(runTargetIds, false, [editedColumn.id]);
+    }
+  }
+
   function addRecipeColumn(preset: RecipePreset) {
     const used = new Set(workspace.columns.map((column) => column.id));
     const id = uniqueId(slugify(preset.title), used);
@@ -4544,6 +4558,35 @@ export default function PomadeWorkspace() {
             Drag the header to reorder it or resize its edge directly in the
             grid. Recipe order and the status column remain protected.
           </p>
+          {editedColumn &&
+          (editedColumn.kind === 'formula' ||
+            editedColumn.kind === 'enrichment') ? (
+            <div className="column-editor-run">
+              <span>
+                <strong>Run only this recipe</strong>
+                <small>
+                  {runTargetIds.length} selected or visible{' '}
+                  {runTargetIds.length === 1 ? 'row' : 'rows'} · existing
+                  provider confirmation still applies
+                </small>
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => runEditedColumn('background')}
+                disabled={
+                  jobSaving || jobLocksWorkspace || !runTargetIds.length
+                }
+              >
+                <Cloud /> Queue
+              </Button>
+              <Button
+                onClick={() => runEditedColumn('immediate')}
+                disabled={running || jobLocksWorkspace || !runTargetIds.length}
+              >
+                <Play /> Run now
+              </Button>
+            </div>
+          ) : null}
           <div className="rename-actions">
             <Button
               variant="outline"

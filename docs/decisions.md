@@ -246,6 +246,18 @@ When the renamed column is also a structured research output, its declared
 output title changes with it. Waterfall labels update only when they still match
 the former default title; a deliberately customized source label is preserved.
 
+## Column-scoped execution reuses the guarded runner
+
+A recipe column's Glide header menu can run now or queue a background job for
+the current selected-row scope, falling back to visible rows when nothing is
+selected. Both paths send the existing stable column ID to the normal runner;
+they do not implement a second execution engine.
+
+Research columns still open the same provider confirmation with its request
+count and configured ceiling. Background work still uses D1 leases, workspace
+locking, progress, retry, and per-row receipts. Scoping changes which recipe is
+eligible, not any safety or evidence behavior.
+
 ## Waterfalls compose upstream results
 
 A data waterfall is a local auto-updating recipe with two to six ordered input

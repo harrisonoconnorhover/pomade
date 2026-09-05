@@ -2,19 +2,19 @@
 
 ## Finished
 
-- Added explicit HubSpot/Salesforce field mapping for preview-only Control Tower handoffs.
 - Added persistent named filtered views with live counts and sidebar switching.
 - Added persistent Glide column resizing and safe drag reordering without recipe-order drift.
 - Added guarded row deletion with descendant cleanup and captured-schedule pruning.
 - Added stable-ID column renaming through native Glide header menus.
+- Added immediate and background single-recipe runs from each recipe header menu.
 
 ## Try It
 
-Open any grid header menu, rename the column, and save. The header changes while its stable ID—and therefore values, views, mappings, structured outputs, and waterfall dependencies—stays intact.
+Open a formula or enrichment column's header menu and choose **Run now** or **Queue**. Only that recipe runs for selected rows—or visible rows when none are selected—with the normal provider confirmation and receipts.
 
 ## Checks
 
-- `npm test`: 87 tests passed across 18 files.
+- `npm test`: 88 tests passed across 19 files.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `npm run build`: passed with `/api/jobs` in the route manifest.
@@ -22,8 +22,8 @@ Open any grid header menu, rename the column, and save. The header changes while
 
 ## Decisions
 
-- Column display names change without mutating stable data and recipe IDs.
-- Structured-output titles and only default waterfall labels follow a rename.
+- Column-scoped execution sends the existing stable recipe ID to the guarded runner.
+- Immediate and queued paths retain provider confirmation, limits, and receipts.
 - Multi-table discovery remains deferred until an owner-auth boundary can protect table metadata.
 
 ## Remaining
@@ -36,6 +36,6 @@ Open any grid header menu, rename the column, and save. The header changes while
 
 ## Review First
 
-- `lib/column-management.ts` for stable-ID rename propagation.
-- `components/pomade-data-grid.tsx` for native Glide header-menu wiring.
-- `lib/column-management.test.ts` for output and waterfall coverage.
+- `components/pomade-workspace.tsx` for header-scoped run and queue actions.
+- `app/api/runs/route.ts` for guarded column scoping.
+- `lib/column-run-scope.test.ts` for single-recipe and row-scope coverage.
