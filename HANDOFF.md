@@ -2,19 +2,19 @@
 
 ## Finished
 
-- Added row-level conditions for every recipe and safe auto-update for local formulas.
-- Added single-answer versus structured-field modes to the web-research builder.
-- Made one research request populate two to six typed text, date, number, or yes/no columns.
-- Preserved malformed provider output for review and exposed structured values in receipts.
-- Crossed off both capabilities in the living Bitscale/Clay gap checklist.
+- Published owner-only Site v7 with conditional recipes, safe formula auto-update, and structured research outputs.
+- Added a persistent recipe library for formulas, deterministic enrichments, and web-research columns.
+- Added declared input mapping so saved functions work across tables with different column names.
+- Recreates collision-safe typed outputs while preserving conditions, prompts, and auto-update behavior.
+- Crossed reusable recipe templates/functions off the living Clay/Bitscale gap checklist.
 
 ## Try It
 
-Open **Research with AI**, choose **Structured fields**, adjust the four starter outputs, and add the recipe. Open **Recipe engine** to gate it with a row condition, select a row, and run after reviewing the request count.
+Open **Recipe engine**, choose **Save template** on any recipe, name it, and save. Open **Recipe library**, choose **Use**, review the input mappings, and add the function; local formulas populate immediately.
 
 ## Checks
 
-- `npm test`: 40 tests passed across 8 files.
+- `npm test`: 46 tests passed across 9 files.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `npm run build`: passed.
@@ -22,20 +22,20 @@ Open **Research with AI**, choose **Structured fields**, adjust the four starter
 
 ## Decisions
 
-- Structured research supports two to six scalar outputs; list expansion remains a separate slice.
-- Every declared key is required, and malformed output stays visible but requires review.
-- External research remains manual and credit-confirmed even when local formulas auto-update.
+- A reusable function is one configured recipe with explicit inputs and one or more typed outputs.
+- Mappings live on each instantiated column, so the saved formula or prompt remains portable.
+- Templates stay in the persisted workspace and survive CSV or CRM source replacement.
 
 ## Remaining
 
-- Save configured recipes as reusable templates/functions.
 - Add enrichment waterfalls with fallback lineage.
 - Support list outputs that can explode into rows.
 - Add delayed and scheduled recipe execution.
-- Publish the two locally committed slices after explicit direct-`main` approval.
+- Add generic HTTP enrichment plus inbound and outbound webhooks.
+- Publish the reusable-function slice after review and approval.
 
 ## Review First
 
-- `lib/web-research.ts` for schema prompting, parsing, and review behavior.
-- `components/pomade-workspace.tsx` for the structured-output builder.
-- `app/api/runs/route.ts` for conditional request counting and application.
+- `lib/recipe-templates.ts` for template contracts, input mapping, and output instantiation.
+- `components/pomade-workspace.tsx` for save/use/library flows.
+- `lib/local-recipe-engine.ts` and `lib/web-research.ts` for mapped-input execution.

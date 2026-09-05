@@ -2,6 +2,7 @@
 
 import {
   ArrowDownUp,
+  BookmarkPlus,
   Braces,
   Building2,
   Check,
@@ -16,6 +17,7 @@ import {
   FunctionSquare,
   Globe2,
   History,
+  Library,
   LoaderCircle,
   MailCheck,
   Phone,
@@ -66,11 +68,17 @@ import type {
   PomadeColumn,
   PomadeRow,
   RecipeRunCondition,
+  RecipeTemplate,
   ResearchValueType,
   RunReceipt,
   RunConditionOperator,
   WorkspaceSnapshot,
 } from '@/lib/pomade-types';
+import {
+  createRecipeTemplate,
+  defaultTemplateBindings,
+  instantiateRecipeTemplate,
+} from '@/lib/recipe-templates';
 import { createSampleWorkspace } from '@/lib/sample-workspace';
 
 const PomadeDataGrid = dynamic(() => import('@/components/pomade-data-grid'), {
@@ -348,6 +356,8 @@ export default function PomadeWorkspace() {
   const [formulaBuilderOpen, setFormulaBuilderOpen] = useState(false);
   const [recipeSettingsOpen, setRecipeSettingsOpen] = useState(false);
   const [researchBuilderOpen, setResearchBuilderOpen] = useState(false);
+  const [templateSaveOpen, setTemplateSaveOpen] = useState(false);
+  const [templateUseOpen, setTemplateUseOpen] = useState(false);
   const [researchConfirmOpen, setResearchConfirmOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -359,6 +369,14 @@ export default function PomadeWorkspace() {
   const [formulaExpression, setFormulaExpression] = useState(
     '{{person | first}} at {{company}}',
   );
+  const [templateColumnId, setTemplateColumnId] = useState('');
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+  const [activeTemplateId, setActiveTemplateId] = useState('');
+  const [templateError, setTemplateError] = useState('');
+  const [templateBindings, setTemplateBindings] = useState<
+    Record<string, string>
+  >({});
 
   const [apolloOpen, setApolloOpen] = useState(false);
   const [apolloRunning, setApolloRunning] = useState(false);
@@ -506,6 +524,18 @@ export default function PomadeWorkspace() {
   const recipeColumns = workspace.columns.filter(
     (column) => column.kind === 'formula' || column.kind === 'enrichment',
   );
+  const recipeTemplates = workspace.recipeTemplates ?? [];
+  const templateColumn = workspace.columns.find(
+    (column) => column.id === templateColumnId,
+  );
+  const activeTemplate = recipeTemplates.find(
+    (template) => template.id === activeTemplateId,
+  );
+  const templateBindingsReady = Boolean(
+    activeTemplate?.inputs.every(
+      (input) => !input.required || templateBindings[input.key],
+    ),
+  );
   const recipeCount = recipeColumns.length;
   const conditionCount = recipeColumns.filter(
     (column) => column.runCondition,
@@ -626,6 +656,99 @@ export default function PomadeWorkspace() {
         updatedAt: Date.now(),
       };
     });
+  }
+
+  function openTemplateSave(column: PomadeColumn) {
+    setRecipeSettingsOpen(false);
+    setTemplateColumnId(column.id);
+    setTemplateName(column.title);
+    setTemplateDescription('');
+    setTemplateError('');
+    setTemplateSaveOpen(true);
+  }
+
+  function saveRecipeTemplate() {
+    if (!templateColumn || !templateName.trim()) return;
+    try {
+      const template = createRecipeTemplate(templateColumn, workspace.columns, {
+        id: crypto.randomUUID(),
+        name: templateName,
+        description: templateDescription,
+      });
+      setWorkspace((current) => ({
+        ...current,
+        recipeTemplates: [...(current.recipeTemplates ?? []), template],
+        updatedAt: Date.now(),
+      }));
+      setTemplateSaveOpen(false);
+      setNotice(`${template.name} saved to your recipe library.`);
+    } catch (error) {
+      setTemplateError(
+        error instanceof Error ? error.message : 'Template could not be saved.',
+      );
+    }
+  }
+
+  function openTemplateUse(template: RecipeTemplate) {
+    setAddColumnOpen(false);
+    setActiveTemplateId(template.id);
+    setTemplateBindings(defaultTemplateBindings(template, workspace.columns));
+    setTemplateError('');
+    setTemplateUseOpen(true);
+  }
+
+  function useRecipeTemplate() {
+    if (!activeTemplate || !templateBindingsReady) return;
+    try {
+      const addedColumns = instantiateRecipeTemplate(
+        activeTemplate,
+        workspace.columns,
+        templateBindings,
+      );
+      setWorkspace((current) => {
+        const columns = [
+          ...current.columns.filter((column) => column.kind !== 'status'),
+          ...addedColumns,
+          ...current.columns.filter((column) => column.kind === 'status'),
+        ];
+        const rows = current.rows.map((row) =>
+          recalculateAutomaticFormulas(
+            {
+              ...row,
+              values: {
+                ...row.values,
+                ...Object.fromEntries(
+                  addedColumns.map((column) => [column.id, '']),
+                ),
+              },
+            },
+            columns,
+          ),
+        );
+        return { ...current, columns, rows, updatedAt: Date.now() };
+      });
+      setTemplateUseOpen(false);
+      setNotice(
+        `${activeTemplate.name} added with ${addedColumns.length} output${addedColumns.length === 1 ? '' : 's'}.`,
+      );
+    } catch (error) {
+      setTemplateError(
+        error instanceof Error ? error.message : 'Template could not be added.',
+      );
+    }
+  }
+
+  function deleteRecipeTemplate(template: RecipeTemplate) {
+    if (!window.confirm(`Delete the saved template “${template.name}”?`))
+      return;
+    setWorkspace((current) => ({
+      ...current,
+      recipeTemplates: (current.recipeTemplates ?? []).filter(
+        (candidate) => candidate.id !== template.id,
+      ),
+      updatedAt: Date.now(),
+    }));
+    setNotice(`${template.name} removed from your recipe library.`);
   }
 
   function openResearchBuilder() {
@@ -869,6 +992,7 @@ export default function PomadeWorkspace() {
     if (!window.confirm('Reset this table to the Pomade sample workspace?'))
       return;
     const sample = createSampleWorkspace();
+    sample.recipeTemplates = workspace.recipeTemplates ?? [];
     setWorkspace(sample);
     setActiveRowId(sample.rows[0]?.id ?? '');
     setSelectedRowIds([]);
@@ -1116,6 +1240,13 @@ export default function PomadeWorkspace() {
               onClick={() => setSourcesOpen(true)}
             >
               <Database /> Sources <span>{connectedCount}/4</span>
+            </button>
+            <button
+              className="nav-item"
+              type="button"
+              onClick={() => setAddColumnOpen(true)}
+            >
+              <Library /> Recipe library <span>{recipeTemplates.length}</span>
             </button>
           </nav>
           <p className="sidebar-label sidebar-label-spaced">Saved views</p>
@@ -1456,10 +1587,57 @@ export default function PomadeWorkspace() {
           <DialogHeader>
             <DialogTitle>Add a recipe column</DialogTitle>
             <DialogDescription>
-              Add a reusable transformation or research step. Results stay
-              editable after every run.
+              Start from a saved function or add a new transformation or
+              research step. Results stay editable after every run.
             </DialogDescription>
           </DialogHeader>
+          {recipeTemplates.length ? (
+            <section className="recipe-group template-library">
+              <div className="recipe-group-heading">
+                <span>Saved functions</span>
+                <small>{recipeTemplates.length} reusable</small>
+              </div>
+              <div className="template-library-list">
+                {recipeTemplates.map((template) => {
+                  const outputCount = template.column.outputFields?.length ?? 1;
+                  return (
+                    <article key={template.id}>
+                      <span className="template-library-icon">
+                        <Library />
+                      </span>
+                      <div>
+                        <strong>{template.name}</strong>
+                        <small>
+                          {template.description ||
+                            `${template.column.title} recipe`}
+                        </small>
+                        <em>
+                          {template.inputs.length} input
+                          {template.inputs.length === 1 ? '' : 's'} →{' '}
+                          {outputCount} output{outputCount === 1 ? '' : 's'}
+                        </em>
+                      </div>
+                      <button
+                        className="template-use-button"
+                        type="button"
+                        onClick={() => openTemplateUse(template)}
+                      >
+                        Use
+                      </button>
+                      <button
+                        className="template-delete-button"
+                        type="button"
+                        aria-label={`Delete ${template.name}`}
+                        onClick={() => deleteRecipeTemplate(template)}
+                      >
+                        <Trash2 />
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
           {(['Transform', 'Research'] as const).map((group) => (
             <section className="recipe-group" key={group}>
               <div className="recipe-group-heading">
@@ -1572,22 +1750,30 @@ export default function PomadeWorkspace() {
                             : 'Manual enrichment'}
                       </small>
                     </div>
-                    {column.kind === 'formula' ? (
-                      <label className="auto-update-toggle">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(column.autoRun)}
-                          onChange={(event) =>
-                            updateRecipeColumn(column.id, {
-                              autoRun: event.target.checked,
-                            })
-                          }
-                        />
-                        <span>Auto-update</span>
-                      </label>
-                    ) : (
-                      <span className="manual-run-badge">Manual run</span>
-                    )}
+                    <div className="recipe-setting-controls">
+                      <button
+                        type="button"
+                        onClick={() => openTemplateSave(column)}
+                      >
+                        <BookmarkPlus /> Save template
+                      </button>
+                      {column.kind === 'formula' ? (
+                        <label className="auto-update-toggle">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(column.autoRun)}
+                            onChange={(event) =>
+                              updateRecipeColumn(column.id, {
+                                autoRun: event.target.checked,
+                              })
+                            }
+                          />
+                          <span>Auto-update</span>
+                        </label>
+                      ) : (
+                        <span className="manual-run-badge">Manual run</span>
+                      )}
+                    </div>
                   </div>
                   <div className="condition-builder">
                     <span>Only run if</span>
@@ -1663,6 +1849,209 @@ export default function PomadeWorkspace() {
               skipped research rows do not consume a request.
             </p>
             <Button onClick={() => setRecipeSettingsOpen(false)}>Done</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={templateSaveOpen}
+        onOpenChange={(open) => {
+          setTemplateSaveOpen(open);
+          if (!open) setTemplateError('');
+        }}
+      >
+        <DialogContent className="template-dialog">
+          <DialogHeader>
+            <DialogTitle>Save recipe as a template</DialogTitle>
+            <DialogDescription>
+              Turn this configured column into a reusable function with named
+              inputs and outputs.
+            </DialogDescription>
+          </DialogHeader>
+          {templateColumn ? (
+            <div className="template-contract-card">
+              <span
+                className={
+                  templateColumn.kind === 'formula'
+                    ? 'formula-preset'
+                    : 'ai-preset'
+                }
+              >
+                {templateColumn.kind === 'formula' ? (
+                  <FunctionSquare />
+                ) : (
+                  <Sparkles />
+                )}
+              </span>
+              <div>
+                <strong>{templateColumn.title}</strong>
+                <small>
+                  {templateColumn.outputFields?.length ?? 1} declared output
+                  {(templateColumn.outputFields?.length ?? 1) === 1 ? '' : 's'}
+                  {templateColumn.runCondition ? ' · condition included' : ''}
+                </small>
+              </div>
+            </div>
+          ) : null}
+          <label className="research-field">
+            <span>Template name</span>
+            <input
+              value={templateName}
+              maxLength={80}
+              onChange={(event) => setTemplateName(event.target.value)}
+              placeholder="Account trigger research"
+            />
+          </label>
+          <label className="research-field">
+            <span>Description</span>
+            <textarea
+              value={templateDescription}
+              maxLength={240}
+              onChange={(event) => setTemplateDescription(event.target.value)}
+              placeholder="When this recipe is useful"
+            />
+          </label>
+          {templateError ? (
+            <p className="template-error" role="alert">
+              {templateError}
+            </p>
+          ) : null}
+          <div className="template-dialog-actions">
+            <p>
+              The saved template keeps the formula, prompt, output types,
+              condition, and auto-update setting.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => setTemplateSaveOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={saveRecipeTemplate}
+              disabled={!templateName.trim()}
+            >
+              <BookmarkPlus /> Save template
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={templateUseOpen}
+        onOpenChange={(open) => {
+          setTemplateUseOpen(open);
+          if (!open) setTemplateError('');
+        }}
+      >
+        <DialogContent className="template-dialog template-use-dialog">
+          <DialogHeader>
+            <DialogTitle>Use {activeTemplate?.name ?? 'template'}</DialogTitle>
+            <DialogDescription>
+              Map each declared input to this table. Pomade creates fresh output
+              columns and keeps the saved recipe configuration.
+            </DialogDescription>
+          </DialogHeader>
+          {activeTemplate ? (
+            <>
+              <div className="template-contract-summary">
+                <div>
+                  <span>Inputs</span>
+                  <strong>{activeTemplate.inputs.length}</strong>
+                </div>
+                <div>
+                  <span>Outputs</span>
+                  <strong>
+                    {activeTemplate.column.outputFields?.length ?? 1}
+                  </strong>
+                </div>
+                <div>
+                  <span>Runner</span>
+                  <strong>
+                    {activeTemplate.column.kind === 'formula'
+                      ? 'Local'
+                      : activeTemplate.column.recipe === 'web-research'
+                        ? 'Research'
+                        : 'Pomade'}
+                  </strong>
+                </div>
+              </div>
+              <div className="template-output-list">
+                <span>Creates</span>
+                <div>
+                  {(
+                    activeTemplate.column.outputFields ?? [
+                      {
+                        id: activeTemplate.column.id,
+                        title: activeTemplate.column.title,
+                        valueType: activeTemplate.column.valueType ?? 'text',
+                      },
+                    ]
+                  ).map((output) => (
+                    <span key={output.id}>
+                      {output.title} <em>{output.valueType}</em>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              {activeTemplate.inputs.length ? (
+                <div className="template-input-mapping">
+                  <div className="structured-field-heading">
+                    <span>Input mapping</span>
+                    <small>Required fields are marked</small>
+                  </div>
+                  {activeTemplate.inputs.map((input) => (
+                    <label key={input.key}>
+                      <span>
+                        {input.title}
+                        {input.required ? <em>Required</em> : <em>Optional</em>}
+                      </span>
+                      <select
+                        value={templateBindings[input.key] ?? ''}
+                        onChange={(event) =>
+                          setTemplateBindings((current) => ({
+                            ...current,
+                            [input.key]: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">
+                          {input.required ? 'Choose a column…' : 'Not mapped'}
+                        </option>
+                        {workspace.columns
+                          .filter((column) => column.kind !== 'status')
+                          .map((column) => (
+                            <option value={column.id} key={column.id}>
+                              {column.title}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="template-no-inputs">
+                  This function does not need an input mapping.
+                </p>
+              )}
+            </>
+          ) : null}
+          {templateError ? (
+            <p className="template-error" role="alert">
+              {templateError}
+            </p>
+          ) : null}
+          <div className="template-dialog-actions">
+            <p>Outputs remain editable and run like any other recipe column.</p>
+            <Button variant="outline" onClick={() => setTemplateUseOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={useRecipeTemplate}
+              disabled={!activeTemplate || !templateBindingsReady}
+            >
+              <Plus /> Add function
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -1,0 +1,269 @@
+import type {
+  PomadeColumn,
+  RecipeTemplate,
+  RecipeTemplateInput,
+} from './pomade-types';
+
+type RecipeInputSpec = { key: string; required: boolean };
+
+const builtinRecipeInputs: Partial<
+  Record<NonNullable<PomadeColumn['recipe']>, RecipeInputSpec[]>
+> = {
+  'normalize-domain': [{ key: 'domain', required: true }],
+  'first-name': [{ key: 'person', required: true }],
+  'email-domain': [
+    { key: 'email', required: false },
+    { key: 'apollo_email', required: false },
+  ],
+  'dedupe-key': [
+    { key: 'email', required: false },
+    { key: 'apollo_email', required: false },
+    { key: 'person', required: false },
+    { key: 'domain', required: false },
+  ],
+  'score-fit': [
+    { key: 'company', required: true },
+    { key: 'person', required: false },
+    { key: 'title', required: true },
+    { key: 'domain', required: false },
+  ],
+  'write-opener': [
+    { key: 'company', required: true },
+    { key: 'person', required: false },
+  ],
+  'company-summary': [{ key: 'company', required: true }],
+};
+
+function templateFields(value: string | undefined) {
+  const fields: string[] = [];
+  for (const match of (value ?? '').matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g)) {
+    const field = match[1]?.split('|')[0]?.trim();
+    if (field && /^[a-zA-Z0-9_-]+$/.test(field) && !fields.includes(field)) {
+      fields.push(field);
+    }
+  }
+  return fields;
+}
+
+function humanize(value: string) {
+  return value
+    .replace(/^__/, '')
+    .replaceAll('_', ' ')
+    .replaceAll('-', ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function recipeInputSpecs(column: PomadeColumn): RecipeInputSpec[] {
+  if (column.recipe === 'custom-formula') {
+    return templateFields(column.expression).map((key) => ({
+      key,
+      required: true,
+    }));
+  }
+  if (column.recipe === 'web-research') {
+    const promptInputs = templateFields(column.prompt).map((key) => ({
+      key,
+      required: true,
+    }));
+    for (const key of ['company', 'domain', 'person', 'title']) {
+      if (!promptInputs.some((input) => input.key === key)) {
+        promptInputs.push({ key, required: false });
+      }
+    }
+    return promptInputs;
+  }
+  return column.recipe ? (builtinRecipeInputs[column.recipe] ?? []) : [];
+}
+
+function cloneColumn(column: PomadeColumn): PomadeColumn {
+  return {
+    ...column,
+    inputBindings: column.inputBindings
+      ? { ...column.inputBindings }
+      : undefined,
+    outputFields: column.outputFields?.map((field) => ({ ...field })),
+    runCondition: column.runCondition ? { ...column.runCondition } : undefined,
+  };
+}
+
+export function createRecipeTemplate(
+  column: PomadeColumn,
+  columns: PomadeColumn[],
+  options: {
+    id: string;
+    name: string;
+    description?: string;
+    createdAt?: number;
+  },
+): RecipeTemplate {
+  if (!column.recipe || !['formula', 'enrichment'].includes(column.kind)) {
+    throw new Error('Only configured recipe columns can become templates.');
+  }
+  const name = options.name.trim();
+  if (!name) throw new Error('Template name is required.');
+
+  const inputs: RecipeTemplateInput[] = recipeInputSpecs(column).map(
+    ({ key, required }) => {
+      const sourceColumnId = column.inputBindings?.[key] ?? key;
+      return {
+        key,
+        sourceColumnId,
+        title:
+          columns.find((candidate) => candidate.id === sourceColumnId)?.title ??
+          humanize(key),
+        required,
+        purpose: 'recipe',
+      };
+    },
+  );
+
+  const conditionField = column.runCondition?.field;
+  const conditionRecipeInput = inputs.find(
+    (input) => input.sourceColumnId === conditionField,
+  );
+  if (conditionRecipeInput) conditionRecipeInput.required = true;
+  if (conditionField && !conditionRecipeInput) {
+    inputs.push({
+      key: '__condition_field',
+      sourceColumnId: conditionField,
+      title:
+        columns.find((candidate) => candidate.id === conditionField)?.title ??
+        humanize(conditionField),
+      required: true,
+      purpose: 'condition',
+    });
+  }
+
+  return {
+    id: options.id,
+    name,
+    description: options.description?.trim() ?? '',
+    createdAt: options.createdAt ?? Date.now(),
+    column: cloneColumn(column),
+    inputs,
+  };
+}
+
+export function defaultTemplateBindings(
+  template: RecipeTemplate,
+  columns: PomadeColumn[],
+) {
+  const usable = columns.filter((column) => column.kind !== 'status');
+  return Object.fromEntries(
+    template.inputs.map((input) => {
+      const direct = usable.find(
+        (column) => column.id === input.sourceColumnId,
+      );
+      const byTitle = usable.find(
+        (column) =>
+          column.title.trim().toLowerCase() ===
+          input.title.trim().toLowerCase(),
+      );
+      return [input.key, direct?.id ?? byTitle?.id ?? ''];
+    }),
+  );
+}
+
+function uniqueId(base: string, used: Set<string>) {
+  const safe =
+    base
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '') || 'column';
+  let candidate = safe;
+  let suffix = 2;
+  while (used.has(candidate)) candidate = `${safe}_${suffix++}`;
+  used.add(candidate);
+  return candidate;
+}
+
+function uniqueTitle(title: string, used: Set<string>) {
+  let candidate = title;
+  let suffix = 2;
+  while (used.has(candidate.toLowerCase())) candidate = `${title} ${suffix++}`;
+  used.add(candidate.toLowerCase());
+  return candidate;
+}
+
+export function instantiateRecipeTemplate(
+  template: RecipeTemplate,
+  columns: PomadeColumn[],
+  bindings: Record<string, string>,
+) {
+  const usableIds = new Set(
+    columns
+      .filter((column) => column.kind !== 'status')
+      .map((column) => column.id),
+  );
+  for (const input of template.inputs) {
+    const binding = bindings[input.key] ?? '';
+    if (input.required && !binding) {
+      throw new Error(`${input.title} needs an input column.`);
+    }
+    if (binding && !usableIds.has(binding)) {
+      throw new Error(`${input.title} is mapped to an unavailable column.`);
+    }
+  }
+
+  const usedIds = new Set(columns.map((column) => column.id));
+  const usedTitles = new Set(
+    columns.map((column) => column.title.toLowerCase()),
+  );
+  const sourceOutputs = template.column.outputFields?.length
+    ? template.column.outputFields
+    : [
+        {
+          id: template.column.id,
+          title: template.column.title,
+          valueType: template.column.valueType ?? ('text' as const),
+        },
+      ];
+  const outputFields = sourceOutputs.map((output) => {
+    const title = uniqueTitle(output.title, usedTitles);
+    return {
+      id: uniqueId(title, usedIds),
+      title,
+      valueType: output.valueType,
+    };
+  });
+  const [primary, ...supporting] = outputFields;
+  if (!primary) throw new Error('Template needs an output column.');
+
+  const inputBindings = Object.fromEntries(
+    template.inputs
+      .filter((input) => input.purpose !== 'condition')
+      .map((input) => [input.key, bindings[input.key] ?? '']),
+  );
+  const conditionInput = template.column.runCondition
+    ? template.inputs.find(
+        (input) => input.sourceColumnId === template.column.runCondition?.field,
+      )
+    : undefined;
+  const column: PomadeColumn = {
+    ...cloneColumn(template.column),
+    id: primary.id,
+    title: primary.title,
+    valueType: primary.valueType,
+    inputBindings:
+      Object.keys(inputBindings).length > 0 ? inputBindings : undefined,
+    outputFields: template.column.outputFields ? outputFields : undefined,
+    runCondition: template.column.runCondition
+      ? {
+          ...template.column.runCondition,
+          field: conditionInput
+            ? bindings[conditionInput.key]
+            : template.column.runCondition.field,
+        }
+      : undefined,
+  };
+
+  return [
+    column,
+    ...supporting.map<PomadeColumn>((field) => ({
+      ...field,
+      kind: 'text',
+      width: field.valueType === 'text' ? 280 : 160,
+    })),
+  ];
+}

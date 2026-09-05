@@ -31,29 +31,48 @@ const customFormulaFilters: Record<string, (value: string) => string> = {
  * Render a deterministic, row-aware text formula without evaluating code.
  * Example: "{{person | first}} at {{company | upper}}".
  */
-export function renderCustomFormula(expression: string, row: PomadeRow) {
+export function renderCustomFormula(
+  expression: string,
+  row: PomadeRow,
+  inputBindings?: Record<string, string>,
+) {
   const template = expression.slice(0, CUSTOM_FORMULA_MAX_LENGTH);
   return template
     .replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_match, token: string) => {
       const [rawField, ...rawFilters] = token.split('|');
       const field = rawField.trim();
       if (!/^[a-zA-Z0-9_-]+$/.test(field)) return '';
-      return rawFilters.reduce((value, rawFilter) => {
-        const filter = customFormulaFilters[rawFilter.trim().toLowerCase()];
-        return filter ? filter(value) : value;
-      }, row.values[field] ?? '');
+      const sourceField =
+        inputBindings && Object.hasOwn(inputBindings, field)
+          ? inputBindings[field]
+          : field;
+      return rawFilters.reduce(
+        (value, rawFilter) => {
+          const filter = customFormulaFilters[rawFilter.trim().toLowerCase()];
+          return filter ? filter(value) : value;
+        },
+        sourceField ? (row.values[sourceField] ?? '') : '',
+      );
     })
     .slice(0, CUSTOM_FORMULA_OUTPUT_MAX_LENGTH);
 }
 
-function stableScore(row: PomadeRow) {
-  const source = `${row.values.company}|${row.values.person}|${row.values.title}|${row.values.domain}`;
+function recipeValue(column: PomadeColumn, row: PomadeRow, key: string) {
+  const sourceField =
+    column.inputBindings && Object.hasOwn(column.inputBindings, key)
+      ? column.inputBindings[key]
+      : key;
+  return sourceField ? (row.values[sourceField] ?? '') : '';
+}
+
+function stableScore(column: PomadeColumn, row: PomadeRow) {
+  const source = `${recipeValue(column, row, 'company')}|${recipeValue(column, row, 'person')}|${recipeValue(column, row, 'title')}|${recipeValue(column, row, 'domain')}`;
   const hash = Array.from(source).reduce(
     (total, character) => total + character.charCodeAt(0),
     0,
   );
   const leadershipBoost = /(founder|chief|ceo|coo|president)/i.test(
-    row.values.title ?? '',
+    recipeValue(column, row, 'title'),
   )
     ? 8
     : 0;
@@ -68,33 +87,43 @@ function emailDomain(input: string) {
     : '';
 }
 
-function dedupeKey(row: PomadeRow) {
-  const email = (row.values.email || row.values.apollo_email || '')
+function dedupeKey(column: PomadeColumn, row: PomadeRow) {
+  const email = (
+    recipeValue(column, row, 'email') ||
+    recipeValue(column, row, 'apollo_email')
+  )
     .trim()
     .toLowerCase();
   if (email) return `email:${email}`;
-  const person = (row.values.person || '').trim().toLowerCase();
-  const domain = normalizeDomain(row.values.domain ?? '');
+  const person = recipeValue(column, row, 'person').trim().toLowerCase();
+  const domain = normalizeDomain(recipeValue(column, row, 'domain'));
   return person && domain ? `person:${person}|${domain}` : '';
 }
 
 function runRecipe(column: PomadeColumn, row: PomadeRow) {
-  const company = row.values.company || 'the company';
-  const firstName = (row.values.person || '').split(' ')[0];
+  const company = recipeValue(column, row, 'company') || 'the company';
+  const firstName = recipeValue(column, row, 'person').split(' ')[0];
 
   switch (column.recipe) {
     case 'custom-formula':
-      return renderCustomFormula(column.expression ?? '', row);
+      return renderCustomFormula(
+        column.expression ?? '',
+        row,
+        column.inputBindings,
+      );
     case 'normalize-domain':
-      return normalizeDomain(row.values.domain ?? '');
+      return normalizeDomain(recipeValue(column, row, 'domain'));
     case 'first-name':
-      return (row.values.person || '').trim().split(/\s+/)[0] ?? '';
+      return recipeValue(column, row, 'person').trim().split(/\s+/)[0] ?? '';
     case 'email-domain':
-      return emailDomain(row.values.email || row.values.apollo_email || '');
+      return emailDomain(
+        recipeValue(column, row, 'email') ||
+          recipeValue(column, row, 'apollo_email'),
+      );
     case 'dedupe-key':
-      return dedupeKey(row);
+      return dedupeKey(column, row);
     case 'score-fit': {
-      const score = stableScore(row);
+      const score = stableScore(column, row);
       return `${score >= 82 ? 'Strong' : 'Review'} · ${score}`;
     }
     case 'write-opener':

@@ -143,6 +143,7 @@ export function createSampleWorkspace(): WorkspaceSnapshot {
       ...row,
       values: { ...row.values },
     })),
+    recipeTemplates: [],
     updatedAt: Date.now(),
     source: {
       provider: 'sample',

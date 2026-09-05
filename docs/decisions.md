@@ -86,6 +86,20 @@ review. If the response is not parseable JSON, the raw answer also stays visible
 in the primary field. List outputs and explode-to-rows remain a separate future
 slice.
 
+## Recipe templates use explicit contracts
+
+Any configured formula or enrichment column can be saved as a workspace-level
+recipe function. Its template keeps the recipe configuration, output shape,
+condition, and auto-update setting, while declaring every field the recipe
+reads. Applying it requires mapping required inputs to real columns and creates
+fresh, collision-safe output IDs and titles.
+
+Input mappings are stored on the instantiated column rather than rewriting the
+saved formula or prompt. This lets the same function run against tables with
+different schemas and lets later recipe columns consume its outputs in visual
+column order. Templates remain workspace data, so CSV and CRM source changes do
+not require a separate template service or database migration.
+
 ## GTM Control Tower owns mutation
 
 Pomade can export a bounded preview plan containing only the rows and fields

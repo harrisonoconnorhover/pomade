@@ -43,15 +43,23 @@ export function renderWebResearchPrompt(
   template: string,
   row: PomadeRow,
   outputFields?: ResearchOutputField[],
+  inputBindings?: Record<string, string>,
 ) {
+  const fieldValue = (field: string) => {
+    const sourceField =
+      inputBindings && Object.hasOwn(inputBindings, field)
+        ? inputBindings[field]
+        : field;
+    return sourceField ? row.values[sourceField] : undefined;
+  };
   const rendered = template.replace(TEMPLATE_TOKEN, (_match, field: string) =>
-    compact(row.values[field]),
+    compact(fieldValue(field)),
   );
   const context = [
-    ['Company', row.values.company],
-    ['Domain', row.values.domain],
-    ['Person', row.values.person],
-    ['Title', row.values.title],
+    ['Company', fieldValue('company')],
+    ['Domain', fieldValue('domain')],
+    ['Person', fieldValue('person')],
+    ['Title', fieldValue('title')],
   ]
     .filter(([, value]) => compact(value))
     .map(([label, value]) => `${label}: ${compact(value)}`)

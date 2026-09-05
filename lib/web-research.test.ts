@@ -80,6 +80,26 @@ describe('web research recipe', () => {
     expect(prompt).toContain('numbers must be JSON numbers');
   });
 
+  it('renders reusable research inputs through their selected columns', () => {
+    const row = {
+      id: 'row-1',
+      values: {
+        account_name: 'Acme',
+        website: 'acme.example',
+      },
+    };
+    const prompt = renderWebResearchPrompt(
+      'Research {{company}}.',
+      row,
+      undefined,
+      { company: 'account_name', domain: 'website' },
+    );
+
+    expect(prompt).toContain('Research Acme.');
+    expect(prompt).toContain('Company: Acme');
+    expect(prompt).toContain('Domain: acme.example');
+  });
+
   it('parses fenced provider JSON into typed grid values', () => {
     const parsed = parseStructuredResearchAnswer(
       '```json\n{"trigger":"Series C","trigger_date":"2026-08-14T00:00:00Z","confidence":0.92,"verified":true}\n```',

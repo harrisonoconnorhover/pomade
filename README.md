@@ -15,6 +15,8 @@ what changed. It is an original product built on the open-source
   five-row preview, then run selected or visible rows.
 - Gate any recipe by a row condition and auto-update safe formula columns when
   an input cell changes.
+- Save any configured recipe as a reusable function, then map its declared
+  inputs to another table and recreate its outputs.
 - Create single-answer or structured AI research recipes that use Parallel Web
   Research—or Gemini as a fallback—with clickable citations.
 - Enrich one selected person through Apollo with exact-name/company-domain safeguards.
@@ -61,6 +63,12 @@ columns from one request. Structured outputs support text, date, number, and
 yes/no fields. Pomade keeps the raw provider response, validates every declared
 key, formats typed values for the grid, and holds malformed responses for
 review instead of silently accepting them.
+
+Reusable recipe functions live with the workspace. Open **Recipe engine**, save
+a configured formula or enrichment as a template, then choose it from **Recipe
+library**. Pomade declares the fields the recipe reads, asks you to map them to
+the current table, creates collision-safe output columns, and preserves output
+types, run conditions, and local auto-update behavior.
 
 To enable grounded web research locally, set `PARALLEL_API_KEY` in the ignored
 `.env.local` file and restart Pomade. `PARALLEL_MODEL=speed` is the fast default;

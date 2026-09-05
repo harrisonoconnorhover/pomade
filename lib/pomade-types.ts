@@ -29,6 +29,7 @@ export type PomadeColumn = {
   width: number;
   autoRun?: boolean;
   expression?: string;
+  inputBindings?: Record<string, string>;
   outputFields?: ResearchOutputField[];
   prompt?: string;
   runCondition?: RecipeRunCondition;
@@ -45,6 +46,23 @@ export type PomadeColumn = {
     | 'web-research';
 };
 
+export type RecipeTemplateInput = {
+  key: string;
+  title: string;
+  sourceColumnId: string;
+  required: boolean;
+  purpose?: 'recipe' | 'condition';
+};
+
+export type RecipeTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: number;
+  column: PomadeColumn;
+  inputs: RecipeTemplateInput[];
+};
+
 export type PomadeRow = {
   id: string;
   values: Record<string, string>;
@@ -55,6 +73,7 @@ export type WorkspaceSnapshot = {
   name: string;
   columns: PomadeColumn[];
   rows: PomadeRow[];
+  recipeTemplates?: RecipeTemplate[];
   updatedAt: number;
   source?: WorkspaceSource;
 };

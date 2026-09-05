@@ -168,6 +168,7 @@ export async function POST(request: Request) {
           column.prompt,
           currentRow,
           column.outputFields,
+          column.inputBindings,
         );
         const cacheKey = await webResearchCacheKey(model, prompt);
         const now = Date.now();
