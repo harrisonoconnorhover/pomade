@@ -814,3 +814,22 @@ requests verified work email only, with mobile reveal disabled. PDL signup is
 blocked on a business-domain email; do not use another personal address to
 circumvent its restriction. Credentials and account passwords stay in ignored
 local files. Provider credits and subscription usage are different meters.
+
+## 2026-09-05: Local API keys and MCP
+
+Expose nine bounded operations through `/api/v1` and an official-SDK stdio MCP
+bridge. Reuse existing saved table, recipe and CRM handlers rather than accepting
+arbitrary replacement workspaces or duplicating provider execution. Publish one
+JSON-schema tool catalog so the API and MCP agree on inputs and permissions.
+
+Use random per-consumer keys with server-side SHA-256 hashes and separate read,
+run, CRM-read and CRM-write scopes. Keep generated credentials in ignored private
+files. Key changes follow the existing local binding rebuild/restart process.
+This remains a trusted single-user local app, not hosted authentication. Register
+the local MCP in Codex; remote transport and tenant accounts remain later work.
+
+Distinguish stored-row search from live company discovery. Expose existing
+research conditions, caches, CRM previews and native verification. Keep calls
+synchronous for this slice; document timeouts and receipt inspection rather than
+introducing another job runner. Refresh an expired Salesforce session using the
+existing CLI login, without changing its organization or permissions.

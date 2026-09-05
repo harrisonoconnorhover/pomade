@@ -679,3 +679,10 @@ The private DemandDrive tables now include **HubSpot — account research**,
 **Salesforce — account research**, **HubSpot — buyer contacts** and
 **Salesforce — buyer contacts**. The buyer committee's **Named CRM contacts**
 view shows its three identified people for the contact mappings.
+
+### Local API and MCP
+
+Pomade can now be called from a local assistant or script using scoped Pomade API
+keys. Nine tools cover saved table search, selected recipe runs, CRM reads and
+previewed CRM syncs. See [API and MCP setup](docs/api-and-mcp.md) for key generation,
+client configuration and current local-only limits.

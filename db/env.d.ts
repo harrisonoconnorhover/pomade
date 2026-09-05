@@ -1,6 +1,7 @@
 declare namespace Cloudflare {
   interface Env {
     DB: D1Database;
+    POMADE_API_KEYS?: string;
     POMADE_HTTP_CONNECTIONS?: string;
     POMADE_WEBHOOK_SOURCES?: string;
     APOLLO_API_KEY?: string;
