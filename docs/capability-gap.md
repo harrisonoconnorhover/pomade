@@ -22,6 +22,9 @@ Bitscale or Clay.
 - [x] List-valued AI research with typed fields, configurable one-to-25-result
       limits, child-row provenance, and duplicate-free reruns. Crossed off
       2026-09-04.
+- [x] Durable delayed, every-24-hour, and every-seven-day recipe runs for the
+      whole table or captured row IDs, with explicit provider consent and
+      stop-on-error behavior. Crossed off 2026-09-04.
 - [x] Save configured columns as reusable recipe functions with declared input
       mapping, collision-safe typed outputs, conditions, and auto-update
       behavior. Crossed off 2026-09-04.
@@ -37,8 +40,6 @@ Bitscale or Clay.
 
 ## Core gaps to cross off
 
-- [ ] Delayed and scheduled recipe execution, including deliberate recurring
-      refreshes for external providers.
 - [ ] First-party company and people list builders from an ICP description,
       search query, Maps, or job-board source.
 - [ ] Generic HTTP API enrichment plus inbound and outbound webhooks.
@@ -72,12 +73,12 @@ Bitscale or Clay.
 
 ## Next three slices
 
-1. Delayed and scheduled recipe execution, because recurring refreshes turn a
-   one-time table into an operating system.
-2. Generic HTTP enrichment and webhooks, because one well-governed escape hatch
+1. Generic HTTP enrichment and webhooks, because one well-governed escape hatch
    covers long-tail providers without hundreds of bespoke integrations.
-3. A first-party ICP company-list builder on top of list-to-row research, so a
+2. A first-party ICP company-list builder on top of list-to-row research, so a
    user can start from a brief instead of first creating a source row manually.
+3. A background queue with per-row progress and resumable failures, so larger
+   provider runs do not depend on one request staying open.
 
 ## Official product references
 

@@ -9,7 +9,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
-    "lint": "oxlint app components/pomade-data-grid.tsx db lib",
+    "lint": "oxlint app components db lib vite.config.ts worker.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "format": "oxfmt",

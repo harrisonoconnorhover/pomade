@@ -32,8 +32,9 @@ export default defineConfig(async ({ mode }) => {
     }),
   ) as Record<string, string>;
   const localBindingConfig = {
-    main: 'vinext/server/fetch-handler',
+    main: './worker.ts',
     compatibility_flags: ['nodejs_compat'],
+    triggers: { crons: ['*/5 * * * *'] },
     vars: localVars,
     d1_databases: d1
       ? [

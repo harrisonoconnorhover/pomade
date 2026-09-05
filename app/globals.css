@@ -154,6 +154,33 @@ button {
 .topbar-actions {
   gap: 8px;
 }
+.schedule-pill {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid #d7dfd3;
+  border-radius: 10px;
+  color: #486052;
+  background: #f7faf3;
+  font-size: 10px;
+  font-weight: 680;
+  cursor: pointer;
+}
+.schedule-pill svg {
+  width: 14px;
+}
+.schedule-pill-failed {
+  border-color: #ebc6bd;
+  color: #9a4538;
+  background: #fff3ef;
+}
+.schedule-pill-running {
+  border-color: #bdd8c5;
+  color: #2d6945;
+  background: #edf8ed;
+}
 .sync-state {
   gap: 6px;
   color: #758078;
@@ -500,6 +527,21 @@ button {
 
 .statusbar span:last-child {
   margin-left: auto;
+}
+.statusbar button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 5px;
+  color: #456353;
+  background: #eef4e9;
+  font: inherit;
+  cursor: pointer;
+}
+.statusbar button svg {
+  width: 11px;
 }
 .status-dot {
   display: inline-block;
@@ -1513,7 +1555,8 @@ button {
 .formula-builder-dialog,
 .waterfall-builder-dialog,
 .research-builder-dialog,
-.research-confirm-dialog {
+.research-confirm-dialog,
+.schedule-dialog {
   max-width: 620px !important;
 }
 .research-builder-dialog {
@@ -1879,6 +1922,10 @@ button {
 .research-output-shape {
   display: grid;
   gap: 6px;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 .waterfall-builder {
   display: grid;
@@ -1989,6 +2036,7 @@ button {
   width: 12px;
 }
 .research-output-shape > span,
+.research-output-shape > legend,
 .structured-field-heading > span {
   color: #66756d;
   font-size: 9px;
@@ -2339,6 +2387,145 @@ button {
   border-color: #cfe0ca;
   color: #466152;
   background: #f2f8ef;
+}
+.schedule-current {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid #d7e2d3;
+  border-radius: 10px;
+  color: #315e48;
+  background: #f2f8ef;
+}
+.schedule-current > svg {
+  width: 17px;
+  justify-self: center;
+}
+.schedule-current > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.schedule-current strong {
+  font-size: 10px;
+}
+.schedule-current small {
+  overflow: hidden;
+  color: #708078;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.schedule-current-failed {
+  border-color: #ecc9c0;
+  color: #963f33;
+  background: #fff3ef;
+}
+.schedule-current-paused,
+.schedule-current-complete {
+  border-color: #dedfd8;
+  color: #68766e;
+  background: #f7f7f3;
+}
+.schedule-fields {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.schedule-fields label {
+  display: grid;
+  gap: 6px;
+}
+.schedule-fields span {
+  color: #66756d;
+  font-size: 9px;
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.schedule-fields select,
+.schedule-fields input {
+  width: 100%;
+  height: 38px;
+  padding: 0 9px;
+  border: 1px solid #cfd4ce;
+  border-radius: 9px;
+  outline: 0;
+  color: #273c31;
+  background: #fff;
+  font-size: 10px;
+}
+.schedule-fields select:focus,
+.schedule-fields input:focus {
+  border-color: #779783;
+  box-shadow: 0 0 0 3px rgba(49, 94, 72, 0.08);
+}
+.schedule-target-shape > div {
+  grid-template-columns: repeat(2, 1fr);
+}
+.research-output-shape button:disabled {
+  color: #9ba49e;
+  background: #f2f2ef;
+  cursor: default;
+}
+.schedule-provider-confirmation {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 10px 11px;
+  border: 1px solid #e4cf9d;
+  border-radius: 9px;
+  color: #76551c;
+  background: #fff8e5;
+  cursor: pointer;
+}
+.schedule-provider-confirmation input {
+  margin-top: 2px;
+  accent-color: #315e48;
+}
+.schedule-provider-confirmation label {
+  display: grid;
+  gap: 3px;
+  cursor: pointer;
+}
+.schedule-provider-confirmation strong {
+  font-size: 10px;
+}
+.schedule-provider-confirmation small {
+  font-size: 9px;
+  line-height: 1.45;
+}
+.schedule-local-note,
+.schedule-error {
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid #d5e2d1;
+  border-radius: 9px;
+  color: #4d6658;
+  background: #f3f8ef;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.schedule-error {
+  border-color: #efc7bf;
+  color: #9f3d32;
+  background: #fff1ee;
+}
+.schedule-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+.schedule-actions p {
+  flex: 1;
+  margin: 0;
+  color: #748078;
+  font-size: 9px;
+  line-height: 1.45;
 }
 
 .handoff-dialog {

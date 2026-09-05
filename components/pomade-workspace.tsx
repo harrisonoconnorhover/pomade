@@ -7,6 +7,7 @@ import {
   BookmarkPlus,
   Braces,
   Building2,
+  CalendarClock,
   Check,
   ChevronDown,
   CirclePlay,
@@ -22,6 +23,7 @@ import {
   Library,
   LoaderCircle,
   MailCheck,
+  Pause,
   Phone,
   Play,
   Plug,
@@ -71,6 +73,7 @@ import type {
   PomadeColumn,
   PomadeRow,
   RecipeRunCondition,
+  RecipeScheduleCadence,
   RecipeTemplate,
   ResearchValueType,
   RunReceipt,
@@ -83,6 +86,10 @@ import {
   defaultTemplateBindings,
   instantiateRecipeTemplate,
 } from '@/lib/recipe-templates';
+import {
+  createRecipeSchedule,
+  pauseRecipeSchedule,
+} from '@/lib/recipe-schedule';
 import { createSampleWorkspace } from '@/lib/sample-workspace';
 
 const PomadeDataGrid = dynamic(() => import('@/components/pomade-data-grid'), {
@@ -356,6 +363,25 @@ function runTime(timestamp: number) {
   }).format(timestamp);
 }
 
+function dateTimeInputValue(timestamp: number) {
+  const date = new Date(timestamp);
+  return new Date(timestamp - date.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+}
+
+function defaultScheduleTime() {
+  const date = new Date(Date.now() + 30 * 60_000);
+  date.setSeconds(0, 0);
+  return dateTimeInputValue(date.getTime());
+}
+
+function cadenceLabel(cadence: RecipeScheduleCadence) {
+  if (cadence === 'every_day') return 'Every 24 hours';
+  if (cadence === 'every_week') return 'Every 7 days';
+  return 'One time';
+}
+
 function providerLabel(run?: RunReceipt) {
   if (run?.provider === 'apollo') return 'Apollo';
   if (run?.provider === 'parallel') return 'Parallel research';
@@ -399,6 +425,7 @@ export default function PomadeWorkspace() {
   const [templateSaveOpen, setTemplateSaveOpen] = useState(false);
   const [templateUseOpen, setTemplateUseOpen] = useState(false);
   const [researchConfirmOpen, setResearchConfirmOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
@@ -442,6 +469,17 @@ export default function PomadeWorkspace() {
   );
   const [researchListLimit, setResearchListLimit] = useState(10);
   const [pendingRunRowIds, setPendingRunRowIds] = useState<string[]>([]);
+  const [scheduleCadence, setScheduleCadence] =
+    useState<RecipeScheduleCadence>('once');
+  const [scheduleRunAt, setScheduleRunAt] = useState(defaultScheduleTime);
+  const [scheduleTarget, setScheduleTarget] = useState<'all' | 'selected'>(
+    'all',
+  );
+  const [scheduleRowIds, setScheduleRowIds] = useState<string[]>([]);
+  const [scheduleConfirmsResearch, setScheduleConfirmsResearch] =
+    useState(false);
+  const [scheduleError, setScheduleError] = useState('');
+  const [scheduleNow, setScheduleNow] = useState(() => Date.now());
 
   const [crmCatalog, setCrmCatalog] =
     useState<CrmCatalogStatus>(emptyCrmCatalog);
@@ -632,6 +670,22 @@ export default function PomadeWorkspace() {
   }, [pendingRunRowIds, webResearchColumns, workspace.rows]);
   const maximumResearchActions =
     researchStatus?.capabilities.maximumActionsPerRun ?? 10;
+  const scheduledTargetRows =
+    scheduleTarget === 'selected'
+      ? workspace.rows.filter((row) => scheduleRowIds.includes(row.id))
+      : workspace.rows;
+  const scheduledResearchActionCount = countEligibleRecipeActions(
+    scheduledTargetRows,
+    webResearchColumns,
+  );
+  const scheduleTimestamp = new Date(scheduleRunAt).getTime();
+  const scheduleReady =
+    recipeCount > 0 &&
+    Number.isFinite(scheduleTimestamp) &&
+    scheduleTimestamp > scheduleNow &&
+    scheduledTargetRows.length > 0 &&
+    scheduledResearchActionCount <= maximumResearchActions &&
+    (webResearchColumns.length === 0 || scheduleConfirmsResearch);
   const selectedReceipts = runHistory
     .flatMap((run) => run.receipts)
     .filter((receipt) => receipt.rowId === selected?.id)
@@ -645,10 +699,7 @@ export default function PomadeWorkspace() {
     : selected
       ? [selected.id]
       : [];
-  const handoffPlan = useMemo(
-    () => toControlTowerPreview(workspace, handoffRowIds),
-    [handoffRowIds, workspace],
-  );
+  const handoffPlan = toControlTowerPreview(workspace, handoffRowIds);
 
   const updateVisibleRows = useCallback(
     (changedRows: PomadeRow[], editedColumnId?: string) => {
@@ -1127,6 +1178,9 @@ export default function PomadeWorkspace() {
             label: file.name,
             importedAt: Date.now(),
           },
+          schedule: workspace.schedule?.enabled
+            ? pauseRecipeSchedule(workspace.schedule)
+            : workspace.schedule,
         };
         setWorkspace(next);
         setActiveRowId(rows[0]?.id ?? '');
@@ -1134,7 +1188,9 @@ export default function PomadeWorkspace() {
         setFilter('All');
         setQuery('');
         setSourcesOpen(false);
-        setNotice(`${rows.length} CSV rows loaded.`);
+        setNotice(
+          `${rows.length} CSV rows loaded${workspace.schedule?.enabled ? ' · schedule paused for review' : ''}.`,
+        );
       },
       error: () => setSourceError('Pomade could not read that CSV file.'),
     });
@@ -1343,7 +1399,14 @@ export default function PomadeWorkspace() {
 
   function importCrmPreview(mode: CrmImportMode) {
     if (!sourcePreview) return;
-    const next = applyCrmImport(workspace, sourcePreview, mode);
+    const imported = applyCrmImport(workspace, sourcePreview, mode);
+    const next =
+      mode === 'replace' && imported.schedule?.enabled
+        ? {
+            ...imported,
+            schedule: pauseRecipeSchedule(imported.schedule),
+          }
+        : imported;
     setWorkspace(next);
     setActiveRowId(next.rows[0]?.id ?? '');
     setSelectedRowIds([]);
@@ -1353,7 +1416,7 @@ export default function PomadeWorkspace() {
     setNotice(
       `${sourcePreview.contacts.length} ${sourcePreview.sourceLabel.toLowerCase()} ${
         mode === 'append' ? 'merged into' : 'loaded into'
-      } the grid.`,
+      } the grid${mode === 'replace' && workspace.schedule?.enabled ? ' · schedule paused for review' : ''}.`,
     );
   }
 
@@ -1379,6 +1442,76 @@ export default function PomadeWorkspace() {
     setRenameOpen(false);
   }
 
+  function openScheduleBuilder() {
+    const now = Date.now();
+    const existing = workspace.schedule;
+    const nextRunAt =
+      existing?.nextRunAt && existing.nextRunAt > now
+        ? existing.nextRunAt
+        : new Date(defaultScheduleTime()).getTime();
+    setScheduleNow(now);
+    setScheduleCadence(existing?.cadence ?? 'once');
+    setScheduleRunAt(dateTimeInputValue(nextRunAt));
+    setScheduleTarget(
+      existing?.target ?? (selectedRowIds.length ? 'selected' : 'all'),
+    );
+    setScheduleRowIds(
+      existing?.target === 'selected'
+        ? (existing.rowIds ?? [])
+        : selectedRowIds,
+    );
+    setScheduleConfirmsResearch(Boolean(existing?.confirmExternalResearch));
+    setScheduleError('');
+    setScheduleOpen(true);
+  }
+
+  function saveRecipeSchedule() {
+    try {
+      const schedule = createRecipeSchedule({
+        id: workspace.schedule?.id ?? crypto.randomUUID(),
+        cadence: scheduleCadence,
+        nextRunAt: scheduleTimestamp,
+        rowIds: scheduleTarget === 'selected' ? scheduleRowIds : undefined,
+      });
+      setWorkspace((current) => ({
+        ...current,
+        schedule: {
+          ...current.schedule,
+          ...schedule,
+          createdAt: current.schedule?.createdAt ?? schedule.createdAt,
+          lastError: undefined,
+          leaseUntil: undefined,
+        },
+        updatedAt: Date.now(),
+      }));
+      setScheduleOpen(false);
+      setNotice(
+        `${cadenceLabel(schedule.cadence)} run scheduled for ${runTime(schedule.nextRunAt ?? scheduleTimestamp)}.`,
+      );
+    } catch (error) {
+      setScheduleError(
+        error instanceof Error
+          ? error.message
+          : 'The schedule could not be saved.',
+      );
+    }
+  }
+
+  function pauseSchedule() {
+    if (!workspace.schedule) return;
+    setWorkspace((current) =>
+      current.schedule
+        ? {
+            ...current,
+            schedule: pauseRecipeSchedule(current.schedule),
+            updatedAt: Date.now(),
+          }
+        : current,
+    );
+    setScheduleOpen(false);
+    setNotice('Scheduled recipe runs paused.');
+  }
+
   return (
     <main className="pomade-shell">
       <header className="topbar">
@@ -1391,6 +1524,24 @@ export default function PomadeWorkspace() {
           </button>
         </div>
         <div className="topbar-actions">
+          {workspace.schedule ? (
+            <button
+              className={`schedule-pill schedule-pill-${workspace.schedule.state}`}
+              type="button"
+              onClick={openScheduleBuilder}
+            >
+              <CalendarClock />
+              <span>
+                {workspace.schedule.enabled && workspace.schedule.nextRunAt
+                  ? `Next ${runTime(workspace.schedule.nextRunAt)}`
+                  : workspace.schedule.state === 'failed'
+                    ? 'Schedule needs attention'
+                    : workspace.schedule.state === 'complete'
+                      ? 'Schedule complete'
+                      : 'Schedule paused'}
+              </span>
+            </button>
+          ) : null}
           <span className={`sync-state sync-${saveState.toLowerCase()}`}>
             {saveState === 'Saving' ? (
               <LoaderCircle className="spin" />
@@ -1563,6 +1714,12 @@ export default function PomadeWorkspace() {
                   <DropdownMenuItem onClick={() => setRecipeSettingsOpen(true)}>
                     <SlidersHorizontal /> Recipe run settings
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={openScheduleBuilder}
+                    disabled={recipeCount === 0}
+                  >
+                    <CalendarClock /> Schedule recipe run
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={exportCsv}>
                     <Download /> Export CSV
                   </DropdownMenuItem>
@@ -1608,9 +1765,9 @@ export default function PomadeWorkspace() {
               onSelectedRowIdsChange={updateSelectedRows}
             />
             {notice ? (
-              <div className="workspace-toast" role="status">
+              <output className="workspace-toast">
                 <Check /> {notice}
-              </div>
+              </output>
             ) : null}
           </div>
 
@@ -1626,6 +1783,12 @@ export default function PomadeWorkspace() {
             <span>
               {workspace.rows.length} records · {recipeCount} recipes
             </span>
+            {workspace.schedule?.enabled && workspace.schedule.nextRunAt ? (
+              <button type="button" onClick={openScheduleBuilder}>
+                <CalendarClock /> Next run{' '}
+                {runTime(workspace.schedule.nextRunAt)}
+              </button>
+            ) : null}
             <span>{workspace.source?.label ?? 'Manual workspace'}</span>
             <span>Grid by Glide Data Grid</span>
           </footer>
@@ -2516,9 +2679,9 @@ export default function PomadeWorkspace() {
               {researchStatus?.configured ? 'Key ready' : 'Add key locally'}
             </span>
           </div>
-          <div className="research-output-shape">
-            <span>Output shape</span>
-            <div role="group" aria-label="Research output shape">
+          <fieldset className="research-output-shape">
+            <legend>Output shape</legend>
+            <div>
               <button
                 type="button"
                 className={researchOutputMode === 'single' ? 'active' : ''}
@@ -2547,7 +2710,7 @@ export default function PomadeWorkspace() {
                 <small>Create one child row for every found item</small>
               </button>
             </div>
-          </div>
+          </fieldset>
           {researchOutputMode === 'single' ? (
             <label className="research-field">
               <span>Output column</span>
@@ -2777,6 +2940,151 @@ export default function PomadeWorkspace() {
               }
             >
               <Globe2 /> Research {pendingRunRowIds.length} rows
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={scheduleOpen}
+        onOpenChange={(open) => {
+          setScheduleOpen(open);
+          if (!open) setScheduleError('');
+        }}
+      >
+        <DialogContent className="schedule-dialog">
+          <DialogHeader>
+            <DialogTitle>Schedule recipe runs</DialogTitle>
+            <DialogDescription>
+              Run this table once later or refresh it on a deliberate recurring
+              interval—even when Pomade is closed.
+            </DialogDescription>
+          </DialogHeader>
+          {workspace.schedule ? (
+            <div
+              className={`schedule-current schedule-current-${workspace.schedule.state}`}
+            >
+              <CalendarClock />
+              <div>
+                <strong>
+                  {workspace.schedule.state === 'failed'
+                    ? 'Schedule stopped after an error'
+                    : workspace.schedule.enabled && workspace.schedule.nextRunAt
+                      ? `${cadenceLabel(workspace.schedule.cadence)} · next ${runTime(workspace.schedule.nextRunAt)}`
+                      : workspace.schedule.state === 'complete'
+                        ? 'One-time run complete'
+                        : 'Schedule paused'}
+                </strong>
+                <small>
+                  {workspace.schedule.lastError ||
+                    (workspace.schedule.lastRunAt
+                      ? `Last completed ${runTime(workspace.schedule.lastRunAt)}`
+                      : 'No scheduled run has completed yet')}
+                </small>
+              </div>
+            </div>
+          ) : null}
+          <div className="schedule-fields">
+            <label>
+              <span>Cadence</span>
+              <select
+                value={scheduleCadence}
+                onChange={(event) =>
+                  setScheduleCadence(
+                    event.target.value as RecipeScheduleCadence,
+                  )
+                }
+              >
+                <option value="once">One time</option>
+                <option value="every_day">Every 24 hours</option>
+                <option value="every_week">Every 7 days</option>
+              </select>
+            </label>
+            <label>
+              <span>{scheduleCadence === 'once' ? 'Run at' : 'First run'}</span>
+              <input
+                type="datetime-local"
+                value={scheduleRunAt}
+                min={dateTimeInputValue(scheduleNow + 60_000)}
+                onChange={(event) => setScheduleRunAt(event.target.value)}
+              />
+            </label>
+          </div>
+          <fieldset className="research-output-shape schedule-target-shape">
+            <legend>Rows to run</legend>
+            <div>
+              <button
+                type="button"
+                className={scheduleTarget === 'all' ? 'active' : ''}
+                aria-pressed={scheduleTarget === 'all'}
+                onClick={() => setScheduleTarget('all')}
+              >
+                <strong>Whole table</strong>
+                <small>{workspace.rows.length} current rows</small>
+              </button>
+              <button
+                type="button"
+                className={scheduleTarget === 'selected' ? 'active' : ''}
+                aria-pressed={scheduleTarget === 'selected'}
+                disabled={!scheduleRowIds.length}
+                onClick={() => setScheduleTarget('selected')}
+              >
+                <strong>Captured selection</strong>
+                <small>{scheduleRowIds.length} stable row IDs</small>
+              </button>
+            </div>
+          </fieldset>
+          {webResearchColumns.length ? (
+            <div className="schedule-provider-confirmation">
+              <input
+                id="schedule-provider-consent"
+                type="checkbox"
+                checked={scheduleConfirmsResearch}
+                onChange={(event) =>
+                  setScheduleConfirmsResearch(event.target.checked)
+                }
+              />
+              <label htmlFor="schedule-provider-consent">
+                <strong>Allow scheduled provider requests</strong>
+                <small>
+                  This scope currently makes up to{' '}
+                  {scheduledResearchActionCount} research requests per run.
+                  Cached results may avoid a new provider request.
+                </small>
+              </label>
+            </div>
+          ) : (
+            <p className="schedule-local-note">
+              This table currently runs local formulas and deterministic
+              enrichments only.
+            </p>
+          )}
+          {scheduledResearchActionCount > maximumResearchActions ? (
+            <p className="schedule-error" role="alert">
+              This scope would make {scheduledResearchActionCount} research
+              requests. Choose a captured selection so each run stays at or
+              below {maximumResearchActions}.
+            </p>
+          ) : scheduleError ? (
+            <p className="schedule-error" role="alert">
+              {scheduleError}
+            </p>
+          ) : null}
+          <div className="schedule-actions">
+            <p>
+              Pomade checks for due work every five minutes. Failed schedules
+              stop instead of spending credits repeatedly.
+            </p>
+            {workspace.schedule?.enabled ? (
+              <Button variant="outline" onClick={pauseSchedule}>
+                <Pause /> Pause
+              </Button>
+            ) : null}
+            <Button variant="outline" onClick={() => setScheduleOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveRecipeSchedule} disabled={!scheduleReady}>
+              <CalendarClock /> Save schedule
             </Button>
           </div>
         </DialogContent>
@@ -3102,7 +3410,6 @@ export default function PomadeWorkspace() {
               onKeyDown={(event) => {
                 if (event.key === 'Enter') renameWorkspace();
               }}
-              autoFocus
             />
           </label>
           <div className="rename-actions">

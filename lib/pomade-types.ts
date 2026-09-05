@@ -75,6 +75,26 @@ export type RecipeTemplate = {
   inputs: RecipeTemplateInput[];
 };
 
+export type RecipeScheduleCadence = 'once' | 'every_day' | 'every_week';
+
+export type RecipeSchedule = {
+  id: string;
+  cadence: RecipeScheduleCadence;
+  enabled: boolean;
+  nextRunAt?: number;
+  target: 'all' | 'selected';
+  rowIds?: string[];
+  confirmExternalResearch: true;
+  state: 'active' | 'running' | 'complete' | 'failed' | 'paused';
+  createdAt: number;
+  updatedAt: number;
+  lastAttemptAt?: number;
+  leaseUntil?: number;
+  lastRunAt?: number;
+  lastRunId?: string;
+  lastError?: string;
+};
+
 export type PomadeRow = {
   id: string;
   generatedByColumnId?: string;
@@ -89,6 +109,7 @@ export type WorkspaceSnapshot = {
   columns: PomadeColumn[];
   rows: PomadeRow[];
   recipeTemplates?: RecipeTemplate[];
+  schedule?: RecipeSchedule;
   updatedAt: number;
   source?: WorkspaceSource;
 };

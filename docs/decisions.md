@@ -113,6 +113,26 @@ different schemas and lets later recipe columns consume its outputs in visual
 column order. Templates remain workspace data, so CSV and CRM source changes do
 not require a separate template service or database migration.
 
+## Scheduled runs use the same guarded runner
+
+One workspace may store one durable recipe schedule: a future one-time run,
+every 24 hours, or every 7 days. The schedule may target the whole table or a
+captured set of stable row IDs. Saving a schedule with research columns requires
+explicit recurring-provider consent, and the existing ten-request ceiling still
+applies when the run becomes due.
+
+A Cloudflare scheduled handler checks due work every five minutes and claims at
+most three workspaces per tick with an optimistic `updated_at` comparison. It
+advances a recurring schedule before execution, disables a one-time schedule on
+claim, and asks Cloudflare not to retry the event. This keeps overlapping ticks
+from deliberately duplicating provider work. A 15-minute lease makes an
+interrupted claim eligible again without advancing its interval twice. The
+handler delegates to the same run endpoint used by the UI, so caching,
+conditions, receipts, and row limits do not fork into a second execution system.
+Any failed run disables its schedule until the user reviews and resaves it.
+Replacing table rows from CSV or CRM also pauses an active schedule so a saved
+scope cannot silently begin running against a different dataset.
+
 ## Waterfalls compose upstream results
 
 A data waterfall is a local auto-updating recipe with two to six ordered input

@@ -21,6 +21,8 @@ what changed. It is an original product built on the open-source
   first available value and its winning source kept side by side.
 - Create single-answer, structured, or list-to-row AI research recipes that use
   Parallel Web Research—or Gemini as a fallback—with clickable citations.
+- Schedule the whole table or a captured selection once, every 24 hours, or
+  every 7 days through a durable five-minute worker clock.
 - Enrich one selected person through Apollo with exact-name/company-domain safeguards.
 - Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
 - Search, filter, sort, add rows, and export the resulting CSV.
@@ -59,6 +61,12 @@ only when a prior column is empty, present, equal to, or contains a value.
 Conditions are case-insensitive and are checked before provider calls. Formula
 auto-update is local and free; external research remains an explicit,
 credit-confirmed run.
+
+Scheduled runs persist with the workspace and execute even when the browser is
+closed. A future one-time run acts as a delay; recurring runs advance from their
+original interval. The scheduler captures stable row IDs when targeting a
+selection, uses the same ten-request provider ceiling and run receipts as a
+manual run, and stops after an error instead of spending credits repeatedly.
 
 AI web research can return one answer or populate two to six typed output
 columns from one request. Structured outputs support text, date, number, and
@@ -108,7 +116,7 @@ Glide Data Grid UI | Pomade workspace + recipe schema
           |                    |                    |
 safe recipe runner       read-only sources       provider reads
           |             HubSpot / Salesforce    Apollo / Parallel / Gemini
-          ------------- D1 workspace, cache, receipts -------------
+          ------------- D1 workspace, schedules, cache, receipts ---
                                |
          GTM Control Tower preview adapter (governed writes only)
 ```
