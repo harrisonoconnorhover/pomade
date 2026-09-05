@@ -5,6 +5,54 @@ import type {
   WorkspaceSnapshot,
 } from './pomade-types';
 
+export function isNumericLookup(mode: TableLookup['resultMode']) {
+  return (
+    mode === 'sum' || mode === 'average' || mode === 'min' || mode === 'max'
+  );
+}
+export function aggregateLookupValues(
+  values: string[],
+  mode: NonNullable<TableLookup['resultMode']>,
+) {
+  const numbers = values
+    .filter((v) => v.trim() !== '')
+    .map((v) => {
+      const value = v.trim();
+      if (
+        !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value) ||
+        !Number.isFinite(Number(value))
+      )
+        throw new Error('Non-numeric value in matching rows');
+      return Number(value);
+    });
+  if (!numbers.length && mode !== 'sum')
+    throw new Error('No numeric values in matching rows');
+  let sum = 0,
+    compensation = 0;
+  for (const value of numbers) {
+    const adjusted =
+        (mode === 'average' ? value / numbers.length : value) - compensation,
+      next = sum + adjusted;
+    compensation = next - sum - adjusted;
+    sum = next;
+  }
+  const result =
+    mode === 'sum'
+      ? sum
+      : mode === 'average'
+        ? sum
+        : mode === 'min'
+          ? Math.min(...numbers)
+          : Math.max(...numbers);
+  if (!Number.isFinite(result))
+    throw new Error('Numeric result exceeds the supported range');
+  return {
+    value: String(Number(result.toPrecision(15))),
+    count: numbers.length,
+    blanks: values.length - numbers.length,
+  };
+}
+
 export function normalizeLookupKey(
   value: string,
   mode: TableLookup['normalization'],
@@ -53,7 +101,9 @@ export function createLookupColumns(
     resultMode === 'count' ? [sourceMatchColumnId] : requestedOutputIds;
   if (
     !['equals', 'contains'].includes(comparison) ||
-    !['unique', 'list', 'count'].includes(resultMode)
+    !['unique', 'list', 'count', 'sum', 'average', 'min', 'max'].includes(
+      resultMode,
+    )
   )
     throw new Error('Choose a valid comparison and result mode.');
   if (source.id === target.id)
@@ -90,10 +140,12 @@ export function createLookupColumns(
           ? 'Matching rows'
           : resultMode === 'list'
             ? `List: ${field.title}`
-            : `Lookup: ${field.title}`,
+            : isNumericLookup(resultMode)
+              ? `${resultMode}: ${field.title}`
+              : `Lookup: ${field.title}`,
       ),
       valueType:
-        resultMode === 'count'
+        resultMode === 'count' || isNumericLookup(resultMode)
           ? ('number' as const)
           : resultMode === 'list'
             ? ('text' as const)
@@ -229,7 +281,29 @@ export function createLookupResolver(
             String(matches.length),
           ]),
         );
-      else if (mode === 'list') {
+      else if (isNumericLookup(mode)) {
+        const summaries: string[] = [];
+        try {
+          for (const output of config.outputs) {
+            const aggregated = aggregateLookupValues(
+              matches.map((row) => row.values[output.sourceColumnId] ?? ''),
+              mode,
+            );
+            values[output.outputColumnId] = aggregated.value;
+            summaries.push(
+              `${output.sourceColumnId}: ${aggregated.count} numeric, ${aggregated.blanks} blank`,
+            );
+          }
+          status += `; ${summaries.join('; ')}`;
+        } catch (error) {
+          passed = false;
+          values = { ...blank };
+          status =
+            error instanceof Error
+              ? error.message
+              : 'Numeric aggregation failed';
+        }
+      } else if (mode === 'list') {
         if (matches.length > 100) {
           passed = false;
           status = 'More than 100 matches; narrow the key or use count.';

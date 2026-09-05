@@ -31,7 +31,7 @@ export type WaterfallStep = {
 
 export type TableLookup = {
   comparison?: 'equals' | 'contains';
-  resultMode?: 'unique' | 'list' | 'count';
+  resultMode?: 'unique' | 'list' | 'count' | 'sum' | 'average' | 'min' | 'max';
   sourceTableId: string;
   sourceMatchColumnId: string;
   normalization: 'exact' | 'text' | 'domain';

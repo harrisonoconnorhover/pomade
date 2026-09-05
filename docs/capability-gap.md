@@ -143,7 +143,7 @@ Bitscale or Clay.
 - [x] Lookup contains comparison, row counts and bounded multi-result JSON lists,
       preserving source order/blanks and legacy unique-match behavior. Verified
       through manual/background/scheduled runs on 2026-09-05.
-- [ ] Numeric/grouped lookup aggregations, automatic table synchronization,
+- [ ] Arbitrary grouped reports, automatic table synchronization,
       portable workbook templates and deeper relationships.
 - [ ] Event-driven workflows with triggers, branching, code steps, and actions.
 - [ ] Persistent people/company profiles, deduplicated audiences, and dynamic
@@ -185,7 +185,7 @@ User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
 1. Broader provider presets, live qualification and dedicated external-event signals.
-2. Numeric/grouped aggregations and richer formula logic.
+2. Arbitrary group-by reports and richer formula logic.
 3. Richer source pagination and native provider presets.
 4. Saved-search sources, external-event monitors and bulk function rollout.
 5. Governed CRM writeback through Control Tower and portable workbook templates.
@@ -258,7 +258,8 @@ fields from another grid with exact or contains matching. Clay's
 distinguishes pulling reference data with lookups from pushing/creating rows,
 and describes lookup counting/aggregation use cases. Pomade now supports the
 unique-match reference-data workflow with explicit ambiguity handling. Contains matching, row counts, value lists and repeatable table transfers are now
-implemented. Numeric/grouped aggregation and automatic synchronization remain
+implemented, along with keyed sum, average, minimum and maximum rollups.
+Arbitrary group-by reports and automatic synchronization remain
 gaps; these features do not establish complete lookup parity.
 
 ## HTTP comparison, refreshed 2026-09-05
@@ -288,3 +289,12 @@ organization. The official page's embedded response example supplies
 [OpenAPI/authentication guidance](https://docs.apollo.io/reference/openapi-specification)
 confirms the `x-api-key` header. Pomade withholds mismatched identities and keeps
 actual credit usage unknown; local fixtures are not live account qualification.
+
+
+## Numeric lookup slice, 2026-09-05
+
+Pomade now aggregates one to four numeric fields over matching saved rows using
+sum, average, minimum and maximum. Blanks are excluded; malformed values require
+review. Templates preserve the modes. Focused tests and isolated Worker/D1 checks
+cover manual and queued execution with fresh source data. This closes the keyed
+numeric rollup gap, not general reporting or complete Clay/Bitscale parity.

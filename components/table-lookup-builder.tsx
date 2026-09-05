@@ -166,8 +166,9 @@ export default function TableLookupBuilder({
           <DialogTitle>Look up fields from another table</DialogTitle>
           <DialogDescription>
             Match saved source rows and return up to four fields, JSON lists or
-            a match count. No provider requests or credits. Unique mode still
-            flags multiple matches for review.
+            a match count, sum, average, minimum or maximum. No provider
+            requests or credits. Unique mode still flags multiple matches for
+            review.
           </DialogDescription>
         </DialogHeader>
         <div className="lookup-fields">
@@ -262,6 +263,10 @@ export default function TableLookupBuilder({
               <option value="unique">Require one match</option>
               <option value="list">List values from all matches</option>
               <option value="count">Count matching rows</option>
+              <option value="sum">Sum matching numeric values</option>
+              <option value="average">Average matching numeric values</option>
+              <option value="min">Minimum matching value</option>
+              <option value="max">Maximum matching value</option>
             </select>
           </label>
         </div>
@@ -270,6 +275,15 @@ export default function TableLookupBuilder({
             Lists preserve source row order, duplicate values and blanks. Up to
             100 matches and 4,000 characters per output; larger results go to
             review.
+          </p>
+        ) : null}
+        {['sum', 'average', 'min', 'max'].includes(resultMode) ? (
+          <p>
+            Blank values are ignored. Plain decimal numbers and scientific
+            notation are accepted; formatted currency, percentages and other
+            text require cleanup first. Invalid values send the result to
+            review. Sum returns zero for no numeric values; average/min/max
+            require at least one. Results use 15 significant digits.
           </p>
         ) : null}
         {resultMode !== 'count' ? (

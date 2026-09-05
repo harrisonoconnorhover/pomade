@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTable } from './workbook';
 import {
+  aggregateLookupValues,
   createLookupColumns,
   createLookupResolver,
   normalizeLookupKey,
@@ -54,6 +55,96 @@ function fixture() {
 }
 
 describe('table lookup recipes', () => {
+  it.each([
+    ['sum', '2.5'],
+    ['average', '1.25'],
+    ['min', '-2'],
+    ['max', '4.5'],
+  ] as const)(
+    'rolls up %s and preserves it in mapped templates',
+    (mode, expected) => {
+      const { source, target } = fixture();
+      source.rows = ['4.5', '-2', '  '].map((title, i) => ({
+        id: String(i),
+        values: { domain: 'example.com', title },
+      }));
+      const columns = createLookupColumns(target, source, {
+        id: 'rollup',
+        matchColumnId: 'domain',
+        sourceMatchColumnId: 'domain',
+        sourceOutputIds: ['title'],
+        normalization: 'domain',
+        resultMode: mode,
+      });
+      expect(columns[0].valueType).toBe('number');
+      const template = createRecipeTemplate(
+        columns[0],
+        [...target.columns, ...columns],
+        { id: 'tpl', name: 'Rollup' },
+      );
+      const mapped = instantiateRecipeTemplate(template, target.columns, {
+        match: 'domain',
+      });
+      target.columns.push(...mapped);
+      const result = executeWorkspace(target, ['p1'], [mapped[0].id], {
+        [source.id]: source,
+      });
+      expect(result.workspace.rows[0].values[mapped[0].id]).toBe(expected);
+      expect(result.run.receipts[0].status).toBe('passed');
+      expect(mapped[0].lookup?.resultMode).toBe(mode);
+      const empty = createLookupResolver(mapped[0], source)(target.rows[1]);
+      expect(empty.passed).toBe(mode === 'sum');
+      expect(empty.values[mapped[0].id]).toBe(mode === 'sum' ? '0' : '');
+    },
+  );
+  it('clears every output when a matching numeric field contains invalid text', () => {
+    const { source, target } = fixture();
+    source.rows[0].values.title = '$10';
+    source.rows[0].values.company = '20';
+    const columns = createLookupColumns(target, source, {
+      id: 'rollup',
+      matchColumnId: 'domain',
+      sourceMatchColumnId: 'domain',
+      sourceOutputIds: ['company', 'title'],
+      normalization: 'domain',
+      resultMode: 'sum',
+    });
+    expect(
+      createLookupResolver(columns[0], source)(target.rows[0]),
+    ).toMatchObject({ passed: false, values: { rollup: '', rollup_1: '' } });
+  });
+  it('handles decimal presentation, blanks, range limits and groups above the list limit', () => {
+    expect(aggregateLookupValues(['0.1', '0.2'], 'sum').value).toBe('0.3');
+    expect(aggregateLookupValues(['1e308', '1e308'], 'average').value).toBe(
+      '1e+308',
+    );
+    expect(() => aggregateLookupValues(['1e308', '1e308'], 'sum')).toThrow(
+      'range',
+    );
+    expect(aggregateLookupValues([' ', ''], 'sum').value).toBe('0');
+    for (const mode of ['average', 'min', 'max'] as const)
+      expect(() => aggregateLookupValues([' '], mode)).toThrow('No numeric');
+    for (const value of ['NaN', 'Infinity', '10%', '1,000', '0x10'])
+      expect(() => aggregateLookupValues([value], 'sum')).toThrow(
+        'Non-numeric',
+      );
+    const { source, target } = fixture();
+    source.rows = Array.from({ length: 101 }, (_, i) => ({
+      id: String(i),
+      values: { domain: 'example.com', title: '2' },
+    }));
+    const columns = createLookupColumns(target, source, {
+      id: 'rollup',
+      matchColumnId: 'domain',
+      sourceMatchColumnId: 'domain',
+      sourceOutputIds: ['title'],
+      normalization: 'domain',
+      resultMode: 'sum',
+    });
+    expect(
+      createLookupResolver(columns[0], source)(target.rows[0]),
+    ).toMatchObject({ passed: true, values: { rollup: '202' } });
+  });
   it('collects contains matches in source order with duplicate values and blanks', () => {
     const { source, target } = fixture();
     source.rows = [

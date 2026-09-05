@@ -688,3 +688,14 @@ source mutations or numeric/grouped aggregation.
 - Distinguish Apollo's documented one-credit price from observed usage. Receipts
   report unknown actual credits. Validate with public docs and local/mocked
   responses; paid live validation requires separate scoped authority.
+
+
+## 2026-09-05 — Keyed numeric lookup rollups
+
+- Extend the existing lookup recipe with sum, average, min and max rather than
+  introducing a second aggregation engine. Preserve modes in reusable templates.
+- Ignore blanks, reject nonnumeric text and clear every selected output when an
+  aggregate fails. Empty sum is zero; other empty aggregates require review.
+- Use finite JavaScript arithmetic with compensated summation and 15 significant
+  digit presentation. Require cleanup of currency/percentage formatting; this is
+  a workflow summary, not an arbitrary-precision accounting engine.

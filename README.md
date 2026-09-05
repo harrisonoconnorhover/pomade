@@ -95,8 +95,8 @@ The match-status column distinguishes a unique match from missing input, no matc
 duplicate matches and unavailable source fields. Unsuccessful matches clear old
 lookup values. Receipts include the source table, matching row and source save
 time. A later formula can use the returned values in the same run. Lookups can
-be saved as templates inside this workbook; portable lookup export, contains
-matching and multi-row aggregation are not implemented yet.
+be saved as templates inside this workbook. Contains matching and numeric
+rollups are supported as described below; portable lookup export remains pending.
 
 ## Share a recipe between installations
 
@@ -251,8 +251,18 @@ parallel output arrays retain their row alignment. A valid key with no results
 returns `[]` or `0`; missing inputs or unavailable sources remain review cases.
 Lists above 100 matches or 4,000 characters per output are rejected with a clear
 review reason rather than silently truncated. Count mode still counts all matching
-rows. Runs and same-installation templates retain these settings. Numeric sums,
-minimum/maximum rollups and grouped aggregation remain pending.
+rows. Runs and same-installation templates retain these settings.
+
+Choose **Sum**, **Average**, **Minimum**, or **Maximum** to aggregate up to four
+numeric fields across matching rows. For example, match deals to a company domain
+and sum their amounts. These modes cover all matches, beyond the list limit.
+Blank values are ignored; sum returns zero for an empty group. Average, minimum
+and maximum require a numeric value. Plain decimals and scientific notation are
+accepted; currency symbols, percentages and other text require cleanup. Invalid
+numbers clear the outputs and flag the row for review. Results use finite
+JavaScript numbers displayed to 15 significant digits, not accounting precision.
+Manual, queued and scheduled runs use the latest saved source. Arbitrary group-by
+reports and automatic table synchronization remain pending.
 
 ## Repeatable table transfers
 
