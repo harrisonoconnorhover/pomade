@@ -34,8 +34,8 @@ what changed. It is an original product built on the open-source
 - Map selected columns to portable HubSpot Contact or Salesforce Lead fields
   and download a preview-only GTM Control Tower handoff.
 - Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
-- Search, filter, sort, add rows, save reusable filtered views, and export the
-  resulting CSV.
+- Search, filter, sort, add or deliberately delete rows, save reusable filtered
+  views, and export the resulting CSV.
 - Inspect row quality and field-level lineage, or download a bounded GTM Control Tower preview plan.
 
 The included formula runner is deterministic and credential-free. CRM

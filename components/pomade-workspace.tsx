@@ -101,6 +101,7 @@ import {
   createRecipeSchedule,
   pauseRecipeSchedule,
 } from '@/lib/recipe-schedule';
+import { deleteWorkspaceRows } from '@/lib/row-management';
 import { createSavedView, rowMatchesSavedView } from '@/lib/saved-views';
 import {
   MAX_BACKGROUND_RESEARCH_ACTIONS,
@@ -1415,6 +1416,35 @@ export default function PomadeWorkspace() {
     setActiveSavedViewId('');
   }
 
+  function deleteRows() {
+    const rowIds = selectedRowIds.length
+      ? selectedRowIds
+      : selected
+        ? [selected.id]
+        : [];
+    if (!rowIds.length || jobLocksWorkspace) return;
+    const selectedSet = new Set(rowIds);
+    const hasGeneratedChildren = workspace.rows.some(
+      (row) => row.parentRowId && selectedSet.has(row.parentRowId),
+    );
+    const extra = hasGeneratedChildren
+      ? ' This also removes their generated descendant rows.'
+      : '';
+    if (
+      !window.confirm(
+        `Delete ${rowIds.length} selected ${rowIds.length === 1 ? 'row' : 'rows'}?${extra}`,
+      )
+    )
+      return;
+    const result = deleteWorkspaceRows(workspace, rowIds);
+    setWorkspace(result.workspace);
+    setActiveRowId(result.workspace.rows[0]?.id ?? '');
+    setSelectedRowIds([]);
+    setNotice(
+      `${result.removedCount} ${result.removedCount === 1 ? 'row' : 'rows'} deleted${result.schedulePaused ? ' · empty schedule scope paused' : ''}.`,
+    );
+  }
+
   function sortRows() {
     setWorkspace((current) => ({
       ...current,
@@ -2352,6 +2382,15 @@ export default function PomadeWorkspace() {
                     disabled={jobLocksWorkspace}
                   >
                     <Plus /> Add blank row
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={deleteRows}
+                    disabled={!selected || jobLocksWorkspace}
+                  >
+                    <Trash2 />
+                    {selectedRowIds.length > 1
+                      ? `Delete ${selectedRowIds.length} selected rows`
+                      : 'Delete active row'}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={openApollo}

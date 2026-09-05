@@ -223,6 +223,18 @@ inputs, but the relative order of recipe columns cannot change because that
 order is also their deterministic execution order. The run-status column stays
 anchored at the end.
 
+## Row deletion respects generated lineage and saved schedules
+
+Row deletion is an explicit Action-menu operation with a native confirmation.
+Removing a source row recursively removes the generated descendants that cannot
+meaningfully exist without it. Removing only a generated child remains scoped
+to that child. The action is unavailable while a background job may write.
+
+Captured schedule row IDs are pruned in the same state change. When deletion
+empties an active selected-row schedule, Pomade pauses it rather than letting a
+future worker run appear successful with no target rows. Historical run
+receipts remain immutable.
+
 ## Waterfalls compose upstream results
 
 A data waterfall is a local auto-updating recipe with two to six ordered input
