@@ -76,6 +76,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import RunConditionEditor from './run-condition-editor';
+import { conditionOperators, conditionNeedsValue } from '@/lib/run-conditions';
 import CrmSyncBuilder from './crm-sync-builder';
 import { applyCrmImport, type CrmImportMode } from '@/lib/crm-import';
 import {
@@ -103,7 +105,6 @@ import type {
   CrmSourcePreview,
   PomadeColumn,
   PomadeRow,
-  RecipeRunCondition,
   RecipeScheduleCadence,
   RecipeTemplate,
   ResearchValueType,
@@ -235,23 +236,6 @@ function defaultListResearchFields(): ResearchFieldDraft[] {
     { key: 'domain', title: 'Domain', valueType: 'text' },
     { key: 'fit_reason', title: 'Why it fits', valueType: 'text' },
   ];
-}
-
-const conditionOperators: Array<{
-  value: RunConditionOperator;
-  label: string;
-  needsValue: boolean;
-}> = [
-  { value: 'is_not_empty', label: 'is not empty', needsValue: false },
-  { value: 'is_empty', label: 'is empty', needsValue: false },
-  { value: 'equals', label: 'equals', needsValue: true },
-  { value: 'not_equals', label: 'does not equal', needsValue: true },
-  { value: 'contains', label: 'contains', needsValue: true },
-  { value: 'not_contains', label: 'does not contain', needsValue: true },
-];
-
-function conditionNeedsValue(operator: RunConditionOperator) {
-  return conditionOperators.find((item) => item.value === operator)?.needsValue;
 }
 
 const recipePresets: RecipePreset[] = [
@@ -3679,70 +3663,14 @@ export default function PomadeWorkspace({
                       )}
                     </div>
                   </div>
-                  <div className="condition-builder">
-                    <span>Only run if</span>
-                    <select
-                      value={condition?.field ?? ''}
-                      aria-label={`Condition field for ${column.title}`}
-                      onChange={(event) => {
-                        const field = event.target.value;
-                        const nextCondition: RecipeRunCondition | undefined =
-                          field
-                            ? { field, operator: 'is_not_empty' }
-                            : undefined;
-                        updateRecipeColumn(column.id, {
-                          runCondition: nextCondition,
-                        });
-                      }}
-                    >
-                      <option value="">Always run</option>
-                      {availableInputs.map((input) => (
-                        <option value={input.id} key={input.id}>
-                          {input.title}
-                        </option>
-                      ))}
-                    </select>
-                    {condition ? (
-                      <select
-                        value={condition.operator}
-                        aria-label={`Condition operator for ${column.title}`}
-                        onChange={(event) => {
-                          const operator = event.target
-                            .value as RunConditionOperator;
-                          updateRecipeColumn(column.id, {
-                            runCondition: {
-                              ...condition,
-                              operator,
-                              value: conditionNeedsValue(operator)
-                                ? condition.value
-                                : undefined,
-                            },
-                          });
-                        }}
-                      >
-                        {conditionOperators.map((operator) => (
-                          <option value={operator.value} key={operator.value}>
-                            {operator.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : null}
-                    {condition && conditionNeedsValue(condition.operator) ? (
-                      <input
-                        value={condition.value ?? ''}
-                        aria-label={`Condition value for ${column.title}`}
-                        placeholder="Value"
-                        onChange={(event) =>
-                          updateRecipeColumn(column.id, {
-                            runCondition: {
-                              ...condition,
-                              value: event.target.value,
-                            },
-                          })
-                        }
-                      />
-                    ) : null}
-                  </div>
+                  <RunConditionEditor
+                    columns={availableInputs}
+                    condition={condition}
+                    onChange={(runCondition) =>
+                      updateRecipeColumn(column.id, { runCondition })
+                    }
+                    label={`Run ${column.title} only when`}
+                  />
                 </article>
               );
             })}

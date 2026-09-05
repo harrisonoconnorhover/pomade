@@ -1,3 +1,4 @@
+import { conditionOperators, mapConditionFields } from './run-conditions';
 import type { PomadeColumn, RecipeTemplate } from './pomade-types';
 import { createRecipeTemplate } from './recipe-templates';
 
@@ -15,14 +16,7 @@ const recipes = [
   'web-research',
 ];
 const valueTypes = ['text', 'number', 'boolean', 'date'];
-const operators = [
-  'is_not_empty',
-  'is_empty',
-  'equals',
-  'not_equals',
-  'contains',
-  'not_contains',
-];
+const operators = conditionOperators.map((o) => o.value);
 
 type Check = (value: unknown) => boolean;
 const string: Check = (v) => typeof v === 'string' && v.length <= 20_000;
@@ -61,6 +55,14 @@ const bindings: Check = (v) =>
     ([key, value]) => id(key) && (value === '' || id(value)),
   );
 const output = object({ id, title: label, valueType: oneOf(valueTypes) });
+const conditionRule = object({
+  field: id,
+  operator: oneOf(operators),
+  value: optional(string),
+});
+const conditionCheck: Check = (v) =>
+  conditionRule(v) ||
+  object({ mode: oneOf(['all', 'any']), rules: array(conditionRule, 1, 8) })(v);
 const columnCheck = object({
   id,
   title: label,
@@ -79,9 +81,7 @@ const columnCheck = object({
     (v) => Number.isInteger(v) && Number(v) >= 1 && Number(v) <= 25,
   ),
   outputFields: optional(array(output, 1, 6)),
-  runCondition: optional(
-    object({ field: id, operator: oneOf(operators), value: optional(string) }),
-  ),
+  runCondition: optional(conditionCheck),
   waterfallSteps: optional(array(object({ field: id, label }), 2, 6)),
 });
 const fileCheck = object({
@@ -149,11 +149,7 @@ export function exportRecipeFile(template: RecipeTemplate): string {
       title,
       valueType,
     })),
-    runCondition: c.runCondition && {
-      field: c.runCondition.field,
-      operator: c.runCondition.operator,
-      value: c.runCondition.value,
-    },
+    runCondition: mapConditionFields(c.runCondition, (field) => field),
     waterfallSteps: c.waterfallSteps?.map(({ field, label }) => ({
       field,
       label,

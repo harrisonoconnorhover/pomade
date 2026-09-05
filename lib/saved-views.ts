@@ -1,3 +1,4 @@
+import { conditionOperators, matchesRunCondition } from './run-conditions';
 import type {
   PomadeRow,
   RunConditionOperator,
@@ -5,12 +6,9 @@ import type {
   WorkspaceSnapshot,
 } from './pomade-types';
 
-const valueOperators = new Set<RunConditionOperator>([
-  'equals',
-  'not_equals',
-  'contains',
-  'not_contains',
-]);
+const valueOperators = new Set<RunConditionOperator>(
+  conditionOperators.filter((o) => o.needsValue).map((o) => o.value),
+);
 
 export function createSavedView(
   workspace: WorkspaceSnapshot,
@@ -52,20 +50,8 @@ export function createSavedView(
 }
 
 export function rowMatchesSavedView(row: PomadeRow, view: SavedView) {
-  const candidate = (row.values[view.columnId] ?? '').trim();
-  const expected = (view.value ?? '').trim();
-  switch (view.operator) {
-    case 'is_empty':
-      return !candidate;
-    case 'is_not_empty':
-      return Boolean(candidate);
-    case 'equals':
-      return candidate.toLowerCase() === expected.toLowerCase();
-    case 'not_equals':
-      return candidate.toLowerCase() !== expected.toLowerCase();
-    case 'contains':
-      return candidate.toLowerCase().includes(expected.toLowerCase());
-    case 'not_contains':
-      return !candidate.toLowerCase().includes(expected.toLowerCase());
-  }
+  return matchesRunCondition(
+    { field: view.columnId, operator: view.operator, value: view.value },
+    row,
+  );
 }

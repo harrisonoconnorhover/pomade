@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import RunConditionEditor from './run-condition-editor';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -334,82 +335,18 @@ export default function TableTransferBuilder({
                     </select>
                   </label>
                 ) : null}
-                <label>
-                  Only send rows where
-                  <select
-                    value={rule.condition?.field ?? ''}
-                    onChange={(e) =>
-                      change({
-                        condition: e.target.value
-                          ? { field: e.target.value, operator: 'is_not_empty' }
-                          : undefined,
-                      })
-                    }
-                  >
-                    <option value="">No condition</option>
-                    {source.columns.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {rule.condition ? (
-                  <>
-                    <label>
-                      Condition
-                      <select
-                        value={rule.condition.operator}
-                        onChange={(e) =>
-                          change({
-                            condition: {
-                              ...rule.condition!,
-                              operator: e.target.value as NonNullable<
-                                TableTransferRule['condition']
-                              >['operator'],
-                            },
-                          })
-                        }
-                      >
-                        {[
-                          'is_not_empty',
-                          'is_empty',
-                          'equals',
-                          'not_equals',
-                          'contains',
-                          'not_contains',
-                        ].map((op) => (
-                          <option key={op} value={op}>
-                            {op.replaceAll('_', ' ')}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {!['is_empty', 'is_not_empty'].includes(
-                      rule.condition.operator,
-                    ) ? (
-                      <label>
-                        Value
-                        <input
-                          value={rule.condition.value ?? ''}
-                          onChange={(e) =>
-                            change({
-                              condition: {
-                                ...rule.condition!,
-                                value: e.target.value,
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    ) : null}
-                  </>
-                ) : null}
+                <RunConditionEditor
+                  columns={source.columns}
+                  condition={rule.condition}
+                  onChange={(condition) => change({ condition })}
+                  disabled={busy}
+                  label="Send rows only when"
+                />
               </div>
               <p>
-                Conditions use trimmed, case-insensitive text. Generated-row
-                routing uses current children of the selected parents; each
-                saved rule is an independent branch.
+                Text conditions are case-insensitive; numeric rules compare
+                plain numbers. Generated-row routing uses current children of
+                the selected parents; each saved rule is an independent branch.
               </p>
               <label>
                 <input

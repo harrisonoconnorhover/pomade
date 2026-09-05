@@ -1,9 +1,10 @@
+import { matchesRunCondition } from './run-conditions';
+export { matchesRunCondition } from './run-conditions';
 import { createLookupResolver } from './table-lookup';
 import type {
   ActionReceipt,
   PomadeColumn,
   PomadeRow,
-  RecipeRunCondition,
   RunReceipt,
   WorkspaceSnapshot,
 } from './pomade-types';
@@ -159,32 +160,6 @@ function runRecipeOutputs(column: PomadeColumn, row: PomadeRow) {
     };
   }
   return { [column.id]: runRecipe(column, row) };
-}
-
-export function matchesRunCondition(
-  condition: RecipeRunCondition | undefined,
-  row: PomadeRow,
-) {
-  if (!condition) return true;
-  const actual = (row.values[condition.field] ?? '').trim();
-  const expected = (condition.value ?? '').trim();
-  const normalizedActual = actual.toLocaleLowerCase();
-  const normalizedExpected = expected.toLocaleLowerCase();
-
-  switch (condition.operator) {
-    case 'is_not_empty':
-      return actual.length > 0;
-    case 'is_empty':
-      return actual.length === 0;
-    case 'equals':
-      return normalizedActual === normalizedExpected;
-    case 'not_equals':
-      return normalizedActual !== normalizedExpected;
-    case 'contains':
-      return normalizedActual.includes(normalizedExpected);
-    case 'not_contains':
-      return !normalizedActual.includes(normalizedExpected);
-  }
 }
 
 export function shouldRunRecipe(column: PomadeColumn, row: PomadeRow) {

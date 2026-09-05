@@ -6,13 +6,24 @@ export type RunConditionOperator =
   | 'equals'
   | 'not_equals'
   | 'contains'
-  | 'not_contains';
+  | 'not_contains'
+  | 'greater_than'
+  | 'greater_than_or_equal'
+  | 'less_than'
+  | 'less_than_or_equal';
 
-export type RecipeRunCondition = {
+export type RecipeConditionRule = {
   field: string;
   operator: RunConditionOperator;
   value?: string;
 };
+
+export type RecipeRunCondition =
+  | RecipeConditionRule
+  | {
+      mode: 'all' | 'any';
+      rules: RecipeConditionRule[];
+    };
 
 export type ResearchValueType = 'text' | 'number' | 'boolean' | 'date';
 

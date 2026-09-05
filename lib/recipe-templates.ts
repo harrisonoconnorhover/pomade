@@ -1,3 +1,4 @@
+import { conditionFields, mapConditionFields } from './run-conditions';
 import { providerInputFields } from './provider-waterfall';
 import { httpInputFields } from './http-enrichment';
 import type {
@@ -107,7 +108,9 @@ function cloneColumn(column: PomadeColumn): PomadeColumn {
       ? { ...column.listDestinationBindings }
       : undefined,
     outputFields: column.outputFields?.map((field) => ({ ...field })),
-    runCondition: column.runCondition ? { ...column.runCondition } : undefined,
+    runCondition: column.runCondition
+      ? structuredClone(column.runCondition)
+      : undefined,
     waterfallSteps: column.waterfallSteps?.map((step) => ({ ...step })),
   };
 }
@@ -143,21 +146,24 @@ export function createRecipeTemplate(
     },
   );
 
-  const conditionField = column.runCondition?.field;
-  const conditionRecipeInput = inputs.find(
-    (input) => input.sourceColumnId === conditionField,
-  );
-  if (conditionRecipeInput) conditionRecipeInput.required = true;
-  if (conditionField && !conditionRecipeInput) {
-    inputs.push({
-      key: '__condition_field',
-      sourceColumnId: conditionField,
-      title:
-        columns.find((candidate) => candidate.id === conditionField)?.title ??
-        humanize(conditionField),
-      required: true,
-      purpose: 'condition',
-    });
+  for (const [index, conditionField] of conditionFields(
+    column.runCondition,
+  ).entries()) {
+    const existing = inputs.find(
+      (input) => input.sourceColumnId === conditionField,
+    );
+    if (existing) existing.required = true;
+    else
+      inputs.push({
+        key:
+          index === 0 ? '__condition_field' : `__condition_field_${index + 1}`,
+        sourceColumnId: conditionField,
+        title:
+          columns.find((candidate) => candidate.id === conditionField)?.title ??
+          humanize(conditionField),
+        required: true,
+        purpose: 'condition',
+      });
   }
 
   return {
@@ -277,11 +283,6 @@ export function instantiateRecipeTemplate(
       .filter((input) => input.purpose !== 'condition')
       .map((input) => [input.key, bindings[input.key] ?? '']),
   );
-  const conditionInput = template.column.runCondition
-    ? template.inputs.find(
-        (input) => input.sourceColumnId === template.column.runCondition?.field,
-      )
-    : undefined;
   const lineageOutputIndex = template.column.lineageColumnId
     ? sourceOutputs.findIndex(
         (output) => output.id === template.column.lineageColumnId,
@@ -381,14 +382,12 @@ export function instantiateRecipeTemplate(
         columns.find((candidate) => candidate.id === bindings[step.field])
           ?.title ?? step.label,
     })),
-    runCondition: template.column.runCondition
-      ? {
-          ...template.column.runCondition,
-          field: conditionInput
-            ? bindings[conditionInput.key]
-            : template.column.runCondition.field,
-        }
-      : undefined,
+    runCondition: mapConditionFields(template.column.runCondition, (field) => {
+      const input = template.inputs.find(
+        (input) => input.sourceColumnId === field,
+      );
+      return input ? bindings[input.key] : field;
+    }),
   };
 
   return [

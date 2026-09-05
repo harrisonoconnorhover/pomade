@@ -1,3 +1,4 @@
+import { validRunCondition } from './run-conditions';
 import type {
   WorkspaceSnapshot,
   TableTransferRule,
@@ -68,15 +69,7 @@ export function planTableTransfer(
     throw new Error('Choose an existing list recipe for child-row routing.');
   if (
     rule.condition &&
-    (!source.columns.some((c) => c.id === rule.condition!.field) ||
-      ![
-        'is_empty',
-        'is_not_empty',
-        'equals',
-        'not_equals',
-        'contains',
-        'not_contains',
-      ].includes(rule.condition.operator))
+    !validRunCondition(rule.condition, new Set(source.columns.map((c) => c.id)))
   )
     throw new Error('Choose an existing condition column and operator.');
   const selected = source.rows.filter((r) => !rowIds || rowIds.includes(r.id));

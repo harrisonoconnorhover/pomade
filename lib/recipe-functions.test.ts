@@ -126,7 +126,9 @@ describe('reusable recipe functions', () => {
     target.columns.splice(-1, 0, ...added);
     const primary = added.filter((c) => c.functionInstance);
     const second = primary[1];
-    expect(primary[2].runCondition?.field).toBe(second.outputFields![1].id);
+    expect(primary[2].runCondition).toMatchObject({
+      field: second.outputFields![1].id,
+    });
     expect(countMaximumExternalActions(target.rows, primary)).toBe(1);
     const fetcher = vi.fn<typeof fetch>().mockImplementation(async (input) => {
       expect(

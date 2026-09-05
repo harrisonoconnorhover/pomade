@@ -3346,3 +3346,7 @@ button {
 .webhook-events { display: grid; gap: 8px; max-height: 180px; overflow: auto; }
 .webhook-events label { display: flex; align-items: center; gap: 8px; }
 .webhook-events small { color: var(--muted-foreground); }
+
+.condition-rule-list { display: grid; gap: 0.5rem; min-width: 0; }
+.condition-rule-list .condition-builder { flex-wrap: wrap; }
+.condition-rule-list p { margin: 0; font-size: 0.875rem; }

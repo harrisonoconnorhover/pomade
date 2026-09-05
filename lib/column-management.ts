@@ -1,3 +1,4 @@
+import { conditionFields } from './run-conditions';
 import { providerInputFields } from './provider-waterfall';
 import { httpInputFields } from './http-enrichment';
 import type { PomadeColumn, WorkspaceSnapshot } from './pomade-types';
@@ -64,7 +65,7 @@ export function findColumnDependencies(
     if (boundInputs.has(columnId) || templateInputs.includes(columnId)) {
       addDependency(dependencies, column.id, column.title, 'recipe input');
     }
-    if (column.runCondition?.field === columnId) {
+    if (conditionFields(column.runCondition).includes(columnId)) {
       addDependency(dependencies, column.id, column.title, 'run condition');
     }
     if (column.waterfallSteps?.some((step) => step.field === columnId)) {
@@ -90,6 +91,7 @@ export function findColumnDependencies(
   for (const rule of workspace.tableTransfers ?? [])
     if (
       rule.sourceKey === columnId ||
+      conditionFields(rule.condition).includes(columnId) ||
       Object.values(rule.mapping).includes(columnId)
     )
       addDependency(dependencies, rule.id, rule.name, 'table transfer');

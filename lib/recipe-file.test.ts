@@ -46,7 +46,7 @@ describe('portable recipe files', () => {
       updatedAt: 1,
     });
     expect(result.workspace.rows[0].values.greeting).toBe('Ada');
-    expect(added[0].runCondition?.field).toBe('contact');
+    expect(added[0].runCondition).toMatchObject({ field: 'contact' });
     expect(imported).toMatchObject({ id: 'fresh', createdAt: 123 });
     expect(original.id).toBe('original');
   });

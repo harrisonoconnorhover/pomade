@@ -741,3 +741,11 @@ code ownership or purchase authority.
 - Treat saved mapping inputs and ID columns as deletion dependencies. Keep this
   slice within manual writes; continuous sync, portable mapping templates and
   native HubSpot associations remain separate work.
+
+## Compound qualification (2026-09-05)
+
+Run conditions support up to eight rules combined with all (AND) or any (OR),
+including numeric comparisons. Old single-rule recipes remain compatible. Blank,
+range and nonnumeric values do not qualify for numeric rules. The pipeline
+evaluates conditions immediately before each step so upstream results can gate
+spending. Templates remap every condition input and deletion checks protect them.
