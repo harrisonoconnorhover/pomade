@@ -29,6 +29,14 @@ export type WaterfallStep = {
   label: string;
 };
 
+export type TableLookup = {
+  sourceTableId: string;
+  sourceMatchColumnId: string;
+  normalization: 'exact' | 'text' | 'domain';
+  outputs: { sourceColumnId: string; outputColumnId: string }[];
+  statusColumnId: string;
+};
+
 export type PomadeColumn = {
   id: string;
   title: string;
@@ -46,7 +54,9 @@ export type PomadeColumn = {
   runCondition?: RecipeRunCondition;
   valueType?: ResearchValueType;
   waterfallSteps?: WaterfallStep[];
+  lookup?: TableLookup;
   recipe?:
+    | 'table-lookup'
     | 'custom-formula'
     | 'normalize-domain'
     | 'first-name'

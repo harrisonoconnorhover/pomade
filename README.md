@@ -77,12 +77,26 @@ Select rows and choose **Action → Send selected rows to new table** to make a
 separate stage, such as a people list researched from company accounts. The new
 table keeps the values and a **Source** button linking each row to its original
 record. Upstream recipes become ordinary columns, so using the new table cannot
-accidentally rerun the list research. These are snapshot copies; cross-table
-lookups and repeatable sync rules are next. Existing source rows stay unchanged.
+accidentally rerun the list research. These are snapshot copies; repeatable sync rules remain planned. Existing source rows stay unchanged.
 
 Switching waits for edits to save. If a save fails, use **Retry save** before
 leaving the table. Background jobs can continue in their own table while you
 work elsewhere.
+
+## Reuse data with a table lookup
+
+Open **Recipe library → Lookup another table**, select source and matching
+columns, choose exact text, case-insensitive text, or website/domain matching,
+and select up to four fields. Preview the first five rows, then add the lookup.
+Run its column from the header menu or include it in a normal/background/scheduled
+run. Each run reads the latest saved source data and consumes no provider credits.
+
+The match-status column distinguishes a unique match from missing input, no match,
+duplicate matches and unavailable source fields. Unsuccessful matches clear old
+lookup values. Receipts include the source table, matching row and source save
+time. A later formula can use the returned values in the same run. Lookups can
+be saved as templates inside this workbook; portable lookup export, contains
+matching and multi-row aggregation are not implemented yet.
 
 ## Share a recipe between installations
 

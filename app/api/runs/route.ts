@@ -132,7 +132,31 @@ export async function POST(request: Request) {
         Boolean(column.prompt?.trim()) &&
         (!columnIds || columnIds.includes(column.id)),
     );
-    const localResult = executeWorkspace(workspace, rowIds, columnIds);
+    const db = await ensureDatabase();
+    const lookupTables: Record<string, WorkspaceSnapshot> = {};
+    const sourceIds = new Set(
+      workspace.columns
+        .filter(
+          (column) =>
+            column.recipe === 'table-lookup' &&
+            (!columnIds || columnIds.includes(column.id)),
+        )
+        .map((column) => column.lookup?.sourceTableId)
+        .filter((id): id is string => Boolean(id)),
+    );
+    for (const sourceId of sourceIds) {
+      const source = await db
+        .prepare('SELECT snapshot FROM workspaces WHERE id = ?')
+        .bind(sourceId)
+        .first<{ snapshot: string }>();
+      if (source) lookupTables[sourceId] = JSON.parse(source.snapshot);
+    }
+    const localResult = executeWorkspace(
+      workspace,
+      rowIds,
+      columnIds,
+      lookupTables,
+    );
     let updated = localResult.workspace;
     const targetRows = rowIds
       ? updated.rows.filter((row) => rowIds.includes(row.id))
@@ -171,7 +195,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = await ensureDatabase();
     const receipts = [...localResult.run.receipts];
     const researchProvider = parallelConfigured ? 'parallel' : 'gemini';
     const model = parallelConfigured

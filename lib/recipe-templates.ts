@@ -9,6 +9,7 @@ type RecipeInputSpec = { key: string; required: boolean };
 const builtinRecipeInputs: Partial<
   Record<NonNullable<PomadeColumn['recipe']>, RecipeInputSpec[]>
 > = {
+  'table-lookup': [{ key: 'match', required: true }],
   'normalize-domain': [{ key: 'domain', required: true }],
   'first-name': [{ key: 'person', required: true }],
   'email-domain': [
@@ -84,6 +85,7 @@ function recipeInputSpecs(column: PomadeColumn): RecipeInputSpec[] {
 function cloneColumn(column: PomadeColumn): PomadeColumn {
   return {
     ...column,
+    lookup: column.lookup ? structuredClone(column.lookup) : undefined,
     inputBindings: column.inputBindings
       ? { ...column.inputBindings }
       : undefined,
@@ -271,6 +273,26 @@ export function instantiateRecipeTemplate(
   const column: PomadeColumn = {
     ...cloneColumn(template.column),
     id: primary.id,
+    lookup: template.column.lookup
+      ? {
+          ...structuredClone(template.column.lookup),
+          outputs: template.column.lookup.outputs.map((output) => ({
+            ...output,
+            outputColumnId:
+              outputFields[
+                sourceOutputs.findIndex(
+                  (field) => field.id === output.outputColumnId,
+                )
+              ]?.id ?? output.outputColumnId,
+          })),
+          statusColumnId:
+            outputFields[
+              sourceOutputs.findIndex(
+                (field) => field.id === template.column.lookup!.statusColumnId,
+              )
+            ]?.id ?? template.column.lookup.statusColumnId,
+        }
+      : undefined,
     title: primary.title,
     valueType: primary.valueType,
     inputBindings:

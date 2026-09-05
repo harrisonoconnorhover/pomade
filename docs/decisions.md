@@ -406,3 +406,23 @@ are serialized, and failed loads no longer turn a sample fallback into saved
 data. Failed saves retain edits in the tab and expose a retry. Background runs
 remain scoped to their table and can continue while another table is open.
 This is one operator's workbook, not multi-user authorization.
+
+## Lookup recipes read saved source data without another provider call
+
+A lookup has a source table, source key, local input binding, exact/text/domain
+matching rule, one-to-four outputs, and a separate match-status column. The
+builder previews up to five current rows. Each run reads a fresh saved source
+snapshot once per referenced table and indexes it once per lookup column.
+Downstream local formulas see lookup outputs in recipe-column order.
+
+Only one match is accepted. Missing input, no match, duplicates, missing source
+table and missing source columns clear old lookup outputs and leave an explicit
+review reason. A unique match with an empty source field remains a matched
+record, accurately preserving that empty value. Receipts record the source table,
+source row and snapshot save time. Lookups do not update the source table or
+make provider requests. Background and scheduled work reuse the same runner.
+
+Lookup templates can be reused within this workbook and remap their local input
+and output IDs; source-table references remain explicit. Portable recipe export
+currently refuses lookups because it cannot remap a table on another installation.
+Local receipt durations now measure actual execution rather than simulated time.

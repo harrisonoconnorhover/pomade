@@ -1,3 +1,4 @@
+import { createLookupResolver } from './table-lookup';
 import type {
   ActionReceipt,
   PomadeColumn,
@@ -215,7 +216,11 @@ export function recalculateAutomaticFormulas(
 ) {
   const values = { ...row.values };
   for (const column of columns) {
-    if (column.kind !== 'formula' || !column.autoRun) {
+    if (
+      column.kind !== 'formula' ||
+      !column.autoRun ||
+      column.recipe === 'table-lookup'
+    ) {
       continue;
     }
     if (column.id === editedColumnId) {
@@ -236,6 +241,7 @@ export function executeWorkspace(
   input: WorkspaceSnapshot,
   selectedRowIds?: string[],
   selectedColumnIds?: string[],
+  lookupTables: Record<string, WorkspaceSnapshot> = {},
 ): { workspace: WorkspaceSnapshot; run: RunReceipt } {
   const startedAt = Date.now();
   const selectedColumns = selectedColumnIds ? new Set(selectedColumnIds) : null;
@@ -244,6 +250,17 @@ export function executeWorkspace(
       (column.kind === 'formula' || column.kind === 'enrichment') &&
       column.recipe !== 'web-research' &&
       (!selectedColumns || selectedColumns.has(column.id)),
+  );
+  const lookupResolvers = new Map(
+    recipeColumns
+      .filter((column) => column.recipe === 'table-lookup')
+      .map((column) => [
+        column.id,
+        createLookupResolver(
+          column,
+          lookupTables[column.lookup?.sourceTableId ?? ''],
+        ),
+      ]),
   );
   const receipts: ActionReceipt[] = [];
   let skippedCount = 0;
@@ -255,14 +272,19 @@ export function executeWorkspace(
   const rows = input.rows.map((row, rowIndex) => {
     if (selected && !selected.has(row.id)) return row;
     const values = { ...row.values };
+    let lookupNeedsReview = false;
 
-    for (const [columnIndex, column] of recipeColumns.entries()) {
+    for (const column of recipeColumns) {
       if (!shouldRunRecipe(column, { ...row, values })) {
         skippedCount += 1;
         continue;
       }
       const before = values[column.id] ?? '';
-      const outputValues = runRecipeOutputs(column, { ...row, values });
+      const actionStartedAt = Date.now();
+      const lookup = lookupResolvers.get(column.id)?.({ ...row, values });
+      if (lookup && !lookup.passed) lookupNeedsReview = true;
+      const outputValues =
+        lookup?.values ?? runRecipeOutputs(column, { ...row, values });
       const after = outputValues[column.id] ?? '';
       Object.assign(values, outputValues);
       receipts.push({
@@ -271,8 +293,10 @@ export function executeWorkspace(
         rowLabel: values.company || `Row ${rowIndex + 1}`,
         columnId: column.id,
         action: column.title,
-        status: after ? 'passed' : 'review',
-        durationMs: 18 + (((rowIndex + 1) * (columnIndex + 3) * 17) % 780),
+        status: (lookup ? lookup.passed : Boolean(after)) ? 'passed' : 'review',
+        evidence: lookup?.evidence,
+        provider: lookup ? 'local' : undefined,
+        durationMs: Date.now() - actionStartedAt,
         before,
         after,
         outputValues:
@@ -281,7 +305,8 @@ export function executeWorkspace(
     }
 
     const hasRequiredFields = Boolean(values.company && values.domain);
-    values.status = hasRequiredFields ? 'Ready' : 'Review';
+    values.status =
+      hasRequiredFields && !lookupNeedsReview ? 'Ready' : 'Review';
     return { ...row, values };
   });
 

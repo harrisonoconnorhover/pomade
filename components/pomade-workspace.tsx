@@ -48,6 +48,7 @@ import Papa from 'papaparse';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import TableLookupBuilder from '@/components/table-lookup-builder';
 import {
   Dialog,
   DialogContent,
@@ -479,6 +480,7 @@ export default function PomadeWorkspace({
   const [notice, setNotice] = useState('');
 
   const [addColumnOpen, setAddColumnOpen] = useState(false);
+  const [lookupBuilderOpen, setLookupBuilderOpen] = useState(false);
   const [formulaBuilderOpen, setFormulaBuilderOpen] = useState(false);
   const [waterfallBuilderOpen, setWaterfallBuilderOpen] = useState(false);
   const [recipeSettingsOpen, setRecipeSettingsOpen] = useState(false);
@@ -3050,6 +3052,34 @@ export default function PomadeWorkspace({
         </aside>
       </div>
 
+      <TableLookupBuilder
+        open={lookupBuilderOpen}
+        onOpenChange={setLookupBuilderOpen}
+        workspace={workspace}
+        onAdd={(addedColumns) => {
+          setWorkspace((current) => ({
+            ...current,
+            columns: [
+              ...current.columns.filter((column) => column.kind !== 'status'),
+              ...addedColumns,
+              ...current.columns.filter((column) => column.kind === 'status'),
+            ],
+            rows: current.rows.map((row) => ({
+              ...row,
+              values: {
+                ...row.values,
+                ...Object.fromEntries(
+                  addedColumns.map((column) => [column.id, '']),
+                ),
+              },
+            })),
+            updatedAt: Date.now(),
+          }));
+          setNotice(
+            'Lookup added. Run its column to refresh from the source table.',
+          );
+        }}
+      />
       <Dialog open={addColumnOpen} onOpenChange={setAddColumnOpen}>
         <DialogContent className="recipe-dialog">
           <DialogHeader>
@@ -3060,6 +3090,16 @@ export default function PomadeWorkspace({
             </DialogDescription>
           </DialogHeader>
           <div className="recipe-group-heading">
+            <Button
+              variant="outline"
+              disabled={jobLocksWorkspace}
+              onClick={() => {
+                setAddColumnOpen(false);
+                setLookupBuilderOpen(true);
+              }}
+            >
+              <Search /> Lookup another table
+            </Button>
             <Button
               variant="outline"
               disabled={jobLocksWorkspace}

@@ -82,8 +82,12 @@ Bitscale or Clay.
 - [x] Multiple persistent tables, blank creation, duplication, selected-row copies
       with source-record links, and independently scoped history/jobs. Crossed off
       2026-09-05; verified through an isolated Worker + D1 workflow.
-- [ ] Cross-table lookups, repeatable transfer/update rules, reusable workbook
-      templates, and deeper table relationships.
+- [x] Cross-table unique-match lookups with exact text, normalized text and
+      domain matching; one-to-four outputs, a five-row preview, match status,
+      source evidence, fresh reads on each run, and manual/background/scheduled
+      execution. Crossed off 2026-09-05.
+- [ ] Lookup contains matching, multi-match aggregation/list outputs, repeatable
+      transfer/update rules, reusable workbook templates, and deeper relationships.
 - [ ] Event-driven workflows with triggers, branching, code steps, and actions.
 - [ ] Persistent people/company profiles, deduplicated audiences, and dynamic
       segments.
@@ -119,9 +123,9 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Cross-table lookups and repeatable transfers, extending the working table
-   switcher, duplication and selected-row copies with source-record links.
-2. Generic HTTP enrichment and authenticated webhooks to connect real tools.
+1. Generic HTTP enrichment and authenticated webhooks to connect real tools.
+2. Repeatable cross-table transfers, richer lookup matching/aggregation and
+   reusable workbook templates.
 3. True provider fallback with per-attempt receipts and usage. Prove a valid
    first-provider result prevents the second call; record misses and unknown cost.
 4. Saved-search sources, recurring signals and composable multi-step functions.
@@ -186,3 +190,14 @@ reusable research agents in
 [Claygent Builder](https://university.clay.com/docs/claygent-builder), and
 structural restore in
 [Table Versions](https://university.clay.com/docs/table-versions).
+
+## Lookup comparison, refreshed 2026-09-05
+
+[Bitscale Vlookup](https://docs.bitscale.ai/ingredients/vlookup) pulls selected
+fields from another grid with exact or contains matching. Clay's
+[Send table data guide](https://university.clay.com/docs/send-table-data)
+distinguishes pulling reference data with lookups from pushing/creating rows,
+and describes lookup counting/aggregation use cases. Pomade now supports the
+unique-match reference-data workflow with explicit ambiguity handling. Contains,
+aggregation and repeatable write-to-table remain gaps; the new feature does not
+establish complete lookup parity.

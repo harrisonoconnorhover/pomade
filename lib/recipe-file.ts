@@ -118,6 +118,10 @@ function validateColumn(column: PomadeColumn) {
 
 // Deliberate allowlist: no rows, account credentials, run state, or destination-table writes.
 export function exportRecipeFile(template: RecipeTemplate): string {
+  if (template.column.recipe === 'table-lookup')
+    throw new Error(
+      'Lookup recipes reference a table in this workbook. Use them from the recipe library here; portable lookup files are not supported yet.',
+    );
   const c = template.column;
   const column: PomadeColumn = {
     id: c.id,
