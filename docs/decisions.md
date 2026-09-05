@@ -177,6 +177,19 @@ error, while an expired 15-minute lease makes an interrupted row claimable
 again. Research jobs require explicit consent and are capped at 50 requests in
 total and ten on any single row.
 
+## CRM mappings terminate at a Control Tower preview
+
+Pomade suggests a small portable contact schema from column IDs and titles, but
+the operator chooses the final mapping and whether the destination is a HubSpot
+Contact or Salesforce Lead. The downloaded plan contains only mapped columns,
+records both the portable Control Tower field and provider-native destination
+names, caps the preview at 100 rows, and explicitly disallows creates.
+
+Pomade still performs no CRM write. GTM Control Tower remains responsible for
+fresh reads, duplicate and clean-record gates, explicit approval, native
+receipts, and rollback. This adds useful preparation without bypassing the
+governed execution workflow that already exists.
+
 ## Waterfalls compose upstream results
 
 A data waterfall is a local auto-updating recipe with two to six ordered input

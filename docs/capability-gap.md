@@ -49,14 +49,18 @@ Bitscale or Clay.
       receipts. Crossed off 2026-09-04.
 - [x] Persistent workspace, run receipts, row review states, and a governed GTM
       Control Tower preview handoff.
+- [x] Explicit CRM field mapping for HubSpot Contacts and Salesforce Leads,
+      including portable suggestions, native destination names, missing-gate
+      warnings, and mapped-only Control Tower preview payloads. Crossed off
+      2026-09-04.
 
 ## Core gaps to cross off
 
 - [ ] First-party people lists plus company/people sourcing from saved searches,
       Maps, and job-board sources.
 - [ ] Generic HTTP API enrichment plus inbound and outbound webhooks.
-- [ ] CRM field mapping and governed HubSpot/Salesforce writeback through GTM
-      Control Tower.
+- [ ] Authenticated plan import plus governed HubSpot/Salesforce writeback
+      through GTM Control Tower.
 - [ ] Multiple tables in a workbook, reusable workbook templates, and table
       relationships.
 - [ ] Event-driven workflows with triggers, branching, code steps, and actions.
@@ -82,8 +86,8 @@ Bitscale or Clay.
 
 ## Next three slices
 
-1. CRM field mapping and governed writeback through GTM Control Tower, keeping
-   preview, approval, receipt, and rollback outside the enrichment grid.
+1. Authenticated Control Tower plan import and governed CRM writeback, keeping
+   approval, receipt, and rollback outside the enrichment grid.
 2. Multiple tables per workbook with reusable table templates and relationships,
    so prospecting, people, and campaign views do not have to share one grid.
 3. First-party people lists plus saved-search, Maps, and job-board sources so

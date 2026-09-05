@@ -28,6 +28,8 @@ what changed. It is an original product built on the open-source
 - Queue up to 100 rows for durable background execution with progress,
   pause/resume, retry, and per-row receipts.
 - Enrich up to ten selected people through Apollo with exact-name/company-domain safeguards.
+- Map selected columns to portable HubSpot Contact or Salesforce Lead fields
+  and download a preview-only GTM Control Tower handoff.
 - Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
 - Search, filter, sort, add rows, and export the resulting CSV.
 - Inspect row quality and field-level lineage, or download a bounded GTM Control Tower preview plan.
@@ -81,6 +83,12 @@ write, polls D1 for progress, and refreshes saved results and receipts after eac
 step. A pause takes effect after any in-flight row; failed jobs preserve their
 cursor and can retry from that row. One job may hold up to 100 rows and 50 total
 research requests, while each individual row keeps the ten-request ceiling.
+
+The CRM handoff builder suggests portable identity and contact mappings, shows
+the exact HubSpot or Salesforce destination fields, and packages only selected
+columns. Missing clean-record inputs stay visible. The result is still a
+preview-only plan: GTM Control Tower owns freshness checks, approval, provider
+writes, native receipts, and rollback.
 
 AI web research can return one answer or populate two to six typed output
 columns from one request. Structured outputs support text, date, number, and

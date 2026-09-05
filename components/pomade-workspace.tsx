@@ -61,7 +61,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { applyCrmImport, type CrmImportMode } from '@/lib/crm-import';
 import { createCompanyListWorkspace } from '@/lib/company-list-builder';
-import { toControlTowerPreview } from '@/lib/control-tower-adapter';
+import {
+  CONTROL_TOWER_FIELD_SPECS,
+  suggestControlTowerMappings,
+  toControlTowerPreview,
+  type ControlTowerContactField,
+  type ControlTowerFieldMapping,
+} from '@/lib/control-tower-adapter';
 import {
   countEligibleRecipeActions,
   recalculateAutomaticFormulas,
@@ -451,6 +457,11 @@ export default function PomadeWorkspace() {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [handoffOpen, setHandoffOpen] = useState(false);
+  const [handoffProvider, setHandoffProvider] =
+    useState<CrmProvider>('hubspot');
+  const [handoffMappingByColumn, setHandoffMappingByColumn] = useState<
+    Record<string, ControlTowerContactField | ''>
+  >({});
   const [workspaceNameDraft, setWorkspaceNameDraft] = useState('');
   const [formulaColumnName, setFormulaColumnName] = useState('Personal label');
   const [formulaExpression, setFormulaExpression] = useState(
@@ -821,7 +832,39 @@ export default function PomadeWorkspace() {
     : selected
       ? [selected.id]
       : [];
-  const handoffPlan = toControlTowerPreview(workspace, handoffRowIds);
+  const handoffColumns = workspace.columns.filter(
+    (column) => column.kind !== 'status' && !column.id.startsWith('__'),
+  );
+  const handoffMappings: ControlTowerFieldMapping[] = handoffColumns.flatMap(
+    (column) => {
+      const contactField = handoffMappingByColumn[column.id];
+      if (!contactField || column.kind === 'status') return [];
+      return [
+        {
+          sourceColumnId: column.id,
+          sourceColumnTitle: column.title,
+          contactField,
+          destinationFields: [],
+        },
+      ];
+    },
+  );
+  const handoffPlan = toControlTowerPreview(workspace, handoffRowIds, {
+    provider: handoffProvider,
+    mappings: handoffMappings,
+  });
+  const mappedHandoffFields = new Set(
+    handoffPlan.fieldMappings.map((mapping) => mapping.contactField),
+  );
+  const handoffRequirements = [
+    !mappedHandoffFields.has('email') ? 'work email' : '',
+    !mappedHandoffFields.has('fullName') && !mappedHandoffFields.has('lastName')
+      ? 'full or last name'
+      : '',
+    handoffProvider === 'salesforce' && !mappedHandoffFields.has('company')
+      ? 'company'
+      : '',
+  ].filter(Boolean);
 
   const updateVisibleRows = useCallback(
     (changedRows: PomadeRow[], editedColumnId?: string) => {
@@ -1393,6 +1436,22 @@ export default function PomadeWorkspace() {
     setNotice(`${workspace.rows.length} rows exported.`);
   }
 
+  function openControlTowerHandoff() {
+    const suggestions = suggestControlTowerMappings(
+      workspace.columns,
+      handoffProvider,
+    );
+    setHandoffMappingByColumn(
+      Object.fromEntries(
+        suggestions.map((mapping) => [
+          mapping.sourceColumnId,
+          mapping.contactField,
+        ]),
+      ),
+    );
+    setHandoffOpen(true);
+  }
+
   function downloadControlTowerPlan() {
     const blob = new Blob([JSON.stringify(handoffPlan, null, 2)], {
       type: 'application/json;charset=utf-8',
@@ -1400,11 +1459,11 @@ export default function PomadeWorkspace() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `${slugify(workspace.name)}_control_tower_preview.json`;
+    anchor.download = `${slugify(workspace.name)}_${handoffProvider}_control_tower_preview.json`;
     anchor.click();
     URL.revokeObjectURL(url);
     setNotice(
-      `${handoffPlan.records.length} rows packaged for Control Tower preview.`,
+      `${handoffPlan.records.length} rows and ${handoffPlan.fieldMappings.length} mapped fields packaged for Control Tower preview.`,
     );
     setHandoffOpen(false);
   }
@@ -2126,7 +2185,7 @@ export default function PomadeWorkspace() {
                     <Download /> Export CSV
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => setHandoffOpen(true)}
+                    onClick={openControlTowerHandoff}
                     disabled={!handoffPlan.records.length}
                   >
                     <ShieldCheck /> Prepare CRM handoff
@@ -2297,7 +2356,7 @@ export default function PomadeWorkspace() {
           <button
             className="row-run-action"
             type="button"
-            onClick={() => setHandoffOpen(true)}
+            onClick={openControlTowerHandoff}
             disabled={!selected}
           >
             <ShieldCheck /> Prepare CRM handoff
@@ -4080,8 +4139,8 @@ export default function PomadeWorkspace() {
           <DialogHeader>
             <DialogTitle>Prepare CRM handoff</DialogTitle>
             <DialogDescription>
-              Package the selected rows for GTM Control Tower to preview and
-              approve. Pomade will not write to either CRM.
+              Choose the destination and map only the fields GTM Control Tower
+              should validate. Pomade will not write to either CRM.
             </DialogDescription>
           </DialogHeader>
           <div className="handoff-route">
@@ -4097,9 +4156,38 @@ export default function PomadeWorkspace() {
               <ShieldCheck />
               <span>
                 <strong>GTM Control Tower</strong>
-                <small>Preview, approve, receipt, rollback</small>
+                <small>
+                  {handoffProvider === 'hubspot'
+                    ? 'HubSpot Contact'
+                    : 'Salesforce Lead'}{' '}
+                  · preview, approve, receipt, rollback
+                </small>
               </span>
             </div>
+          </div>
+          <div className="handoff-destinations" aria-label="CRM destination">
+            <button
+              type="button"
+              className={handoffProvider === 'hubspot' ? 'selected' : ''}
+              onClick={() => setHandoffProvider('hubspot')}
+            >
+              <Building2 />
+              <span>
+                <strong>HubSpot</strong>
+                <small>Contact properties</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              className={handoffProvider === 'salesforce' ? 'selected' : ''}
+              onClick={() => setHandoffProvider('salesforce')}
+            >
+              <Cloud />
+              <span>
+                <strong>Salesforce</strong>
+                <small>Lead fields</small>
+              </span>
+            </button>
           </div>
           <div className="handoff-guards">
             <div>
@@ -4111,16 +4199,80 @@ export default function PomadeWorkspace() {
               <strong>Blocked</strong>
             </div>
             <div>
-              <span>Maximum</span>
-              <strong>{handoffPlan.guards.maxRecords} rows</strong>
+              <span>Mapped</span>
+              <strong>{handoffPlan.fieldMappings.length} fields</strong>
             </div>
           </div>
+          <div className="handoff-mapping">
+            <div className="handoff-mapping-header">
+              <span>Pomade column</span>
+              <span>Control Tower field</span>
+              <span>
+                {handoffProvider === 'hubspot' ? 'HubSpot' : 'Salesforce'}
+              </span>
+            </div>
+            <div className="handoff-mapping-list">
+              {handoffColumns.map((column) => {
+                const mapped = handoffPlan.fieldMappings.find(
+                  (mapping) => mapping.sourceColumnId === column.id,
+                );
+                const selectedField = handoffMappingByColumn[column.id] ?? '';
+                const usedFields = new Set(
+                  Object.entries(handoffMappingByColumn)
+                    .filter(([columnId]) => columnId !== column.id)
+                    .map(([, contactField]) => contactField)
+                    .filter(Boolean),
+                );
+                return (
+                  <label key={column.id}>
+                    <span title={column.title}>{column.title}</span>
+                    <select
+                      aria-label={`Map ${column.title}`}
+                      value={selectedField}
+                      onChange={(event) =>
+                        setHandoffMappingByColumn((current) => ({
+                          ...current,
+                          [column.id]: event.target
+                            .value as ControlTowerContactField,
+                        }))
+                      }
+                    >
+                      <option value="">Do not send</option>
+                      {CONTROL_TOWER_FIELD_SPECS.map((field) => (
+                        <option
+                          key={field.id}
+                          value={field.id}
+                          disabled={usedFields.has(field.id)}
+                        >
+                          {field.label}
+                        </option>
+                      ))}
+                    </select>
+                    <code>{mapped?.destinationFields.join(' + ') || '—'}</code>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          {handoffRequirements.length ? (
+            <output className="handoff-warning">
+              Map {handoffRequirements.join(', ')} so Control Tower can evaluate
+              the {handoffProvider === 'hubspot' ? 'HubSpot' : 'Salesforce'}{' '}
+              clean record gate. The preview may still be downloaded for review.
+            </output>
+          ) : (
+            <p className="handoff-ready">
+              Required identity fields are mapped. Control Tower will still run
+              its duplicate, freshness, and field-level validation before any
+              approval is available.
+            </p>
+          )}
           <div className="handoff-list">
             {handoffPlan.records.slice(0, 5).map((record) => (
               <div key={record.rowId}>
                 <span>
                   {record.proposedFields.company ||
-                    record.proposedFields.person ||
+                    record.proposedFields.fullName ||
                     'Untitled row'}
                 </span>
                 <small>{record.externalKey}</small>
@@ -4140,7 +4292,9 @@ export default function PomadeWorkspace() {
             </Button>
             <Button
               onClick={downloadControlTowerPlan}
-              disabled={!handoffPlan.records.length}
+              disabled={
+                !handoffPlan.records.length || !handoffPlan.fieldMappings.length
+              }
             >
               <Download /> Download preview plan
             </Button>
