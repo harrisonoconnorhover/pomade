@@ -500,3 +500,23 @@ protection for our operator workflows, not collaborative authorization.
 A small local clock drives the same scheduled handler used in hosted operation.
 It uses only localhost and never deploys anything. This makes background work
 usable locally without a cloud account; independent runtime packaging remains open.
+
+## API sources save fetched batches before mapped imports
+
+List fetching reuses operator-configured HTTP connections and their server-side
+headers. It supports GET/static JSON POST, root or nested record arrays, and
+query-parameter page, offset or cursor pagination. Each explicit fetch is capped
+at ten requests, 500 records and 750,000 raw record bytes; each response retains
+the existing 1 MiB/15-second bounds. Repeated cursors stop; failed later pages
+retain earlier results. Reaching a cap is reported separately from exhaustion.
+
+Fetched batches are stored separately from workspace snapshots, so receiving data
+does not compete with grid edits. Import uses the current workspace and existing
+save/merge path, preserving other rows and pausing schedules. Optional stable
+identity uses the connection, endpoint and returned ID. Existing records are
+skipped, not updated; without a stable ID only the same batch is deduplicated.
+Source fetch counts/cost uncertainty live in batch history, not recipe receipts.
+The latest ten batches are listed; retention management remains future work.
+
+This is a manual source workflow. Scheduled refresh, body-based/next-URL pagination
+and update-existing-record rules remain explicit gaps. Keep all iteration local.

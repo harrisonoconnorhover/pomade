@@ -4,6 +4,12 @@ let schemaReady = false;
 
 export async function ensureDatabaseSchema(db: D1Database) {
   await db.batch([
+    db.prepare(
+      `CREATE TABLE IF NOT EXISTS api_source_batches (id TEXT PRIMARY KEY NOT NULL, workspace_id TEXT NOT NULL, batch TEXT NOT NULL, created_at INTEGER NOT NULL)`,
+    ),
+    db.prepare(
+      `CREATE INDEX IF NOT EXISTS idx_api_source_batches_workspace ON api_source_batches(workspace_id,created_at)`,
+    ),
     db.prepare(`CREATE TABLE IF NOT EXISTS webhook_events (
       id TEXT PRIMARY KEY NOT NULL,
       source_id TEXT NOT NULL,

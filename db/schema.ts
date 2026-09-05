@@ -109,3 +109,19 @@ export const webhookImports = sqliteTable('webhook_imports', {
   eventId: text('event_id').primaryKey(),
   importedAt: integer('imported_at').notNull(),
 });
+
+export const apiSourceBatches = sqliteTable(
+  'api_source_batches',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    batch: text('batch').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_api_source_batches_workspace').on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+  ],
+);

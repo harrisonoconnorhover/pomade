@@ -90,7 +90,11 @@ Bitscale or Clay.
       nonconflicting edit merges and idle-grid refresh. Verified locally on
       2026-09-05, including concurrent saves and existing background/schedule paths.
 - [ ] Provider-specific webhook signatures and trigger-to-recipe execution.
-- [ ] HTTP pagination, additional methods, connection portability, API-as-source,
+- [x] API-as-source with GET/JSON POST, query-based page/offset/cursor pagination,
+      bounded requests/records, durable batches, partial-result retention, mapped
+      import preview and optional stable-ID deduplication. Verified 2026-09-05.
+- [ ] HTTP enrichment pagination, additional methods, connection portability,
+      body-based or next-URL pagination, scheduled source refresh,
       and outbound webhook workflows.
 - [ ] Authenticated plan import plus governed HubSpot/Salesforce writeback
       through GTM Control Tower.
@@ -138,11 +142,10 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. API-as-source with pagination to feed real table workflows.
+1. True provider fallback with per-attempt results and costs.
 2. Repeatable cross-table transfers, richer lookup matching/aggregation and
    reusable workbook templates.
-3. True provider fallback with per-attempt receipts and usage. Prove a valid
-   first-provider result prevents the second call; record misses and unknown cost.
+3. Scheduled source refresh and update-existing-record rules with visible results.
 4. Saved-search sources, recurring signals and composable multi-step functions.
 5. Governed CRM writeback through Control Tower and reusable workbook templates.
 

@@ -238,6 +238,35 @@ and schedules. Review receipts before manually retrying a request with possible
 remote effects. Pagination, PUT/PATCH/DELETE and inbound webhooks remain pending.
 HTTP templates can be reused locally; portable export awaits connection remapping.
 
+## Import lists from APIs
+
+Choose **Import from API** beside Load data and select a server-configured HTTP
+connection. Enter the relative endpoint, GET or JSON POST, and the JSON array
+path (`$` for a root array). Optional pagination changes query parameters using
+page numbers, actual record offsets or a next cursor from the response. The
+page-size parameter is optional; set it when the API accepts a limit parameter.
+POST bodies are static JSON. Body-based pagination and next-URL links are pending.
+
+Set a maximum of 1–10 requests and 1–500 records, then confirm the request scope.
+Fetching saves a batch before changing the table. Select a saved batch, map JSON
+fields to input columns, inspect the preview and import. The latest ten fetches
+are accessible in the dialog; batches can also be downloaded as JSON. Later-page
+failures retain earlier records with a partial status. Source fetch counts and
+unknown costs appear with the batch, separately from recipe-run usage.
+
+An optional stable-ID response field gives records consistent IDs within a
+connection and endpoint, so repeated imports skip existing rows without replacing
+edits. Without it, deduplication only covers repeat imports of the same batch.
+A configured but missing identity stops fetching with earlier records retained.
+Imported rows retain batch provenance and pause an active schedule; they do not
+run paid recipes. Scheduled source refresh and updating existing records are pending.
+
+Requests retain HTTP connection protections: server-side headers, origin-bound
+URLs, no redirects, 15-second timeout and 1 MiB JSON response limit per request.
+A batch retains at most 750,000 bytes of raw records. Reaching a cap is reported
+as limited, not as proof the source is exhausted. Cost and remote write effects
+are unknown; failed requests are not automatically retried.
+
 ## Inbound webhook inbox
 
 Open **Webhook inbox** beside Find companies. It shows the current table ID.

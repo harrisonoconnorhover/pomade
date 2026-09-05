@@ -50,6 +50,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import HttpRecipeBuilder from '@/components/http-recipe-builder';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
+import ApiSourceBuilder from '@/components/api-source-builder';
 import WebhookInbox from '@/components/webhook-inbox';
 import {
   countMaximumExternalActions,
@@ -2707,6 +2708,16 @@ export default function PomadeWorkspace({
               >
                 <Upload /> Load data
               </Button>
+              <ApiSourceBuilder
+                workspace={workspace}
+                disabled={jobLocksWorkspace}
+                onImport={(next, count) => {
+                  setWorkspace(next);
+                  setNotice(
+                    `${count} API rows imported. Any active schedule was paused; run recipes when ready.`,
+                  );
+                }}
+              />
               <WebhookInbox
                 onSaveMapping={(next) => {
                   setWorkspace(next);
@@ -3000,6 +3011,13 @@ export default function PomadeWorkspace({
               </a>
             ) : null}
           </div>
+          {selected?.apiSource ? (
+            <p>
+              API source: {selected.apiSource.connectionId} · fetched{' '}
+              {new Date(selected.apiSource.fetchedAt).toLocaleString()} · batch{' '}
+              {selected.apiSource.batchId.slice(0, 8)}
+            </p>
+          ) : null}
           {selected?.webhookSource ? (
             <p className="source-record-link">
               Webhook: {selected.webhookSource.sourceId} · received{' '}

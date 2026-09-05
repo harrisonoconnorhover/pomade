@@ -174,7 +174,7 @@ export function prepareHttpRequest(
     init: { method: config.method, headers, body, redirect: 'manual' as const },
   };
 }
-function jsonPath(value: unknown, path: string): unknown {
+export function jsonPath(value: unknown, path: string): unknown {
   if (path === '$') return value;
   if (!/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/.test(path)) return undefined;
   return path
@@ -276,7 +276,7 @@ export function createHttpColumns(
         }),
   }));
 }
-async function boundedJson(response: Response) {
+export async function boundedJson(response: Response) {
   const reader = response.body?.getReader();
   if (!reader) throw new Error('Empty response body.');
   const chunks: Uint8Array[] = [];
