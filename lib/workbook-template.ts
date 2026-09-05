@@ -1,5 +1,5 @@
 import type { PomadeColumn, WorkspaceSnapshot } from './pomade-types';
-import { pauseRecipeSchedule } from './recipe-schedule';
+import { scheduledTransfers, pauseRecipeSchedule } from './recipe-schedule';
 import { planTableTransfer } from './table-transfer';
 export type WorkbookTemplate = {
   id: string;
@@ -23,9 +23,7 @@ function references(table: WorkspaceSnapshot) {
       c.lookup ? [c.lookup.sourceTableId] : [],
     ),
     ...(table.tableTransfers ?? []).map((r) => r.targetTableId),
-    ...(table.schedule?.afterRunTransfer
-      ? [table.schedule.afterRunTransfer.targetTableId]
-      : []),
+    ...scheduledTransfers(table.schedule).map((r) => r.targetTableId),
   ];
 }
 function emptyStructure(source: WorkspaceSnapshot): WorkspaceSnapshot {
@@ -47,6 +45,7 @@ function emptyStructure(source: WorkspaceSnapshot): WorkspaceSnapshot {
       lastError: undefined,
       lastSourceBatchId: undefined,
       lastTransferRunId: undefined,
+      lastTransferRunIds: undefined,
     };
   return table;
 }
@@ -107,9 +106,7 @@ export function instantiateWorkbookTemplate(
     }
     for (const rule of [
       ...(table.tableTransfers ?? []),
-      ...(table.schedule?.afterRunTransfer
-        ? [table.schedule.afterRunTransfer]
-        : []),
+      ...scheduledTransfers(table.schedule),
     ]) {
       if (!visited.has(rule)) {
         visited.add(rule);
@@ -138,9 +135,7 @@ export function instantiateWorkbookTemplate(
     for (const c of recipeColumns(table)) validateLookup(c, byId);
     for (const rule of [
       ...(table.tableTransfers ?? []),
-      ...(table.schedule?.afterRunTransfer
-        ? [table.schedule.afterRunTransfer]
-        : []),
+      ...scheduledTransfers(table.schedule),
     ]) {
       const target = byId.get(rule.targetTableId);
       if (!target) throw new Error('Transfer destination is unavailable.');

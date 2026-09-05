@@ -633,3 +633,17 @@ source mutations or numeric/grouped aggregation.
 - New tables are empty, schedules paused with row/time/history fields cleared,
   and webhook ingestion disconnected. Local provider connections remain named
   references. No public export, shared version rollout or provider execution.
+
+
+## 2026-09-05 — Conditional transfer fan-out and child routing
+
+- Evaluate each transfer condition before key matching. Route source rows,
+  current children from one selected list recipe, or their union. Child scope
+  follows selected parent IDs and does not claim only newly created children.
+- Capture up to five independent branches with different destinations. Matching
+  rules all receive a row; this is fan-out rather than exclusive if/else. Prepare
+  every destination update and commit with receipts/source completion in one D1
+  batch. A branch error leaves all destination data unchanged.
+- Preserve legacy single-transfer schedules and remap branch destinations in
+  workbook templates. No nested graph executor, automatic downstream provider
+  calls or public publishing in this slice.

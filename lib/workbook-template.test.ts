@@ -170,3 +170,25 @@ describe('workbook templates', () => {
     );
   });
 });
+
+it('remaps captured routing branches in workbook templates', () => {
+  const { a, b } = fixture();
+  a.schedule!.afterRunTransfers = [
+    {
+      ...a.tableTransfers![0],
+      condition: { field: 'company', operator: 'is_not_empty' },
+    },
+  ];
+  a.schedule!.afterRunTransfer = undefined;
+  const [copyA, copyB] = instantiateWorkbookTemplate(
+    createWorkbookTemplate([a, b], 'Branches'),
+    'Copy',
+    {},
+    [],
+  );
+  expect(copyA.schedule?.afterRunTransfers?.[0].targetTableId).toBe(copyB.id);
+  expect(copyA.schedule?.afterRunTransfers?.[0].condition).toEqual({
+    field: 'company',
+    operator: 'is_not_empty',
+  });
+});

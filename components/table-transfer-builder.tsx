@@ -293,6 +293,124 @@ export default function TableTransferBuilder({
                   </select>
                 </label>
               </div>
+              <div className="http-output-grid">
+                <label>
+                  Rows to send
+                  <select
+                    value={rule.rowScope ?? 'source'}
+                    onChange={(e) =>
+                      change({
+                        rowScope: e.target
+                          .value as TableTransferRule['rowScope'],
+                      })
+                    }
+                  >
+                    <option value="source">Source rows</option>
+                    <option value="children">
+                      Generated children of source rows
+                    </option>
+                    <option value="source_and_children">
+                      Source rows and their generated children
+                    </option>
+                  </select>
+                </label>
+                {rule.rowScope && rule.rowScope !== 'source' ? (
+                  <label>
+                    List recipe
+                    <select
+                      value={rule.childRecipeId ?? ''}
+                      onChange={(e) =>
+                        change({ childRecipeId: e.target.value })
+                      }
+                    >
+                      <option value="">Choose list recipe</option>
+                      {source.columns
+                        .filter((c) => c.outputCardinality === 'list')
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.title}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                ) : null}
+                <label>
+                  Only send rows where
+                  <select
+                    value={rule.condition?.field ?? ''}
+                    onChange={(e) =>
+                      change({
+                        condition: e.target.value
+                          ? { field: e.target.value, operator: 'is_not_empty' }
+                          : undefined,
+                      })
+                    }
+                  >
+                    <option value="">No condition</option>
+                    {source.columns.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {rule.condition ? (
+                  <>
+                    <label>
+                      Condition
+                      <select
+                        value={rule.condition.operator}
+                        onChange={(e) =>
+                          change({
+                            condition: {
+                              ...rule.condition!,
+                              operator: e.target.value as NonNullable<
+                                TableTransferRule['condition']
+                              >['operator'],
+                            },
+                          })
+                        }
+                      >
+                        {[
+                          'is_not_empty',
+                          'is_empty',
+                          'equals',
+                          'not_equals',
+                          'contains',
+                          'not_contains',
+                        ].map((op) => (
+                          <option key={op} value={op}>
+                            {op.replaceAll('_', ' ')}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {!['is_empty', 'is_not_empty'].includes(
+                      rule.condition.operator,
+                    ) ? (
+                      <label>
+                        Value
+                        <input
+                          value={rule.condition.value ?? ''}
+                          onChange={(e) =>
+                            change({
+                              condition: {
+                                ...rule.condition!,
+                                value: e.target.value,
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+              <p>
+                Conditions use trimmed, case-insensitive text. Generated-row
+                routing uses current children of the selected parents; each
+                saved rule is an independent branch.
+              </p>
               <label>
                 <input
                   type="checkbox"

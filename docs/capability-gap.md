@@ -6,6 +6,10 @@ Bitscale or Clay.
 
 ## Already working
 
+- [x] Conditional transfer fan-out to up to five distinct scheduled destinations,
+      with source/child-row routing, per-branch receipts and atomic destination
+      completion. Crossed off 2026-09-05; nested workflow graphs remain open.
+
 - [x] Local workbook templates for one to ten empty connected tables, including
       nested recipe lookup remapping, captured transfers, paused schedules and
       explicit compatible outside-table bindings. Crossed off 2026-09-05.
@@ -168,8 +172,8 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Branching workflows and routing generated child rows between tables.
-2. Versioned function updates with preview before rollout.
+1. Versioned function updates with preview before rollout.
+2. Native provider presets and recurring signals.
 3. Richer source pagination and native provider presets.
 4. Saved-search sources, recurring signals and versioned function updates.
 5. Governed CRM writeback through Control Tower and portable workbook templates.

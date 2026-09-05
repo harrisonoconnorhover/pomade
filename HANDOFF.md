@@ -2,40 +2,40 @@
 
 ## Finished
 
-- Added capture/reuse of one-to-ten-table workbook templates.
-- Created empty connected tables with fresh IDs in one database batch.
-- Remapped active and saved lookups, function libraries, transfers and schedules.
-- Required compatible explicit mappings for outside-table references.
-- Paused schedules and removed webhook ingestion/data history from copies.
+- Added conditional filtering to saved table transfers.
+- Added selected-parent generated-child routing and combined row scope.
+- Added up to five captured scheduled branches with distinct destinations.
+- Committed branch destination changes and receipts together.
+- Preserved legacy schedules and remapped branches in workbook templates.
 
 ## Try It
 
-Open **Workbook templates** in the table bar. Select connected tables and save a template. Choose it, name the new workbook, map outside references and create. Add data to the new tables; review paused schedule scope and connections before enabling runs. Test Worker stopped after checks.
+Configure conditions and row scope in **Transfer rows**, then preview. For children, select a list recipe and the source parent rows. In **Schedule recipe runs**, select the desired transfer rules after recipe success. Every matching branch receives the row. Test Worker stopped after verification.
 
 ## Checks
 
-- 15 focused workbook/template/recipe-template tests passed.
+- 23 focused transfer, schedule and workbook-template tests passed.
 - Typecheck, lint and production build passed.
-- Isolated Worker + D1 passed template persistence, empty connected copies, copied lookup/transfer execution and unchanged original tables.
-- Missing outside mapping created no tables; explicit mapping and home HTTP 200 passed.
-- Diff review/whitespace passed. No browser interaction test, provider calls or deployment.
+- Isolated Worker + D1 passed post-formula routing to three destinations, selected-parent child routing, previews and branch receipts.
+- A failed second branch left every destination and transfer history unchanged; home HTTP 200 passed.
+- Diff review/whitespace passed. No browser interaction test, provider call or deployment.
 
 ## Decisions
 
-- Templates are independent local configuration snapshots.
-- Outside mappings require matching column IDs; new tables retain their column IDs.
-- Empty tables and paused/disconnected automation are the creation defaults.
+- Conditions run before key matching; excluded rows count as skips.
+- Child routing uses current stored children, including earlier-run children.
+- Independent fan-out branches commit together; earlier source/recipe stages persist.
 
 ## Remaining
 
-- Branching workflows and generated-row routing.
-- Versioned function rollout and portable workbook export.
-- Native provider presets, signals and numeric/grouped aggregations.
-- Governed CRM writeback and retained-history controls.
+- Versioned function rollout and native provider presets.
+- Recurring signals and numeric/grouped aggregations.
+- Nested workflow graphs and automatic downstream execution.
+- Governed CRM writeback and portable workbook export.
 - Self-host packaging, hosted accounts and public release later.
 
 ## Review First
 
-- `lib/workbook-template.ts` for deep remapping and capture semantics.
-- `app/api/workbook-templates/route.ts` and template UI for creation flow.
+- `lib/table-transfer.ts` for row scope and conditional matching.
+- `db/scheduled-transfer.ts` and schedule UI for multi-destination execution.
 - `docs/capability-gap.md` for remaining competitor gaps.

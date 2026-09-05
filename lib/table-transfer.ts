@@ -4,7 +4,10 @@ import type {
   PomadeRow,
 } from './pomade-types';
 import { normalizeLookupKey } from './table-lookup';
-import { recalculateAutomaticFormulas } from './local-recipe-engine';
+import {
+  matchesRunCondition,
+  recalculateAutomaticFormulas,
+} from './local-recipe-engine';
 import { pauseRecipeSchedule } from './recipe-schedule';
 export type TransferChange = {
   sourceRowId: string;
@@ -53,7 +56,48 @@ export function planTableTransfer(
       rowIds.some((id) => !source.rows.some((r) => r.id === id)))
   )
     throw new Error('Selected source rows no longer exist.');
-  const rows = source.rows.filter((r) => !rowIds || rowIds.includes(r.id));
+  const scope = rule.rowScope ?? 'source';
+  if (!['source', 'children', 'source_and_children'].includes(scope))
+    throw new Error('Choose a valid transfer row scope.');
+  if (
+    scope !== 'source' &&
+    !source.columns.some(
+      (c) => c.id === rule.childRecipeId && c.outputCardinality === 'list',
+    )
+  )
+    throw new Error('Choose an existing list recipe for child-row routing.');
+  if (
+    rule.condition &&
+    (!source.columns.some((c) => c.id === rule.condition!.field) ||
+      ![
+        'is_empty',
+        'is_not_empty',
+        'equals',
+        'not_equals',
+        'contains',
+        'not_contains',
+      ].includes(rule.condition.operator))
+  )
+    throw new Error('Choose an existing condition column and operator.');
+  const selected = source.rows.filter((r) => !rowIds || rowIds.includes(r.id));
+  const parentIds = new Set(selected.map((r) => r.id));
+  const children = source.rows.filter(
+    (r) =>
+      r.parentRowId &&
+      parentIds.has(r.parentRowId) &&
+      r.generatedByColumnId === rule.childRecipeId,
+  );
+  const candidates =
+    scope === 'source'
+      ? selected
+      : scope === 'children'
+        ? children
+        : [
+            ...new Map(
+              [...selected, ...children].map((r) => [r.id, r]),
+            ).values(),
+          ];
+  const rows = candidates.filter((r) => matchesRunCondition(rule.condition, r));
   const key = (row: PomadeRow, column: string) =>
     normalizeLookupKey(row.values[column] ?? '', rule.normalization);
   function index(rows: PomadeRow[], column: string) {
@@ -67,7 +111,13 @@ export function planTableTransfer(
   const sourceIndex = index(rows, rule.sourceKey),
     targetIndex = index(target.rows, rule.targetKey);
   const nextRows = [...target.rows];
-  const changes: TransferChange[] = [];
+  const changes: TransferChange[] = candidates
+    .filter((r) => !matchesRunCondition(rule.condition, r))
+    .map((r) => ({
+      sourceRowId: r.id,
+      action: 'skip',
+      reason: 'Routing condition did not match',
+    }));
   for (const row of rows) {
     const k = key(row, rule.sourceKey),
       matches = targetIndex.get(k) ?? [];

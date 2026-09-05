@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { RunReceipt, WorkspaceSnapshot } from './pomade-types';
 import {
+  scheduledTransfers,
   scheduledColumnIds,
   claimDueSchedule,
   completeClaimedSchedule,
@@ -208,4 +209,43 @@ describe('scheduled workflows', () => {
     workspace.columns = workspace.columns.filter((c) => c.id !== columns[1].id);
     expect(() => scheduledColumnIds(workspace)).toThrow('removed or reordered');
   });
+});
+
+it('captures multiple branches, supports legacy schedules and rejects duplicate destinations', () => {
+  const transfer = {
+    id: 'one',
+    name: 'One',
+    targetTableId: 'dest',
+    sourceKey: 'domain',
+    targetKey: 'domain',
+    mode: 'upsert' as const,
+    normalization: 'domain' as const,
+    mapping: { company: 'company' },
+    skipBlank: true,
+  };
+  const input = {
+    id: 's',
+    cadence: 'once' as const,
+    nextRunAt: 2000,
+    now: 1000,
+  };
+  const legacy = createRecipeSchedule({ ...input, afterRunTransfer: transfer });
+  expect(scheduledTransfers(legacy)).toHaveLength(1);
+  const branches = [
+    transfer,
+    { ...transfer, id: 'two', targetTableId: 'other' },
+  ];
+  const schedule = createRecipeSchedule({
+    ...input,
+    afterRunTransfers: branches,
+  });
+  branches[0].mapping.company = 'changed';
+  expect(scheduledTransfers(schedule)[0].mapping.company).toBe('company');
+  expect(() =>
+    createRecipeSchedule({
+      ...input,
+      afterRunTransfers: [transfer, { ...transfer, id: 'two' }],
+    }),
+  ).toThrow('distinct destinations');
+  expect(scheduledTransfers({ ...legacy, afterRunTransfers: [] })).toEqual([]);
 });

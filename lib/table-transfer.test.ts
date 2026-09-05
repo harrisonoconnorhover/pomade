@@ -146,3 +146,93 @@ describe('repeatable table transfers', () => {
     ).toBe(true);
   });
 });
+
+describe('conditional and generated-row routing', () => {
+  it('filters before matching keys and records nonmatching rows as skips', () => {
+    const { source, target } = fixture();
+    source.rows[0].values.title = '  Enterprise  ';
+    source.rows[1].values.title = 'Small';
+    source.rows[1].values.domain = '';
+    const plan = planTableTransfer(source, target, {
+      ...rule,
+      condition: { field: 'title', operator: 'equals', value: 'enterprise' },
+    });
+    expect(plan).toMatchObject({ updated: 1, skipped: 1, review: 0 });
+    expect(plan.changes.find((c) => c.sourceRowId === 's2')?.reason).toBe(
+      'Routing condition did not match',
+    );
+    expect(() =>
+      planTableTransfer(source, target, {
+        ...rule,
+        condition: { field: 'deleted', operator: 'is_empty' },
+      }),
+    ).toThrow('condition column');
+  });
+  it('routes only the selected parents current children from the chosen list recipe', () => {
+    const { source, target } = fixture();
+    source.columns.push({
+      id: 'people',
+      title: 'People list',
+      kind: 'enrichment',
+      recipe: 'web-research',
+      outputCardinality: 'list',
+      width: 160,
+    });
+    source.rows.push(
+      {
+        id: 'c1',
+        parentRowId: 's1',
+        generatedByColumnId: 'people',
+        values: { email: 'one@example.com', company: 'Child one', title: 'VP' },
+      },
+      {
+        id: 'c2',
+        parentRowId: 's1',
+        generatedByColumnId: 'people',
+        values: {
+          email: 'two@example.com',
+          company: 'Child two',
+          title: 'Other',
+        },
+      },
+      {
+        id: 'c3',
+        parentRowId: 's2',
+        generatedByColumnId: 'people',
+        values: {
+          email: 'three@example.com',
+          company: 'Wrong parent',
+          title: 'VP',
+        },
+      },
+    );
+    const branch = {
+      ...rule,
+      sourceKey: 'email',
+      targetKey: 'email',
+      normalization: 'text' as const,
+      mapping: { company: 'company' },
+      rowScope: 'children' as const,
+      childRecipeId: 'people',
+      condition: { field: 'title', operator: 'equals' as const, value: 'vp' },
+    };
+    const plan = planTableTransfer(source, target, branch, ['s1']);
+    expect(plan).toMatchObject({ added: 1, skipped: 1, review: 0 });
+    expect(plan.changes.map((c) => c.sourceRowId).sort()).toEqual(['c1', 'c2']);
+    expect(
+      plan.target.rows.find((r) => r.values.email === 'one@example.com')
+        ?.sourceRecord?.rowId,
+    ).toBe('c1');
+    expect(planTableTransfer(source, plan.target, branch, ['s1']).added).toBe(
+      0,
+    );
+    expect(() =>
+      planTableTransfer(
+        source,
+        target,
+        { ...branch, childRecipeId: 'missing' },
+        ['s1'],
+      ),
+    ).toThrow('list recipe');
+  });
+});

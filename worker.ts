@@ -191,6 +191,7 @@ export async function runDueSchedules(
         Date.now(),
       );
       completed.schedule!.lastTransferRunId = transfer.receiptId;
+      completed.schedule!.lastTransferRunIds = transfer.receiptIds;
       await env.DB.batch([
         ...transfer.statements,
         ...(await versionedWorkspaceStatements(

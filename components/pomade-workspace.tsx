@@ -598,7 +598,7 @@ export default function PomadeWorkspace({
   const [scheduleSourceEnabled, setScheduleSourceEnabled] = useState(false);
   const [scheduleSourceConfirmed, setScheduleSourceConfirmed] = useState(false);
   const [scheduleFunctionId, setScheduleFunctionId] = useState('');
-  const [scheduleTransferId, setScheduleTransferId] = useState('');
+  const [scheduleTransferIds, setScheduleTransferIds] = useState<string[]>([]);
   const [scheduleError, setScheduleError] = useState('');
   const [scheduleNow, setScheduleNow] = useState(() => Date.now());
 
@@ -2449,7 +2449,12 @@ export default function PomadeWorkspace({
     setScheduleSourceEnabled(Boolean(existing?.beforeRunSource));
     setScheduleSourceConfirmed(false);
     setScheduleFunctionId(existing?.functionInstanceId ?? '');
-    setScheduleTransferId(existing?.afterRunTransfer?.id ?? '');
+    setScheduleTransferIds(
+      (
+        existing?.afterRunTransfers ??
+        (existing?.afterRunTransfer ? [existing.afterRunTransfer] : [])
+      ).map((r) => r.id),
+    );
     setScheduleNow(now);
     setScheduleCadence(existing?.cadence ?? 'once');
     setScheduleRunAt(dateTimeInputValue(nextRunAt));
@@ -2469,18 +2474,18 @@ export default function PomadeWorkspace({
   function saveRecipeSchedule() {
     try {
       if (scheduleScopeError) throw new Error(scheduleScopeError);
-      const afterRunTransfer = scheduleTransferId
-        ? workspace.tableTransfers?.find((r) => r.id === scheduleTransferId)
-        : undefined;
-      if (scheduleTransferId && !afterRunTransfer)
-        throw new Error('Choose an existing saved transfer rule.');
+      const afterRunTransfers = scheduleTransferIds.map((id) => {
+        const rule = workspace.tableTransfers?.find((r) => r.id === id);
+        if (!rule) throw new Error('Choose existing saved transfer rules.');
+        return rule;
+      });
       const schedule = createRecipeSchedule({
         id: workspace.schedule?.id ?? crypto.randomUUID(),
         beforeRunSource: scheduleSourceEnabled
           ? workspace.apiSourceRefresh
           : undefined,
         functionInstanceId: scheduleFunctionId,
-        afterRunTransfer,
+        afterRunTransfers,
         cadence: scheduleCadence,
         nextRunAt: scheduleTimestamp,
         rowIds: scheduleTarget === 'selected' ? scheduleRowIds : undefined,
@@ -4865,36 +4870,53 @@ export default function PomadeWorkspace({
                 ) : null}
               </select>
             </label>
-            <label>
-              After a successful run
-              <select
-                value={scheduleTransferId}
-                onChange={(e) => setScheduleTransferId(e.target.value)}
-              >
-                <option value="">Keep results in this table</option>
-                {(workspace.tableTransfers ?? []).map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
+            <fieldset>
+              <legend>After a successful run</legend>
+              {(workspace.tableTransfers ?? []).map((rule) => (
+                <label key={rule.id}>
+                  <input
+                    type="checkbox"
+                    checked={scheduleTransferIds.includes(rule.id)}
+                    onChange={(e) =>
+                      setScheduleTransferIds((ids) =>
+                        e.target.checked
+                          ? [...ids, rule.id]
+                          : ids.filter((id) => id !== rule.id),
+                      )
+                    }
+                  />
+                  {rule.name}
+                </label>
+              ))}
+              {scheduleTransferIds
+                .filter(
+                  (id) => !workspace.tableTransfers?.some((r) => r.id === id),
+                )
+                .map((id) => (
+                  <label key={id}>
+                    <input
+                      type="checkbox"
+                      checked
+                      onChange={() =>
+                        setScheduleTransferIds((ids) =>
+                          ids.filter((i) => i !== id),
+                        )
+                      }
+                    />
+                    Missing rule: {id}
+                  </label>
                 ))}
-                {scheduleTransferId &&
-                !workspace.tableTransfers?.some(
-                  (r) => r.id === scheduleTransferId,
-                ) ? (
-                  <option value={scheduleTransferId}>
-                    Missing saved transfer
-                  </option>
-                ) : null}
-              </select>
-            </label>
+            </fieldset>
           </div>
           {scheduleScopeError ? <p role="alert">{scheduleScopeError}</p> : null}
-          {scheduleTransferId ? (
+          {scheduleTransferIds.length ? (
             <p>
-              Transfers the scheduled source rows after recipes succeed. The
-              saved mapping is copied when you save this schedule. Missing or
-              duplicate keys stop the transfer before destination changes.
-              Configure and preview rules in Transfer rows first.
+              Choose up to five rules with different destinations. Each branch
+              uses its own condition and source/child-row scope. Matching rows
+              can go to several destinations. All branches commit together; a
+              failed branch stops all destination changes. Saved rules are
+              copied when you save this schedule. Preview them in Transfer rows
+              first.
             </p>
           ) : null}
           <fieldset className="research-output-shape schedule-target-shape">

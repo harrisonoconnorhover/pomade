@@ -137,6 +137,8 @@ export type RecipeSchedule = {
   lastSourceBatchId?: string;
   functionInstanceId?: string;
   afterRunTransfer?: TableTransferRule;
+  afterRunTransfers?: TableTransferRule[];
+  lastTransferRunIds?: string[];
   lastTransferRunId?: string;
   id: string;
   cadence: RecipeScheduleCadence;
@@ -200,6 +202,9 @@ export type SavedView = {
 };
 
 export type TableTransferRule = {
+  condition?: RecipeRunCondition;
+  rowScope?: 'source' | 'children' | 'source_and_children';
+  childRecipeId?: string;
   id: string;
   name: string;
   targetTableId: string;

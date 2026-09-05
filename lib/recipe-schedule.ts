@@ -24,10 +24,18 @@ export function createRecipeSchedule(input: {
   rowIds?: string[];
   functionInstanceId?: string;
   afterRunTransfer?: TableTransferRule;
+  afterRunTransfers?: TableTransferRule[];
   beforeRunSource?: import('./api-source').ApiSourceRefresh;
   now?: number;
 }): RecipeSchedule {
   const now = input.now ?? Date.now();
+  if (
+    input.afterRunTransfers &&
+    (input.afterRunTransfers.length > 5 ||
+      new Set(input.afterRunTransfers.map((r) => r.targetTableId)).size !==
+        input.afterRunTransfers.length)
+  )
+    throw new Error('Choose up to five transfers with distinct destinations.');
   if (!Number.isFinite(input.nextRunAt) || input.nextRunAt <= now) {
     throw new Error('Choose a future date and time.');
   }
@@ -38,6 +46,10 @@ export function createRecipeSchedule(input: {
     afterRunTransfer: input.afterRunTransfer
       ? structuredClone(input.afterRunTransfer)
       : undefined,
+    afterRunTransfers: input.afterRunTransfers
+      ? structuredClone(input.afterRunTransfers)
+      : undefined,
+    lastTransferRunIds: undefined,
     lastTransferRunId: undefined,
     beforeRunSource: input.beforeRunSource
       ? structuredClone(input.beforeRunSource)
@@ -166,4 +178,11 @@ export function pauseRecipeSchedule(
 export function scheduledColumnIds(workspace: WorkspaceSnapshot) {
   const id = workspace.schedule?.functionInstanceId;
   return id ? functionStepIds(workspace.columns, id) : undefined;
+}
+
+export function scheduledTransfers(schedule: RecipeSchedule | undefined) {
+  return (
+    schedule?.afterRunTransfers ??
+    (schedule?.afterRunTransfer ? [schedule.afterRunTransfer] : [])
+  );
 }

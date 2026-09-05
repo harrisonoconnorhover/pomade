@@ -458,7 +458,7 @@ and optionally choose a saved transfer under **After a successful run**. Configu
 and preview that transfer in **Transfer rows** first. The schedule captures its
 mapping when saved; later rule edits do not silently change an active workflow.
 It uses the same selected-row or whole-table scope for recipes and transfer,
-including only the original source rows when a recipe creates child rows.
+using original source rows by default; rules can also route their generated children.
 
 Recipe errors, broken function groups, missing destinations, active destination
 jobs or ambiguous match keys stop the schedule. A match-key review blocks the
@@ -514,3 +514,24 @@ IDs and captured row IDs cleared. Review row scope, source/provider settings and
 transfer destinations before enabling them. Local connection IDs are retained;
 creating tables sends no provider requests. Templates are independent snapshots
 stored in this installation, not portable exports or live shared versions.
+
+
+### Conditional routing and generated rows
+
+In **Transfer rows**, choose an optional condition and row scope: source rows,
+generated children, or both. Child routing requires a list recipe and uses the
+current stored children of the selected source parents. Conditions use the same
+trimmed, case-insensitive operators as recipe conditions. Nonmatching rows appear
+as skips in previews/receipts and do not participate in key matching.
+
+A schedule can capture up to five transfer rules with distinct destinations.
+Each rule is an independent branch: a row matching several rules reaches every
+matching destination. Conditions read post-recipe values. All destination changes,
+receipts and schedule completion commit together; one invalid/ambiguous branch
+stops the whole destination stage. Earlier source refresh and recipe results stay
+saved. Inspect the branch receipts under **Transfer rows**.
+
+Legacy single-transfer schedules retain their behavior. Workbook templates also
+remap captured branch destinations. Nested if/else execution, loops and automatic
+downstream recipe runs remain future work; destination schedules still pause when
+incoming data changes.
