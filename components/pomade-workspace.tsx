@@ -104,6 +104,7 @@ import {
 } from '@/lib/recipe-schedule';
 import { deleteWorkspaceRows } from '@/lib/row-management';
 import { createSavedView, rowMatchesSavedView } from '@/lib/saved-views';
+import { summarizeRecentUsage } from '@/lib/usage-summary';
 import {
   MAX_BACKGROUND_RESEARCH_ACTIONS,
   MAX_BACKGROUND_ROWS,
@@ -865,6 +866,7 @@ export default function PomadeWorkspace() {
     .flatMap((run) => run.receipts)
     .filter((receipt) => receipt.rowId === selected?.id)
     .slice(0, 6);
+  const recentUsage = summarizeRecentUsage(runHistory);
   const runTargetIds = selectedRowIds.length
     ? selectedRowIds
     : visibleRows.map((row) => row.id);
@@ -4302,6 +4304,38 @@ export default function PomadeWorkspace() {
               The latest ten immutable receipts for this workspace.
             </DialogDescription>
           </DialogHeader>
+          <div className="usage-summary">
+            <div>
+              <span>Total actions</span>
+              <strong>{recentUsage.actionCount}</strong>
+              <small>
+                {recentUsage.providerActionCount} provider ·{' '}
+                {recentUsage.localActionCount} local
+              </small>
+            </div>
+            <div>
+              <span>Observed credits</span>
+              <strong>{recentUsage.observedCredits}</strong>
+              <small>Provider-reported only</small>
+            </div>
+            <div>
+              <span>Cache hits</span>
+              <strong>{recentUsage.cachedProviderActionCount}</strong>
+              <small>Provider calls avoided</small>
+            </div>
+            <div>
+              <span>Cost unknown</span>
+              <strong>{recentUsage.unreportedProviderActionCount}</strong>
+              <small>Actions without credit data</small>
+            </div>
+          </div>
+          <p className="usage-provider-mix">
+            Provider mix:{' '}
+            {Object.entries(recentUsage.providerActions)
+              .map(([provider, count]) => `${provider} ${count}`)
+              .join(' · ') || 'none'}
+            . Recent receipts only—not a billing ledger.
+          </p>
           <div className="run-history-list">
             {runHistory.length ? (
               runHistory.map((run) => (

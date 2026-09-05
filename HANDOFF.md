@@ -2,19 +2,19 @@
 
 ## Finished
 
-- Added persistent named filtered views with live counts and sidebar switching.
 - Added persistent Glide column resizing and safe drag reordering without recipe-order drift.
 - Added guarded row deletion with descendant cleanup and captured-schedule pruning.
 - Added stable-ID column renaming through native Glide header menus.
 - Added immediate and background single-recipe runs from each recipe header menu.
+- Added a transparent recent-usage summary for local/provider actions, cache hits, observed credits, and unknown cost.
 
 ## Try It
 
-Open a formula or enrichment column's header menu and choose **Run now** or **Queue**. Only that recipe runs for selected rows—or visible rows when none are selected—with the normal provider confirmation and receipts.
+Open **Run history** to see the latest receipt-backed usage summary, then choose any run for its immutable detail. Open a formula or enrichment column's header menu and choose **Run now** or **Queue** to exercise a scoped run.
 
 ## Checks
 
-- `npm test`: 88 tests passed across 19 files.
+- `npm test`: 90 tests passed across 20 files.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `npm run build`: passed with `/api/jobs` in the route manifest.
@@ -22,8 +22,8 @@ Open a formula or enrichment column's header menu and choose **Run now** or **Qu
 
 ## Decisions
 
-- Column-scoped execution sends the existing stable recipe ID to the guarded runner.
-- Immediate and queued paths retain provider confirmation, limits, and receipts.
+- The summary reads the same latest-ten immutable receipt window; it is not billing.
+- Only numeric provider-reported credits are totaled; cache hits and unknown costs stay separate.
 - Multi-table discovery remains deferred until an owner-auth boundary can protect table metadata.
 
 ## Remaining
@@ -36,6 +36,6 @@ Open a formula or enrichment column's header menu and choose **Run now** or **Qu
 
 ## Review First
 
-- `components/pomade-workspace.tsx` for header-scoped run and queue actions.
-- `app/api/runs/route.ts` for guarded column scoping.
-- `lib/column-run-scope.test.ts` for single-recipe and row-scope coverage.
+- `components/pomade-workspace.tsx` for usage presentation and run-history integration.
+- `lib/usage-summary.ts` for receipt classification and totals.
+- `lib/usage-summary.test.ts` for observed, cached, unknown-cost, and local coverage.

@@ -54,6 +54,10 @@ Bitscale or Clay.
       receipts. Crossed off 2026-09-04.
 - [x] Persistent workspace, run receipts, row review states, and a governed GTM
       Control Tower preview handoff.
+- [x] Transparent recent-usage summary separating local and provider actions,
+      cache hits, observed provider-reported credits, and unknown-cost actions.
+      This remains a receipt snapshot, not a billing ledger. Crossed off
+      2026-09-05.
 - [x] Explicit CRM field mapping for HubSpot Contacts and Salesforce Leads,
       including portable suggestions, native destination names, missing-gate
       warnings, and mapped-only Control Tower preview payloads. Crossed off
@@ -82,7 +86,7 @@ Bitscale or Clay.
 - [ ] Team collaboration, access controls, structural version history, and
       restore.
 - [ ] Real provider-credit ledger, per-step cost estimates, budgets, and usage
-      reporting.
+      reporting beyond the recent receipt snapshot.
 - [ ] Reusable research agents with business context, documents, tools, model
       choice, and structured outputs.
 

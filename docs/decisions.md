@@ -258,6 +258,19 @@ count and configured ceiling. Background work still uses D1 leases, workspace
 locking, progress, retry, and per-row receipts. Scoping changes which recipe is
 eligible, not any safety or evidence behavior.
 
+## Recent usage is not a billing ledger
+
+The run-history dialog summarizes the same latest-ten-receipt window already
+retained in the workspace. It separates local actions, provider actions, cache
+hits, provider-reported numeric credits, and completed provider actions whose
+credit cost was not reported.
+
+Pomade does not infer prices, translate actions into money, or call the summary
+a budget. A cached provider result is shown as a cache hit rather than new
+spend, while an uncached provider action without explicit credit data remains
+unknown. A real ledger still requires provider billing data and a durable
+full-history model.
+
 ## Waterfalls compose upstream results
 
 A data waterfall is a local auto-updating recipe with two to six ordered input

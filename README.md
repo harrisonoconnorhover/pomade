@@ -36,6 +36,8 @@ what changed. It is an original product built on the open-source
 - Map selected columns to portable HubSpot Contact or Salesforce Lead fields
   and download a preview-only GTM Control Tower handoff.
 - Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
+- Summarize recent total, local, provider, cached, observed-credit, and
+  unknown-cost actions without presenting partial receipt data as billing.
 - Search, filter, sort, add or deliberately delete rows, save reusable filtered
   views, and export the resulting CSV.
 - Inspect row quality and field-level lineage, or download a bounded GTM Control Tower preview plan.
@@ -106,6 +108,11 @@ Saved views pin a named one-column filter to the workspace. They support empty,
 equality, and contains rules, show a live matching-row count in the sidebar,
 and automatically reflect later edits and enrichment results. Free-text search
 remains temporary, so a saved view never captures an accidental search query.
+
+Run history summarizes the latest ten receipts into total and provider work,
+cache hits, explicitly reported credits, and provider actions whose cost was not
+reported. It is intentionally an operational snapshot rather than a billing
+ledger; Pomade does not infer credit prices that a provider did not return.
 
 AI web research can return one answer or populate two to six typed output
 columns from one request. Structured outputs support text, date, number, and
