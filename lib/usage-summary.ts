@@ -9,7 +9,7 @@ export type RecentUsageSummary = {
   observedCredits: number;
   unreportedProviderActionCount: number;
   providerActions: Partial<
-    Record<'apollo' | 'gemini' | 'parallel' | 'http', number>
+    Record<'apollo' | 'gemini' | 'parallel' | 'codex' | 'http', number>
   >;
 };
 
@@ -18,6 +18,7 @@ function isProviderAction(receipt: ActionReceipt) {
     receipt.provider === 'apollo' ||
     receipt.provider === 'gemini' ||
     receipt.provider === 'parallel' ||
+    receipt.provider === 'codex' ||
     receipt.provider === 'http'
   );
 }
@@ -33,6 +34,7 @@ export function summarizeRecentUsage(runs: RunReceipt[]): RecentUsageSummary {
       | 'apollo'
       | 'gemini'
       | 'parallel'
+      | 'codex'
       | 'http';
     providerActions[provider] = (providerActions[provider] ?? 0) + 1;
   }

@@ -14,7 +14,8 @@
     "test": "vitest run --config vitest.config.ts",
     "format": "oxfmt",
     "db:generate": "drizzle-kit generate",
-    "clock": "node scripts/local-clock.mjs"
+    "clock": "node scripts/local-clock.mjs",
+    "research:codex": "node --env-file-if-exists=.env.local scripts/codex-research.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

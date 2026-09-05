@@ -2,13 +2,30 @@ import { createHttpColumns } from './http-enrichment';
 import type { HttpProviderStep, WorkspaceSnapshot } from './pomade-types';
 export const APOLLO_COMPANY_CONNECTION = 'pomade_apollo_company';
 export const APOLLO_PEOPLE_CONNECTION = 'pomade_apollo_people';
+export const PROSPEO_CONNECTION = 'pomade_prospeo';
 export const HUNTER_CONNECTION = 'pomade_hunter';
 export const PDL_COMPANY_CONNECTION = 'pomade_pdl_company';
 export function emailProviderStep(
-  provider: 'hunter' | 'apollo',
+  provider: 'hunter' | 'apollo' | 'prospeo',
   person = 'person',
   domain = 'domain',
 ): HttpProviderStep {
+  if (provider === 'prospeo')
+    return {
+      connectionId: PROSPEO_CONNECTION,
+      method: 'POST',
+      pathTemplate: '/enrich-person',
+      bodyTemplate: JSON.stringify({
+        only_verified_email: true,
+        enrich_mobile: false,
+        data: { full_name: `{{${person}}}`, company_website: `{{${domain}}}` },
+      }),
+      responsePath: 'person.email.email',
+      verification: {
+        path: 'person.email.status',
+        acceptedValues: ['VERIFIED'],
+      },
+    };
   return provider === 'hunter'
     ? {
         connectionId: HUNTER_CONNECTION,

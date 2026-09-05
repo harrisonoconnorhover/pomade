@@ -259,3 +259,98 @@ it('retains complete technology sets larger than a short text cell', async () =>
     technologies,
   );
 });
+
+describe('Prospeo verified email preset', () => {
+  it('accepts verified email, rejects catch-all, and never requests mobile reveal', async () => {
+    const { createProviderWaterfall, executeProviderWaterfall } =
+      await import('./provider-waterfall');
+    const w = createTable({ id: 'prospeo', name: 'Prospeo', mode: 'empty' });
+    w.rows = [
+      { id: 'one', values: { person: 'Test Person', domain: 'example.com' } },
+    ];
+    const step = emailProviderStep('prospeo');
+    const columns = createProviderWaterfall(w, {
+      id: 'verified_email',
+      title: 'Verified email',
+      steps: [step, emailProviderStep('hunter')],
+      accept: 'verified-email',
+      continueOnError: false,
+    });
+    w.columns.push(...columns);
+    const connections = configuredHttpConnections({
+      PROSPEO_API_KEY: 'fixture-secret',
+      HUNTER_API_KEY: 'fixture-hunter',
+    }).map((c) => ({ ...c, requestDelayMs: 0 }));
+    const f = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      expect(input instanceof Request ? input.url : input.toString()).toBe(
+        'https://api.prospeo.io/enrich-person',
+      );
+      expect(new Headers(init?.headers).get('X-KEY')).toBe('fixture-secret');
+      expect(
+        JSON.parse(typeof init?.body === 'string' ? init.body : ''),
+      ).toEqual({
+        only_verified_email: true,
+        enrich_mobile: false,
+        data: { full_name: 'Test Person', company_website: 'example.com' },
+      });
+      return Response.json({
+        person: {
+          email: {
+            status: 'VERIFIED',
+            revealed: true,
+            email: 'test@example.com',
+          },
+        },
+      });
+    });
+    const ok = await executeProviderWaterfall(
+      w,
+      'one',
+      columns[0],
+      connections,
+      f,
+    );
+    expect(ok.receipt.status).toBe('passed');
+    expect(ok.workspace.rows[0].values.verified_email).toBe('test@example.com');
+    const fallback = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ error: true, error_code: 'NO_MATCH' }, { status: 400 }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          data: {
+            email: 'test@example.com',
+            verification: { status: 'valid' },
+          },
+        }),
+      );
+    const missed = await executeProviderWaterfall(
+      w,
+      'one',
+      columns[0],
+      connections,
+      fallback,
+    );
+    expect(missed.receipt.status).toBe('passed');
+    expect(missed.receipt.attempts?.[0].error).toBeUndefined();
+    expect(missed.workspace.rows[0].values.verified_email_provider).toBe(
+      'Hunter',
+    );
+    const uncertain = await executeProviderWaterfall(
+      w,
+      'one',
+      columns[0],
+      connections,
+      async () =>
+        Response.json({
+          person: { email: { status: 'CATCH_ALL', email: 'test@example.com' } },
+        }),
+    );
+    expect(uncertain.workspace.rows[0].values.verified_email).toBe('');
+    expect(uncertain.receipt.status).toBe('review');
+    expect(JSON.stringify(publicHttpConnections(connections))).not.toContain(
+      'fixture-secret',
+    );
+  });
+});

@@ -296,7 +296,7 @@ export type ActionReceipt = {
   durationMs: number;
   before: string;
   after: string;
-  provider?: 'apollo' | 'gemini' | 'parallel' | 'http' | 'local';
+  provider?: 'apollo' | 'gemini' | 'parallel' | 'codex' | 'http' | 'local';
   creditsConsumed?: number | null;
   cached?: boolean;
   evidence?: string[];
@@ -320,8 +320,15 @@ export type RunReceipt = {
   reviewCount: number;
   skippedCount?: number;
   externalWrites: 0 | 'unknown';
-  provider?: 'apollo' | 'gemini' | 'parallel' | 'http' | 'local' | 'mixed';
-  researchProvider?: 'gemini' | 'parallel';
+  provider?:
+    | 'apollo'
+    | 'gemini'
+    | 'parallel'
+    | 'codex'
+    | 'http'
+    | 'local'
+    | 'mixed';
+  researchProvider?: 'gemini' | 'parallel' | 'codex';
   creditsConsumed?: number | null;
   receipts: ActionReceipt[];
 };

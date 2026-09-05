@@ -181,10 +181,11 @@ type ApolloBatchSummary = {
 };
 
 type ResearchProviderStatus = {
-  provider: 'parallel' | 'gemini' | null;
+  provider: 'parallel' | 'gemini' | 'codex' | null;
   configured: boolean;
   label: string;
   model: string;
+  error?: string;
   capabilities: {
     webResearch: boolean;
     citations: boolean;
@@ -427,6 +428,7 @@ function cadenceLabel(cadence: RecipeScheduleCadence) {
 function providerLabel(run?: RunReceipt) {
   if (run?.provider === 'http') return 'HTTP API';
   if (run?.provider === 'apollo') return 'Apollo';
+  if (run?.provider === 'codex') return 'Codex subscription research';
   if (run?.provider === 'parallel') return 'Parallel research';
   if (run?.provider === 'gemini') return 'Gemini research';
   if (run?.provider === 'mixed') return 'Pomade + providers';
@@ -4166,7 +4168,7 @@ export default function PomadeWorkspace({
             <span
               className={`connection-badge ${researchStatus?.configured ? 'connection-ready' : ''}`}
             >
-              {researchStatus?.configured ? 'Key ready' : 'Add key locally'}
+              {researchStatus?.configured ? 'Connected' : 'Setup needed'}
             </span>
           </div>
           <fieldset className="research-output-shape">
@@ -4387,7 +4389,7 @@ export default function PomadeWorkspace({
             <span
               className={`connection-badge ${researchStatus?.configured ? 'connection-ready' : ''}`}
             >
-              {researchStatus?.configured ? 'Key ready' : 'Add key locally'}
+              {researchStatus?.configured ? 'Connected' : 'Setup needed'}
             </span>
           </div>
           <label className="research-field">
@@ -4466,7 +4468,7 @@ export default function PomadeWorkspace({
             <span
               className={`connection-badge ${researchStatus?.configured ? 'connection-ready' : ''}`}
             >
-              {researchStatus?.configured ? 'Key ready' : 'Add key locally'}
+              {researchStatus?.configured ? 'Connected' : 'Setup needed'}
             </span>
           </div>
           <label className="research-field">
@@ -4570,8 +4572,8 @@ export default function PomadeWorkspace({
             (column) => column.recipe === 'web-research',
           ) && !researchStatus?.configured ? (
             <p className="research-warning" role="alert">
-              Add PARALLEL_API_KEY or GEMINI_API_KEY to .env.local and restart
-              Pomade before this run.
+              {researchStatus?.error ||
+                'Connect a research provider in your local settings and restart Pomade before this run.'}
             </p>
           ) : pendingResearchActionCount > pendingResearchActionLimit ? (
             <p className="research-warning" role="alert">
@@ -5241,6 +5243,7 @@ export default function PomadeWorkspace({
                       <MailCheck />
                     ) : run.provider === 'gemini' ||
                       run.provider === 'parallel' ||
+                      run.provider === 'codex' ||
                       run.provider === 'mixed' ? (
                       <Globe2 />
                     ) : (
@@ -5470,7 +5473,7 @@ export default function PomadeWorkspace({
               <small>
                 {researchStatus?.configured
                   ? `${researchStatus.label} + source citations`
-                  : 'Parallel or Gemini + source citations'}
+                  : 'Codex, Parallel or Gemini + source citations'}
               </small>
             </div>
             <span

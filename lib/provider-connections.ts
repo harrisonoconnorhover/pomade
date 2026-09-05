@@ -3,12 +3,14 @@ import {
   APOLLO_COMPANY_CONNECTION,
   APOLLO_PEOPLE_CONNECTION,
   HUNTER_CONNECTION,
+  PROSPEO_CONNECTION,
   PDL_COMPANY_CONNECTION,
 } from './provider-presets';
 export function configuredHttpConnections(env: {
   POMADE_HTTP_CONNECTIONS?: string;
   APOLLO_API_KEY?: string;
   HUNTER_API_KEY?: string;
+  PROSPEO_API_KEY?: string;
   PDL_API_KEY?: string;
 }): HttpConnection[] {
   const custom = httpConnections(env.POMADE_HTTP_CONNECTIONS);
@@ -16,6 +18,7 @@ export function configuredHttpConnections(env: {
     APOLLO_COMPANY_CONNECTION,
     APOLLO_PEOPLE_CONNECTION,
     HUNTER_CONNECTION,
+    PROSPEO_CONNECTION,
     PDL_COMPANY_CONNECTION,
   ];
   if (custom.some((c) => reserved.includes(c.id)))
@@ -55,6 +58,16 @@ export function configuredHttpConnections(env: {
       origin: 'https://api.peopledatalabs.com',
       methods: ['GET'],
       headers: { 'X-API-Key': env.PDL_API_KEY.trim() },
+    });
+  if (env.PROSPEO_API_KEY?.trim())
+    connections.push({
+      id: PROSPEO_CONNECTION,
+      label: 'Prospeo',
+      // Free tier: 1/second and 20/minute. Pace ordinary sequential runs.
+      requestDelayMs: 3100,
+      origin: 'https://api.prospeo.io',
+      methods: ['POST'],
+      headers: { 'X-KEY': env.PROSPEO_API_KEY.trim() },
     });
   return connections;
 }

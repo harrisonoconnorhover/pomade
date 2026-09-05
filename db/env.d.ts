@@ -5,6 +5,11 @@ declare namespace Cloudflare {
     POMADE_WEBHOOK_SOURCES?: string;
     APOLLO_API_KEY?: string;
     HUNTER_API_KEY?: string;
+    PROSPEO_API_KEY?: string;
+    POMADE_RESEARCH_PROVIDER?: string;
+    POMADE_CODEX_URL?: string;
+    POMADE_CODEX_TOKEN?: string;
+    POMADE_CODEX_MODEL?: string;
     PDL_API_KEY?: string;
     PARALLEL_API_KEY?: string;
     PARALLEL_MODEL?: string;

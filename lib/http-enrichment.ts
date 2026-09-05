@@ -13,6 +13,7 @@ export type HttpConnection = {
   origin: string;
   methods: ('GET' | 'POST')[];
   headers: Record<string, string>;
+  requestDelayMs?: number;
 };
 export type HttpConnectionSummary = Omit<HttpConnection, 'headers'>;
 export function httpConnections(raw?: string): HttpConnection[] {
@@ -355,6 +356,10 @@ export async function executeHttpRecipe(
     if (!connection) throw new Error('HTTP connection is not configured.');
     const request = prepareHttpRequest(column, row, connection);
     let response: Response;
+    if (connection.requestDelayMs)
+      await new Promise((resolve) =>
+        setTimeout(resolve, connection.requestDelayMs),
+      );
     try {
       sent = true;
       response = await fetchImpl(request.url, {
@@ -364,13 +369,29 @@ export async function executeHttpRecipe(
     } catch {
       throw new Error('Request failed or timed out; it was not retried.');
     }
-    if (!response.ok) {
+    let data: unknown;
+    let providerMiss = false;
+    if (connection.id === 'pomade_prospeo' && response.status === 400) {
+      data = await boundedJson(response);
+      const code = jsonPath(data, 'error_code');
+      if (code === 'NO_MATCH') {
+        providerMiss = true;
+        status = 'No matching verified record';
+      } else {
+        const reason =
+          typeof code === 'string' && /^[A-Z_]{1,60}$/.test(code)
+            ? code
+            : 'request rejected';
+        throw new Error(`Prospeo: ${reason}`);
+      }
+    }
+    if (!response.ok && !providerMiss) {
       await response.body?.cancel();
       throw new Error(
         `HTTP ${response.status}${response.status >= 300 && response.status < 400 ? ' — redirect refused' : ''}`,
       );
     }
-    const data = await boundedJson(response);
+    if (!providerMiss) data = await boundedJson(response);
     if (config.preset === 'apollo-company' || config.preset === 'pdl-company') {
       const expected = new URL(request.url).searchParams.get(
         config.preset === 'apollo-company' ? 'domain' : 'website',
@@ -407,7 +428,7 @@ export async function executeHttpRecipe(
       }
       values[output.outputColumnId] = text;
     }
-    if (missing.length)
+    if (missing.length && !providerMiss)
       status = `Missing response fields: ${missing.join(', ')}`;
   } catch (error) {
     status = error instanceof Error ? error.message : 'HTTP request failed.';

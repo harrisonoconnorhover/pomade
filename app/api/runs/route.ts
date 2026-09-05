@@ -15,7 +15,10 @@ import { executeRecipePipeline } from '@/lib/recipe-pipeline';
 
 import { ensureDatabase } from '@/db/ensure';
 import { versionedWorkspaceStatements } from '@/db/workspace-store';
-import { GeminiWebResearchClient } from '@/lib/gemini-client';
+import {
+  researchConfiguration,
+  createResearchClient,
+} from '@/lib/research-provider';
 import { ParallelWebResearchClient } from '@/lib/parallel-client';
 import type {
   RunReceipt,
@@ -208,21 +211,10 @@ export async function POST(request: Request) {
     )
       ? configuredHttpConnections(env)
       : [];
-    const parallelConfigured = Boolean(env.PARALLEL_API_KEY?.trim());
-    const geminiConfigured = Boolean(env.GEMINI_API_KEY?.trim());
-    const researchProvider = parallelConfigured ? 'parallel' : 'gemini';
-    const model = parallelConfigured
-      ? env.PARALLEL_MODEL?.trim() || 'speed'
-      : env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
-    const researchClient = parallelConfigured
-      ? new ParallelWebResearchClient({
-          apiKey: env.PARALLEL_API_KEY ?? '',
-          model,
-        })
-      : new GeminiWebResearchClient({
-          apiKey: env.GEMINI_API_KEY ?? '',
-          model,
-        });
+    const research = researchConfiguration(env);
+    const researchProvider = research.provider;
+    const model = research.model;
+    const researchClient = createResearchClient(env);
 
     if (workspace.signalFeedFields) {
       const feed = await db
@@ -262,7 +254,7 @@ export async function POST(request: Request) {
           (row) => row.id === rowId,
         )!;
         try {
-          if (!parallelConfigured && !geminiConfigured)
+          if (!research.configured)
             throw new Error('Web research is not configured.');
           const prompt = renderWebResearchPrompt(
             column.prompt ?? '',
@@ -273,7 +265,7 @@ export async function POST(request: Request) {
             column.listLimit,
           );
           const cacheModel =
-            parallelConfigured && column.outputFields?.length
+            researchProvider === 'parallel' && column.outputFields?.length
               ? `${model}:structured-v1`
               : model;
           const cacheKey = await webResearchCacheKey(cacheModel, prompt);
@@ -361,10 +353,7 @@ export async function POST(request: Request) {
               after: '',
               outputValues: values,
               durationMs: Date.now() - actionStartedAt,
-              provider:
-                parallelConfigured || geminiConfigured
-                  ? researchProvider
-                  : 'local',
+              provider: research.configured ? researchProvider : 'local',
               creditsConsumed: null,
               evidence: [message],
               error: message,

@@ -15,6 +15,7 @@ import {
 import {
   emailProviderStep,
   HUNTER_CONNECTION,
+  PROSPEO_CONNECTION,
   APOLLO_PEOPLE_CONNECTION,
 } from '@/lib/provider-presets';
 import type { HttpConnectionSummary } from '@/lib/http-enrichment';
@@ -132,7 +133,9 @@ export default function ProviderWaterfallBuilder({
                   if (e.target.value) {
                     edit(
                       index,
-                      emailProviderStep(e.target.value as 'hunter' | 'apollo'),
+                      emailProviderStep(
+                        e.target.value as 'hunter' | 'apollo' | 'prospeo',
+                      ),
                     );
                     setAccept('verified-email');
                   }
@@ -154,6 +157,14 @@ export default function ProviderWaterfallBuilder({
                   }
                 >
                   Apollo verified email
+                </option>
+                <option
+                  value="prospeo"
+                  disabled={
+                    !connections.some((c) => c.id === PROSPEO_CONNECTION)
+                  }
+                >
+                  Prospeo verified email
                 </option>
               </select>
             </label>

@@ -1,33 +1,43 @@
 import { env } from 'cloudflare:workers';
-
+import {
+  researchConfiguration,
+  createResearchClient,
+} from '@/lib/research-provider';
+import { CodexWebResearchClient } from '@/lib/codex-client';
 export async function GET() {
-  const parallelConfigured = Boolean(env.PARALLEL_API_KEY?.trim());
-  const geminiConfigured = Boolean(env.GEMINI_API_KEY?.trim());
-  const provider = parallelConfigured
-    ? 'parallel'
-    : geminiConfigured
-      ? 'gemini'
-      : null;
-
-  return Response.json({
-    provider,
-    configured: provider !== null,
-    label:
-      provider === 'parallel'
-        ? 'Parallel Web Research'
-        : provider === 'gemini'
-          ? 'Gemini + Google Search'
-          : 'AI web research',
-    model:
-      provider === 'parallel'
-        ? env.PARALLEL_MODEL?.trim() || 'speed'
-        : provider === 'gemini'
-          ? env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash'
-          : 'No provider configured',
-    capabilities: {
-      webResearch: true,
-      citations: true,
-      maximumActionsPerRun: 10,
-    },
-  });
+  try {
+    const status = researchConfiguration(env);
+    let error: string | undefined;
+    if (status.provider === 'codex' && status.configured) {
+      try {
+        const client = createResearchClient(env) as CodexWebResearchClient;
+        status.configured = (await client.status()).configured;
+      } catch (e) {
+        status.configured = false;
+        error = e instanceof Error ? e.message : 'Codex helper is unavailable.';
+      }
+    }
+    return Response.json({
+      ...status,
+      error,
+      capabilities: {
+        webResearch: true,
+        citations: true,
+        maximumActionsPerRun: 10,
+      },
+    });
+  } catch (e) {
+    return Response.json({
+      provider: null,
+      configured: false,
+      label: 'AI web research',
+      model: 'Setup needed',
+      error: e instanceof Error ? e.message : 'Invalid research settings.',
+      capabilities: {
+        webResearch: true,
+        citations: true,
+        maximumActionsPerRun: 10,
+      },
+    });
+  }
 }

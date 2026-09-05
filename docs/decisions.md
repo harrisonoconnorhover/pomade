@@ -800,3 +800,17 @@ no prospect messaging was authorized or sent.
 - Include custom fields in the saved automation and capture them in a new
   one-time schedule, retaining the previous receipts. Leave the successful test
   schedule disabled; recurring operation remains an explicit local setup choice.
+
+## 2026-09-05: Optional local subscription research and free email providers
+
+Use the official Codex CLI with its managed ChatGPT login through a small
+loopback helper. Keep subscription use explicit, one request at a time, with
+no API fallback; continue to support Parallel and Gemini. A remote hosted
+subscription pool is outside this local slice. Keep research provider/CRM
+credentials out of the Codex child process.
+
+Hunter and Prospeo are directly connected free accounts. Prospeo's first preset
+requests verified work email only, with mobile reveal disabled. PDL signup is
+blocked on a business-domain email; do not use another personal address to
+circumvent its restriction. Credentials and account passwords stay in ignored
+local files. Provider credits and subscription usage are different meters.

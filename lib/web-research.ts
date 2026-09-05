@@ -301,7 +301,7 @@ export function applyWebResearchResult(
   column: PomadeColumn,
   result: WebResearchResult,
   startedAt: number,
-  provider: 'gemini' | 'parallel' = 'gemini',
+  provider: 'gemini' | 'parallel' | 'codex' = 'gemini',
 ): { workspace: WorkspaceSnapshot; receipt: ActionReceipt } {
   const rowIndex = workspace.rows.findIndex((row) => row.id === rowId);
   if (rowIndex === -1) throw new Error('The selected row no longer exists.');
