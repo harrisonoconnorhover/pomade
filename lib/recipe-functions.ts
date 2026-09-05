@@ -1,3 +1,4 @@
+import { pauseRecipeSchedule } from './recipe-schedule';
 import type {
   WorkspaceSnapshot,
   RecipeFunction,
@@ -60,6 +61,7 @@ export function createRecipeFunction(
     for (const id of outputs(step)) available.add(id);
   }
   return {
+    version: 1,
     id: options.id,
     name: options.name.trim(),
     createdAt: Date.now(),
@@ -93,6 +95,8 @@ export function instantiateRecipeFunction(
     next[0].functionInstance = {
       id: instanceId,
       definitionId: definition.id,
+      version: definition.version ?? 1,
+      bindings: { ...bindings },
       name: definition.name,
       step: index,
       total: definition.steps.length,
@@ -116,4 +120,111 @@ export function functionStepIds(columns: PomadeColumn[], instanceId: string) {
       'Function steps were removed or reordered. Restore their order or add the function again.',
     );
   return steps.map((c) => c.id);
+}
+
+export function reviseRecipeFunction(
+  previous: RecipeFunction,
+  workspace: WorkspaceSnapshot,
+  columnIds: string[],
+) {
+  const next = createRecipeFunction(workspace, columnIds, {
+    id: previous.id,
+    name: previous.name,
+  });
+  next.version = (previous.version ?? 1) + 1;
+  next.history = [
+    ...(previous.history ?? []),
+    {
+      version: previous.version ?? 1,
+      createdAt: previous.createdAt,
+      steps: structuredClone(previous.steps),
+      inputs: structuredClone(previous.inputs),
+    },
+  ];
+  return next;
+}
+export function planRecipeFunctionUpdate(
+  workspace: WorkspaceSnapshot,
+  definition: RecipeFunction,
+  instanceId: string,
+  bindings: Record<string, string>,
+) {
+  const ids = functionStepIds(workspace.columns, instanceId);
+  const steps = ids.map((id) => workspace.columns.find((c) => c.id === id)!);
+  if (steps[0].functionInstance!.definitionId !== definition.id)
+    throw new Error('Choose an instance of this saved function.');
+  if (steps.length !== definition.steps.length)
+    throw new Error(
+      'Step count changed. Add a new function copy for this version.',
+    );
+  const existingOutputs = steps.map((c) =>
+    c.outputFields?.length ? c.outputFields.map((f) => f.id) : [c.id],
+  );
+  const owned = new Set(existingOutputs.flat());
+  if (Object.values(bindings).some((id) => owned.has(id)))
+    throw new Error(
+      'External inputs cannot point at this function’s own outputs.',
+    );
+  const mapped = new Map<string, string>();
+  const replacements = new Map<string, PomadeColumn>();
+  const changes: {
+    title: string;
+    before: PomadeColumn;
+    after: PomadeColumn;
+  }[] = [];
+  for (const [i, step] of definition.steps.entries()) {
+    if (step.column.outputCardinality === 'list')
+      throw new Error('List-producing steps require a separate function copy.');
+    if (step.column.lookup?.sourceTableId === workspace.id)
+      throw new Error('A lookup cannot point to its own table.');
+    const preserved = existingOutputs[i].map((id) =>
+      workspace.columns.find((c) => c.id === id),
+    );
+    if (
+      preserved.some((c) => !c) ||
+      preserved.slice(1).some((c) => c!.kind !== 'text')
+    )
+      throw new Error(
+        'An output column was removed or converted. Restore it before updating.',
+      );
+    const stepBindings = Object.fromEntries(
+      step.inputs.map((input) => [
+        input.key,
+        mapped.get(input.sourceColumnId) ??
+          bindings[input.sourceColumnId] ??
+          '',
+      ]),
+    );
+    const next = instantiateRecipeTemplate(
+      step,
+      workspace.columns,
+      stepBindings,
+      preserved as PomadeColumn[],
+    );
+    next[0].functionInstance = {
+      id: instanceId,
+      definitionId: definition.id,
+      version: definition.version ?? 1,
+      name: definition.name,
+      step: i,
+      total: steps.length,
+      bindings: { ...bindings },
+    };
+    outputs(step).forEach((id, j) => mapped.set(id, next[j].id));
+    next.forEach((c) => replacements.set(c.id, c));
+    changes.push({ title: steps[i].title, before: steps[i], after: next[0] });
+  }
+  const updated: WorkspaceSnapshot = {
+    ...workspace,
+    columns: workspace.columns.map((c) => replacements.get(c.id) ?? c),
+    rows: workspace.rows.map((r) => ({
+      ...r,
+      values: { ...r.values, status: 'Review' },
+    })),
+    schedule: workspace.schedule
+      ? pauseRecipeSchedule(workspace.schedule)
+      : undefined,
+    updatedAt: Date.now(),
+  };
+  return { workspace: updated, changes };
 }

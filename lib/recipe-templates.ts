@@ -216,6 +216,7 @@ export function instantiateRecipeTemplate(
   template: RecipeTemplate,
   columns: PomadeColumn[],
   bindings: Record<string, string>,
+  preservedOutputs?: PomadeColumn[],
 ) {
   const usableIds = new Set(
     columns
@@ -253,6 +254,21 @@ export function instantiateRecipeTemplate(
       valueType: output.valueType,
     };
   });
+  if (preservedOutputs) {
+    if (
+      preservedOutputs.length !== outputFields.length ||
+      preservedOutputs.some(
+        (c, i) => (c.valueType ?? 'text') !== outputFields[i].valueType,
+      )
+    )
+      throw new Error(
+        'Output count or types changed. Add a new function copy for this version.',
+      );
+    outputFields.forEach((field, i) => {
+      field.id = preservedOutputs[i].id;
+      field.title = preservedOutputs[i].title;
+    });
+  }
   const [primary, ...supporting] = outputFields;
   if (!primary) throw new Error('Template needs an output column.');
 
@@ -346,6 +362,7 @@ export function instantiateRecipeTemplate(
             ]?.id ?? template.column.lookup.statusColumnId,
         }
       : undefined,
+    width: preservedOutputs?.[0].width ?? template.column.width,
     title: primary.title,
     valueType: primary.valueType,
     inputBindings:
@@ -376,10 +393,12 @@ export function instantiateRecipeTemplate(
 
   return [
     column,
-    ...supporting.map<PomadeColumn>((field) => ({
+    ...supporting.map<PomadeColumn>((field, index) => ({
       ...field,
       kind: 'text',
-      width: field.valueType === 'text' ? 280 : 160,
+      width:
+        preservedOutputs?.[index + 1].width ??
+        (field.valueType === 'text' ? 280 : 160),
     })),
   ];
 }

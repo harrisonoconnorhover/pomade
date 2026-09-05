@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTable } from './workbook';
 import {
+  reviseRecipeFunction,
+  planRecipeFunctionUpdate,
   createRecipeFunction,
   instantiateRecipeFunction,
   functionStepIds,
@@ -212,5 +214,184 @@ describe('reusable recipe functions', () => {
       name: 'Single',
     });
     expect(template.column.functionInstance).toBeUndefined();
+  });
+});
+
+describe('function version updates', () => {
+  it('retains outputs, external bindings and data while applying and rolling back a compatible version', async () => {
+    const source = fixture();
+    const definition = createRecipeFunction(source, ['normalized', 'label'], {
+      id: 'f',
+      name: 'Chain',
+    });
+    const target = createTable({ id: 'target', name: 'Target', mode: 'empty' });
+    target.rows = [
+      { id: 'one', values: { company: 'https://www.example.com' } },
+    ];
+    const added = instantiateRecipeFunction(definition, target, {
+      domain: 'company',
+    });
+    target.columns.splice(-1, 0, ...added);
+    added[1].title = 'Custom destination name';
+    added[1].width = 333;
+    target.rows[0].values[added[1].id] = 'Keep until run';
+    target.schedule = {
+      id: 's',
+      cadence: 'every_day',
+      enabled: true,
+      state: 'active',
+      target: 'all',
+      confirmExternalResearch: true,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    source.columns.find((c) => c.id === 'label')!.expression =
+      'Hello {{normalized}}';
+    const next = reviseRecipeFunction(definition, source, [
+      'normalized',
+      'label',
+    ]);
+    expect(next.version).toBe(2);
+    expect(next.history![0].steps[1].column.expression).toBe(
+      '{{normalized | upper}}',
+    );
+    const plan = planRecipeFunctionUpdate(
+      target,
+      next,
+      added[0].functionInstance!.id,
+      added[0].functionInstance!.bindings!,
+    );
+    expect(plan.workspace.columns.map((c) => c.id)).toEqual(
+      target.columns.map((c) => c.id),
+    );
+    expect(
+      plan.workspace.columns.find((c) => c.id === added[1].id),
+    ).toMatchObject({
+      title: 'Custom destination name',
+      width: 333,
+      functionInstance: { version: 2 },
+    });
+    expect(plan.workspace.rows[0].values[added[1].id]).toBe('Keep until run');
+    expect(plan.workspace.schedule?.state).toBe('paused');
+    const updated = await executeRecipePipeline(
+      plan.workspace,
+      undefined,
+      added.map((c) => c.id),
+      {},
+      vi.fn(),
+    );
+    expect(updated.workspace.rows[0].values[added[1].id]).toBe(
+      'Hello example.com',
+    );
+    const rollback = planRecipeFunctionUpdate(
+      updated.workspace,
+      { ...next, ...next.history![0] },
+      added[0].functionInstance!.id,
+      { domain: 'company' },
+    );
+    const old = await executeRecipePipeline(
+      rollback.workspace,
+      undefined,
+      added.map((c) => c.id),
+      {},
+      vi.fn(),
+    );
+    expect(old.workspace.rows[0].values[added[1].id]).toBe('EXAMPLE.COM');
+    expect(target.rows[0].values[added[1].id]).toBe('Keep until run');
+  });
+  it('preserves structured HTTP output destinations when applying new request settings', async () => {
+    const source = fixture();
+    source.columns = source.columns.filter((c) => c.id !== 'label');
+    const http = createHttpColumns(source, {
+      id: 'api',
+      title: 'API',
+      connectionId: 'fixture',
+      method: 'GET',
+      pathTemplate: '/old?domain={{normalized}}',
+      outputs: [{ title: 'Result', path: 'result' }],
+    });
+    source.columns.splice(-1, 0, ...http);
+    const definition = createRecipeFunction(source, ['normalized', 'api'], {
+      id: 'http-function',
+      name: 'HTTP',
+    });
+    const target = createTable({ id: 'target', name: 'Target', mode: 'empty' });
+    target.rows = [{ id: 'one', values: { domain: 'example.com' } }];
+    const added = instantiateRecipeFunction(definition, target, {
+      domain: 'domain',
+    });
+    target.columns.splice(-1, 0, ...added);
+    const oldHttp = added.find((c) => c.http)!;
+    source.columns.find((c) => c.id === 'api')!.http!.pathTemplate =
+      '/new?domain={{normalized}}';
+    const next = reviseRecipeFunction(definition, source, [
+      'normalized',
+      'api',
+    ]);
+    const plan = planRecipeFunctionUpdate(
+      target,
+      next,
+      added[0].functionInstance!.id,
+      { domain: 'domain' },
+    );
+    const changed = plan.workspace.columns.find((c) => c.id === oldHttp.id)!;
+    expect(changed.http!.outputs).toEqual(oldHttp.http!.outputs);
+    expect(changed.http!.statusColumnId).toBe(oldHttp.http!.statusColumnId);
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      expect(
+        new URL(input instanceof Request ? input.url : input).pathname,
+      ).toBe('/new');
+      return Response.json({ result: 'Updated' });
+    });
+    const result = await executeRecipePipeline(
+      plan.workspace,
+      undefined,
+      added.filter((c) => c.recipe).map((c) => c.id),
+      {},
+      (w, id, c) =>
+        executeHttpRecipe(
+          w,
+          id,
+          c,
+          httpConnections('{"fixture":{"origin":"https://fixture.example"}}'),
+          fetcher,
+        ),
+    );
+    expect(result.workspace.rows[0].values[oldHttp.id]).toBe('Updated');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it('rejects incompatible steps and cyclic external bindings without changing the target', () => {
+    const source = fixture(),
+      definition = createRecipeFunction(source, ['normalized', 'label'], {
+        id: 'f',
+        name: 'Chain',
+      });
+    const added = instantiateRecipeFunction(definition, source, {
+      domain: 'domain',
+    });
+    source.columns.push(...added);
+    expect(() =>
+      planRecipeFunctionUpdate(
+        source,
+        { ...definition, steps: [...definition.steps, definition.steps[1]] },
+        added[0].functionInstance!.id,
+        { domain: 'domain' },
+      ),
+    ).toThrow('Step count changed');
+    expect(() =>
+      planRecipeFunctionUpdate(
+        source,
+        definition,
+        added[0].functionInstance!.id,
+        { domain: added[1].id },
+      ),
+    ).toThrow('own outputs');
+    const changed = structuredClone(definition);
+    changed.steps[1].column.valueType = 'number';
+    expect(() =>
+      planRecipeFunctionUpdate(source, changed, added[0].functionInstance!.id, {
+        domain: 'domain',
+      }),
+    ).toThrow('Output count or types changed');
   });
 });

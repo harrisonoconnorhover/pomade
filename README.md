@@ -447,8 +447,7 @@ with missing or reordered steps cannot be run through these buttons.
 
 Definitions and added instances are independent copies. Editing the library does
 not update existing instances. Functions currently operate on the same rows;
-list-producing recipes need a separate table stage. Version rollout, cross-table
-orchestration and portable function export remain future work.
+list-producing recipes need a separate table stage. Bulk version rollout, structural migration and portable function export remain future work.
 
 
 ### Scheduled function-to-table workflows
@@ -535,3 +534,22 @@ Legacy single-transfer schedules retain their behavior. Workbook templates also
 remap captured branch destinations. Nested if/else execution, loops and automatic
 downstream recipe runs remain future work; destination schedules still pause when
 incoming data changes.
+
+
+### Applying saved function versions
+
+In the library table, configure the desired recipe steps, choose the saved
+function, select those steps under **Save steps from this table**, and save the
+next version. Earlier configurations remain in its version selector.
+
+In a consuming table, open **Recipe functions**, select the library/function and
+version, choose the existing copy, and review its external input mappings and
+before/after settings. **Apply previewed version to this copy** replaces local
+recipe settings while retaining column IDs, names, widths and existing values.
+Rows become Review and the schedule pauses. Run the function afterward to refresh
+results. Choosing an earlier version provides the same previewed rollback flow.
+
+In-place updates require unchanged step count and per-step output count/types.
+Structural changes require a new copy; bulk rollout is not implemented. Copied
+functions from before version tracking can be updated after explicitly reviewing
+input mappings. Workbook templates remap retained version-history lookups too.

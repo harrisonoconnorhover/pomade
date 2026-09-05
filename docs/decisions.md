@@ -647,3 +647,17 @@ source mutations or numeric/grouped aggregation.
 - Preserve legacy single-transfer schedules and remap branch destinations in
   workbook templates. No nested graph executor, automatic downstream provider
   calls or public publishing in this slice.
+
+
+## 2026-09-05 — Previewed per-copy function versions
+
+- Retain prior saved definitions as version history and record applied version
+  and external bindings on each new function copy. Compatible updates reuse
+  existing output IDs, names and widths, including structured HTTP outputs.
+- Apply one explicitly previewed copy at a time, replacing its local recipe
+  settings. Preserve values until rerun, mark rows Review and pause the schedule.
+  Older versions use the same planner for rollback; ordinary workspace revision
+  checks protect concurrent edits.
+- Require unchanged step/output counts and output types. Structural migrations
+  and bulk rollout remain separate work. Include history lookups in workbook
+  reference capture/remapping so copied rollback definitions stay connected.

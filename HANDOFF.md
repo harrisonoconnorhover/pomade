@@ -2,40 +2,40 @@
 
 ## Finished
 
-- Added conditional filtering to saved table transfers.
-- Added selected-parent generated-child routing and combined row scope.
-- Added up to five captured scheduled branches with distinct destinations.
-- Committed branch destination changes and receipts together.
-- Preserved legacy schedules and remapped branches in workbook templates.
+- Added saved function versions and retained configuration history.
+- Added explicit per-copy before/after update and rollback previews.
+- Preserved output IDs, names, widths and values across compatible updates.
+- Marked rows Review and paused schedules until deliberate rerun/rescheduling.
+- Remapped version-history lookups in workbook templates.
 
 ## Try It
 
-Configure conditions and row scope in **Transfer rows**, then preview. For children, select a list recipe and the source parent rows. In **Schedule recipe runs**, select the desired transfer rules after recipe success. Every matching branch receives the row. Test Worker stopped after verification.
+Open **Recipe functions** in the library table, select a saved function and configured steps, and save its next version. In a consuming table select that library/function/version, choose an existing copy, review inputs/settings and apply. Run afterward to refresh values. Earlier versions support the same rollback flow. Test Worker stopped after checks.
 
 ## Checks
 
-- 23 focused transfer, schedule and workbook-template tests passed.
+- 20 focused function, recipe-template and workbook-template tests passed, including mocked HTTP output preservation.
 - Typecheck, lint and production build passed.
-- Isolated Worker + D1 passed post-formula routing to three destinations, selected-parent child routing, previews and branch receipts.
-- A failed second branch left every destination and transfer history unchanged; home HTTP 200 passed.
-- Diff review/whitespace passed. No browser interaction test, provider call or deployment.
+- Isolated Worker + D1 passed version persistence, cross-table update/rollback, stable downstream references, retained pre-run values and paused schedule.
+- Stale save rejected without overwriting a concurrent edit; home HTTP 200 passed.
+- Diff review/whitespace passed. No browser interaction test, real provider call or deployment.
 
 ## Decisions
 
-- Conditions run before key matching; excluded rows count as skips.
-- Child routing uses current stored children, including earlier-run children.
-- Independent fan-out branches commit together; earlier source/recipe stages persist.
+- One previewed copy at a time; local recipe edits are replaced explicitly.
+- In-place updates require the same step count and output count/types.
+- Structural changes need a new copy; no bulk rollout claim.
 
 ## Remaining
 
-- Versioned function rollout and native provider presets.
-- Recurring signals and numeric/grouped aggregations.
-- Nested workflow graphs and automatic downstream execution.
+- Native provider presets and recurring signals.
+- Numeric/grouped aggregations and richer formulas.
+- Structural function migration and bulk rollout.
 - Governed CRM writeback and portable workbook export.
 - Self-host packaging, hosted accounts and public release later.
 
 ## Review First
 
-- `lib/table-transfer.ts` for row scope and conditional matching.
-- `db/scheduled-transfer.ts` and schedule UI for multi-destination execution.
+- `lib/recipe-functions.ts` and `lib/recipe-templates.ts` for stable output updates.
+- `components/recipe-function-builder.tsx` for version selection and preview.
 - `docs/capability-gap.md` for remaining competitor gaps.

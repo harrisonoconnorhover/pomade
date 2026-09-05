@@ -9,6 +9,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import {
+  planRecipeFunctionUpdate,
+  reviseRecipeFunction,
   createRecipeFunction,
   instantiateRecipeFunction,
   functionStepIds,
@@ -41,6 +43,7 @@ export default function RecipeFunctionBuilder({
   const [libraryId, setLibraryId] = useState(workspace.id);
   const [library, setLibrary] = useState<RecipeFunction[]>([]);
   const [active, setActive] = useState<RecipeFunction>();
+  const [updateInstanceId, setUpdateInstanceId] = useState('');
   const [bindings, setBindings] = useState<Record<string, string>>({});
   const definitions =
     libraryId === workspace.id ? (workspace.recipeFunctions ?? []) : library;
@@ -68,6 +71,7 @@ export default function RecipeFunctionBuilder({
   async function chooseLibrary(id: string) {
     setLibraryId(id);
     setActive(undefined);
+    setUpdateInstanceId('');
     setBusy(true);
     setError('');
     try {
@@ -93,6 +97,21 @@ export default function RecipeFunctionBuilder({
     } catch (e) {
       previewError = e instanceof Error ? e.message : 'Map required inputs.';
     }
+  let update: ReturnType<typeof planRecipeFunctionUpdate> | undefined;
+  let updateError = '';
+  if (active && updateInstanceId)
+    try {
+      update = planRecipeFunctionUpdate(
+        workspace,
+        active,
+        updateInstanceId,
+        bindings,
+      );
+    } catch (e) {
+      updateError =
+        e instanceof Error ? e.message : 'Update cannot be applied.';
+    }
+  const latestDefinition = definitions.find((d) => d.id === active?.id);
   return (
     <>
       <Button variant="outline" disabled={!ready} onClick={() => void load()}>
@@ -161,8 +180,48 @@ export default function RecipeFunctionBuilder({
                 }
               }}
             >
-              Save selected steps
+              Save selected steps as a new function
             </Button>
+            {active && libraryId === workspace.id ? (
+              <Button
+                variant="outline"
+                disabled={!ready || busy}
+                onClick={() => {
+                  try {
+                    const previous = workspace.recipeFunctions?.find(
+                      (f) => f.id === active.id,
+                    );
+                    if (!previous)
+                      throw new Error('Saved function is unavailable.');
+                    const next = reviseRecipeFunction(
+                      previous,
+                      workspace,
+                      selected,
+                    );
+                    onSave({
+                      ...workspace,
+                      recipeFunctions: workspace.recipeFunctions!.map((f) =>
+                        f.id === next.id ? next : f,
+                      ),
+                      updatedAt: Date.now(),
+                    });
+                    setActive(next);
+                    setUpdateInstanceId('');
+                    setError(
+                      `Version ${next.version} saved. Existing copies are unchanged until you apply it.`,
+                    );
+                  } catch (e) {
+                    setError(
+                      e instanceof Error
+                        ? e.message
+                        : 'Version could not be saved.',
+                    );
+                  }
+                }}
+              >
+                Save selected steps as next version of {active.name}
+              </Button>
+            ) : null}
           </details>
           <label>
             Library table
@@ -188,6 +247,7 @@ export default function RecipeFunctionBuilder({
                   (d) => d.id === e.target.value,
                 );
                 setActive(definition);
+                setUpdateInstanceId('');
                 setBindings(
                   Object.fromEntries(
                     (definition?.inputs ?? []).map((input) => [
@@ -213,6 +273,31 @@ export default function RecipeFunctionBuilder({
           </label>
           {active ? (
             <>
+              <label>
+                Version to use
+                <select
+                  value={active.version ?? 1}
+                  onChange={(e) => {
+                    if (!latestDefinition) return;
+                    const version = Number(e.target.value);
+                    const old = latestDefinition.history?.find(
+                      (v) => v.version === version,
+                    );
+                    setActive(
+                      old ? { ...latestDefinition, ...old } : latestDefinition,
+                    );
+                  }}
+                >
+                  <option value={latestDefinition?.version ?? 1}>
+                    Version {latestDefinition?.version ?? 1} (latest)
+                  </option>
+                  {latestDefinition?.history?.map((v) => (
+                    <option key={v.version} value={v.version}>
+                      Version {v.version}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <ol>
                 {active.steps.map((step) => (
                   <li key={step.id}>{step.name}</li>
@@ -263,6 +348,64 @@ export default function RecipeFunctionBuilder({
               >
                 Add function columns
               </Button>
+              <label>
+                Update an existing copy
+                <select
+                  value={updateInstanceId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setUpdateInstanceId(id);
+                    const existing = instances.find((i) => i.id === id);
+                    if (existing?.bindings)
+                      setBindings({ ...existing.bindings });
+                  }}
+                >
+                  <option value="">Choose a copy to preview</option>
+                  {instances
+                    .filter((i) => i.definitionId === active.id)
+                    .map((i, index) => (
+                      <option key={i.id} value={i.id}>
+                        {i.name} · copy {index + 1} · v{i.version ?? 1}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {updateError ? <p role="alert">{updateError}</p> : null}
+              {update ? (
+                <>
+                  <p>
+                    Applies version {active.version ?? 1} to{' '}
+                    {update.changes.length} steps, replacing their local recipe
+                    settings. Column names, IDs and values stay in place. Rows
+                    become Review and the schedule pauses. Run afterward to
+                    refresh results.
+                  </p>
+                  {update.changes.map((change) => (
+                    <details key={change.before.id}>
+                      <summary>{change.title}: before / after settings</summary>
+                      <pre className="http-request-preview">
+                        {JSON.stringify(
+                          { before: change.before, after: change.after },
+                          null,
+                          2,
+                        )}
+                      </pre>
+                    </details>
+                  ))}
+                  <Button
+                    disabled={!ready || busy}
+                    onClick={() => {
+                      onSave(update.workspace);
+                      setUpdateInstanceId('');
+                      setError(
+                        `Version ${active.version ?? 1} applied. Run the function to refresh its results.`,
+                      );
+                    }}
+                  >
+                    Apply previewed version to this copy
+                  </Button>
+                </>
+              ) : null}
               {libraryId === workspace.id ? (
                 <Button
                   variant="outline"
@@ -333,9 +476,10 @@ export default function RecipeFunctionBuilder({
             </div>
           ) : null}
           <p>
-            Added functions are independent copies. Editing or removing a saved
-            definition does not change existing instances. Keep step order
-            intact; list-producing recipes need a separate table stage.
+            Copies update only when you preview and apply a saved version. Older
+            versions remain selectable. Updating requires the same step count
+            and output types; structural changes need a new copy. List-producing
+            recipes need a separate table stage.
           </p>
           {error ? <p role="alert">{error}</p> : null}
         </DialogContent>

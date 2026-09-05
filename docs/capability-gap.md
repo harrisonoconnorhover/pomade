@@ -6,6 +6,10 @@ Bitscale or Clay.
 
 ## Already working
 
+- [x] Saved function version history with per-copy update/rollback preview,
+      stable output IDs, retained values and paused schedules. Compatible step/
+      output shapes only; crossed off 2026-09-05.
+
 - [x] Conditional transfer fan-out to up to five distinct scheduled destinations,
       with source/child-row routing, per-branch receipts and atomic destination
       completion. Crossed off 2026-09-05; nested workflow graphs remain open.
@@ -150,8 +154,8 @@ Bitscale or Clay.
       per-attempt receipts and weighted request limits. Verified 2026-09-05.
 - [ ] Native provider waterfall presets, richer acceptance predicates and verified
       data-quality/cost comparison against the competitors.
-- [ ] Versioned function changes and explicit rollout to existing instances;
-      current multi-step functions create independent copies. List-expanding
+- [ ] Bulk function rollout and structural version migrations. Current versions
+      apply explicitly to one compatible copy at a time. List-expanding
       stages and portable function export remain gaps.
 - [ ] Complete standalone self-host packaging, persistence, and scheduled worker
       operation without a Pomade-hosted account or Sites service dependency.
@@ -172,10 +176,10 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Versioned function updates with preview before rollout.
-2. Native provider presets and recurring signals.
+1. Native provider presets and recurring signals.
+2. Numeric/grouped aggregations and richer formula logic.
 3. Richer source pagination and native provider presets.
-4. Saved-search sources, recurring signals and versioned function updates.
+4. Saved-search sources, recurring signals and bulk function rollout.
 5. Governed CRM writeback through Control Tower and portable workbook templates.
 
 Defer account isolation, Google sign-in, billing and public onboarding until our
@@ -193,7 +197,7 @@ Provider counts and coverage percentages on marketing pages are vendor claims.
 
 | Area | Current competitor evidence | Pomade's concrete target |
 | --- | --- | --- |
-| Reuse | Bitscale saves enrichment templates; Clay Functions bundle steps and propagate updates across tables. | Independent same-row multi-step functions now; versioned updates and preview before rollout remain gaps. |
+| Reuse | Bitscale saves enrichment templates; Clay Functions bundle steps and propagate updates across tables. | Same-row functions with per-copy version previews and rollback now; bulk rollout and structural migrations remain gaps. |
 | Data coverage | Both advertise multi-provider waterfalls. | Configured HTTP fallback now stops on success and records attempts; next compare identical real inputs for accepted data and actual cost. |
 | Research | Claygent browses for dynamic context; Bitscale advertises live BitAgent research. | Preserve citations and typed outputs; measure grounded answer accuracy on the same questions. |
 | Automation | Clay documents Workflows and custom signals; Bitscale documents programmatic grid execution. | Add event-driven runs with visible progress and receipts; prove retries do not duplicate successful actions. |

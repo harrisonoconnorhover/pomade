@@ -66,6 +66,8 @@ export type PomadeColumn = {
   functionInstance?: {
     id: string;
     definitionId: string;
+    version?: number;
+    bindings?: Record<string, string>;
     name: string;
     step: number;
     total: number;
@@ -122,7 +124,15 @@ export type RecipeTemplate = {
   inputs: RecipeTemplateInput[];
 };
 
+export type RecipeFunctionVersion = {
+  version: number;
+  createdAt: number;
+  steps: RecipeTemplate[];
+  inputs: RecipeTemplateInput[];
+};
 export type RecipeFunction = {
+  version?: number;
+  history?: RecipeFunctionVersion[];
   id: string;
   name: string;
   createdAt: number;

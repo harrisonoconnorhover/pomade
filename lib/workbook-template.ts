@@ -13,7 +13,9 @@ function recipeColumns(table: WorkspaceSnapshot) {
     ...table.columns,
     ...(table.recipeTemplates ?? []).map((t) => t.column),
     ...(table.recipeFunctions ?? []).flatMap((f) =>
-      f.steps.map((s) => s.column),
+      [...f.steps, ...(f.history ?? []).flatMap((v) => v.steps)].map(
+        (s) => s.column,
+      ),
     ),
   ];
 }

@@ -87,6 +87,14 @@ describe('workbook templates', () => {
   });
   it('rewires lookups, nested libraries and both transfer references to new tables', async () => {
     const { a, b } = fixture();
+    b.recipeFunctions![0].history = [
+      {
+        version: 1,
+        createdAt: 1,
+        steps: structuredClone(b.recipeFunctions![0].steps),
+        inputs: structuredClone(b.recipeFunctions![0].inputs),
+      },
+    ];
     const template = createWorkbookTemplate([a, b], 'Template');
     const [copyA, copyB] = instantiateWorkbookTemplate(
       template,
@@ -94,6 +102,10 @@ describe('workbook templates', () => {
       {},
       [],
     );
+    expect(
+      copyB.recipeFunctions![0].history![0].steps[0].column.lookup
+        ?.sourceTableId,
+    ).toBe(copyA.id);
     expect(copyA.id).not.toBe(a.id);
     expect(copyB.id).not.toBe(b.id);
     expect(copyA.tableTransfers![0].targetTableId).toBe(copyB.id);
