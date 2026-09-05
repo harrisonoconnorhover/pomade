@@ -108,8 +108,11 @@ Bitscale or Clay.
 - [x] Saved repeatable table transfer rules with mapped add/update modes,
       exact/text/domain keys, blank handling, duplicate review, revision-checked
       previews, source links and durable receipts. Verified 2026-09-05.
-- [ ] Lookup contains matching, multi-match aggregation/list outputs, automatic
-      table synchronization, reusable workbook templates and deeper relationships.
+- [x] Lookup contains comparison, row counts and bounded multi-result JSON lists,
+      preserving source order/blanks and legacy unique-match behavior. Verified
+      through manual/background/scheduled runs on 2026-09-05.
+- [ ] Numeric/grouped lookup aggregations, automatic table synchronization,
+      reusable workbook templates and deeper relationships.
 - [ ] Event-driven workflows with triggers, branching, code steps, and actions.
 - [ ] Persistent people/company profiles, deduplicated audiences, and dynamic
       segments.
@@ -148,8 +151,8 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Richer lookups: contains matching and multiple-result aggregation.
-2. Reusable multi-step/workbook templates and scheduled table workflows.
+1. Reusable multi-step recipe functions with mapped inputs and outputs.
+2. Workbook templates and scheduled table workflows.
 3. Scheduled source refresh and update-existing-record rules with visible results.
 4. Saved-search sources, recurring signals and composable multi-step functions.
 5. Governed CRM writeback through Control Tower and reusable workbook templates.
@@ -221,9 +224,9 @@ fields from another grid with exact or contains matching. Clay's
 [Send table data guide](https://university.clay.com/docs/send-table-data)
 distinguishes pulling reference data with lookups from pushing/creating rows,
 and describes lookup counting/aggregation use cases. Pomade now supports the
-unique-match reference-data workflow with explicit ambiguity handling. Contains,
-aggregation and repeatable write-to-table remain gaps; the new feature does not
-establish complete lookup parity.
+unique-match reference-data workflow with explicit ambiguity handling. Contains matching, row counts, value lists and repeatable table transfers are now
+implemented. Numeric/grouped aggregation and automatic synchronization remain
+gaps; these features do not establish complete lookup parity.
 
 ## HTTP comparison, refreshed 2026-09-05
 

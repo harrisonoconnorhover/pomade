@@ -36,15 +36,26 @@ export function createLookupColumns(
     sourceMatchColumnId: string;
     sourceOutputIds: string[];
     normalization: TableLookup['normalization'];
+    comparison?: TableLookup['comparison'];
+    resultMode?: TableLookup['resultMode'];
   },
 ): PomadeColumn[] {
   const {
     id,
     matchColumnId,
     sourceMatchColumnId,
-    sourceOutputIds,
+    sourceOutputIds: requestedOutputIds,
     normalization,
   } = options;
+  const comparison = options.comparison ?? 'equals';
+  const resultMode = options.resultMode ?? 'unique';
+  const sourceOutputIds =
+    resultMode === 'count' ? [sourceMatchColumnId] : requestedOutputIds;
+  if (
+    !['equals', 'contains'].includes(comparison) ||
+    !['unique', 'list', 'count'].includes(resultMode)
+  )
+    throw new Error('Choose a valid comparison and result mode.');
   if (source.id === target.id)
     throw new Error('Choose another table as the lookup source.');
   if (!target.columns.some((column) => column.id === matchColumnId))
@@ -74,8 +85,19 @@ export function createLookupColumns(
     if (!field) throw new Error('A source output column no longer exists.');
     return {
       id: index === 0 ? id : `${id}_${index}`,
-      title: uniqueTitle(`Lookup: ${field.title}`),
-      valueType: field.valueType ?? ('text' as const),
+      title: uniqueTitle(
+        resultMode === 'count'
+          ? 'Matching rows'
+          : resultMode === 'list'
+            ? `List: ${field.title}`
+            : `Lookup: ${field.title}`,
+      ),
+      valueType:
+        resultMode === 'count'
+          ? ('number' as const)
+          : resultMode === 'list'
+            ? ('text' as const)
+            : (field.valueType ?? ('text' as const)),
     };
   });
   const status = {
@@ -93,6 +115,8 @@ export function createLookupColumns(
   )
     throw new Error('Lookup output IDs already exist.');
   const lookup: TableLookup = {
+    comparison,
+    resultMode,
     sourceTableId: source.id,
     sourceMatchColumnId,
     normalization,
@@ -156,6 +180,7 @@ export function createLookupResolver(
       ]
     : [`Source table ID: ${config.sourceTableId}`];
   const index = new Map<string, PomadeRow[]>();
+  const ordered: { key: string; row: PomadeRow }[] = [];
   if (!problem)
     for (const row of source!.rows) {
       const key = normalizeLookupKey(
@@ -163,6 +188,7 @@ export function createLookupResolver(
         config.normalization,
       );
       if (key) {
+        ordered.push({ key, row });
         const existing = index.get(key);
         if (existing) existing.push(row);
         else index.set(key, [row]);
@@ -173,35 +199,81 @@ export function createLookupResolver(
       row.values[column.inputBindings!.match] ?? '',
       config.normalization,
     );
-    const matches = key ? (index.get(key) ?? []) : [];
-    const status =
+    const matches = key
+      ? config.comparison === 'contains'
+        ? ordered
+            .filter((entry) => entry.key.includes(key))
+            .map((entry) => entry.row)
+        : (index.get(key) ?? [])
+      : [];
+    const mode = config.resultMode ?? 'unique';
+    let status =
       problem ??
       (!key
         ? 'Missing match value'
-        : !matches.length
-          ? 'No match'
-          : matches.length > 1
-            ? `Multiple matches (${matches.length})`
-            : 'Matched');
-    const passed = status === 'Matched';
+        : mode === 'unique'
+          ? !matches.length
+            ? 'No match'
+            : matches.length > 1
+              ? `Multiple matches (${matches.length})`
+              : 'Matched'
+          : `${matches.length} matches`);
+    let passed =
+      !problem && Boolean(key) && (mode !== 'unique' || matches.length === 1);
+    let values: Record<string, string> = { ...blank };
+    if (passed) {
+      if (mode === 'count')
+        values = Object.fromEntries(
+          config.outputs.map((output) => [
+            output.outputColumnId,
+            String(matches.length),
+          ]),
+        );
+      else if (mode === 'list') {
+        if (matches.length > 100) {
+          passed = false;
+          status = 'More than 100 matches; narrow the key or use count.';
+        } else {
+          values = Object.fromEntries(
+            config.outputs.map((output) => [
+              output.outputColumnId,
+              JSON.stringify(
+                matches.map(
+                  (match) => match.values[output.sourceColumnId] ?? '',
+                ),
+              ),
+            ]),
+          );
+          if (Object.values(values).some((value) => value.length > 4000)) {
+            passed = false;
+            status =
+              'Result list exceeds 4,000 characters; narrow the key or use count.';
+            values = { ...blank };
+          }
+        }
+      } else
+        values = Object.fromEntries(
+          config.outputs.map((output) => [
+            output.outputColumnId,
+            matches[0].values[output.sourceColumnId] ?? '',
+          ]),
+        );
+    }
     return {
       passed,
-      values: {
-        ...(passed
-          ? Object.fromEntries(
-              config.outputs.map((output) => [
-                output.outputColumnId,
-                matches[0].values[output.sourceColumnId] ?? '',
-              ]),
-            )
-          : blank),
-        [config.statusColumnId]: status,
-      },
+      values: { ...values, [config.statusColumnId]: status },
       evidence: [
         ...evidence,
         `Match rule: ${config.normalization}`,
+        `Comparison: ${config.comparison ?? 'equals'} (source contains local for contains)`,
+        `Result mode: ${mode}`,
         status,
-        ...(passed ? [`Source row: ${matches[0].id}`] : []),
+        ...(passed
+          ? matches.slice(0, 20).map((match) => `Source row: ${match.id}`)
+          : []),
+        ...(passed && matches.length > 20
+          ? [`${matches.length - 20} additional source rows`]
+          : []),
       ],
     };
   };

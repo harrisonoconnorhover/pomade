@@ -30,6 +30,8 @@ export type WaterfallStep = {
 };
 
 export type TableLookup = {
+  comparison?: 'equals' | 'contains';
+  resultMode?: 'unique' | 'list' | 'count';
   sourceTableId: string;
   sourceMatchColumnId: string;
   normalization: 'exact' | 'text' | 'domain';

@@ -40,6 +40,10 @@ export default function TableLookupBuilder({
   const [outputIds, setOutputIds] = useState<string[]>([]);
   const [normalization, setNormalization] =
     useState<TableLookup['normalization']>('domain');
+  const [comparison, setComparison] =
+    useState<NonNullable<TableLookup['comparison']>>('equals');
+  const [resultMode, setResultMode] =
+    useState<NonNullable<TableLookup['resultMode']>>('unique');
   const [error, setError] = useState('');
   useEffect(() => {
     if (!open) return;
@@ -94,7 +98,8 @@ export default function TableLookupBuilder({
   }, [open, sourceId]);
   const currentSource = source?.id === sourceId ? source : undefined;
   const preview = useMemo(() => {
-    if (!currentSource || !outputIds.length) return undefined;
+    if (!currentSource || (resultMode !== 'count' && !outputIds.length))
+      return undefined;
     try {
       let id = 'lookup_preview';
       while (workspace.columns.some((column) => column.id.startsWith(id)))
@@ -105,6 +110,8 @@ export default function TableLookupBuilder({
         sourceMatchColumnId: sourceMatchId,
         sourceOutputIds: outputIds,
         normalization,
+        comparison,
+        resultMode,
       });
       const resolve = createLookupResolver(columns[0], currentSource);
       return {
@@ -128,6 +135,8 @@ export default function TableLookupBuilder({
     matchId,
     sourceMatchId,
     normalization,
+    comparison,
+    resultMode,
   ]);
   function add() {
     if (!currentSource) return;
@@ -139,6 +148,8 @@ export default function TableLookupBuilder({
           sourceMatchColumnId: sourceMatchId,
           sourceOutputIds: outputIds,
           normalization,
+          comparison,
+          resultMode,
         }),
       );
       onOpenChange(false);
@@ -154,8 +165,9 @@ export default function TableLookupBuilder({
         <DialogHeader>
           <DialogTitle>Look up fields from another table</DialogTitle>
           <DialogDescription>
-            Match a record once and return up to four saved fields. No provider
-            requests or credits. Multiple matches stay in review.
+            Match saved source rows and return up to four fields, JSON lists or
+            a match count. No provider requests or credits. Unique mode still
+            flags multiple matches for review.
           </DialogDescription>
         </DialogHeader>
         <div className="lookup-fields">
@@ -226,30 +238,66 @@ export default function TableLookupBuilder({
             </select>
           </label>
         </div>
-        <fieldset className="lookup-outputs">
-          <legend>Fields to return ({outputIds.length}/4)</legend>
-          {currentSource?.columns
-            .filter((column) => column.kind !== 'status')
-            .map((column) => (
-              <label key={column.id}>
-                <input
-                  type="checkbox"
-                  checked={outputIds.includes(column.id)}
-                  disabled={
-                    outputIds.length === 4 && !outputIds.includes(column.id)
-                  }
-                  onChange={(event) =>
-                    setOutputIds((current) =>
-                      event.target.checked
-                        ? [...current, column.id]
-                        : current.filter((id) => id !== column.id),
-                    )
-                  }
-                />
-                {column.title}
-              </label>
-            ))}
-        </fieldset>
+        <div className="lookup-fields">
+          <label>
+            Comparison
+            <select
+              value={comparison}
+              onChange={(e) =>
+                setComparison(e.target.value as typeof comparison)
+              }
+            >
+              <option value="equals">Equal normalized keys</option>
+              <option value="contains">Source key contains local key</option>
+            </select>
+          </label>
+          <label>
+            Result mode
+            <select
+              value={resultMode}
+              onChange={(e) =>
+                setResultMode(e.target.value as typeof resultMode)
+              }
+            >
+              <option value="unique">Require one match</option>
+              <option value="list">List values from all matches</option>
+              <option value="count">Count matching rows</option>
+            </select>
+          </label>
+        </div>
+        {resultMode === 'list' ? (
+          <p>
+            Lists preserve source row order, duplicate values and blanks. Up to
+            100 matches and 4,000 characters per output; larger results go to
+            review.
+          </p>
+        ) : null}
+        {resultMode !== 'count' ? (
+          <fieldset className="lookup-outputs">
+            <legend>Fields to return ({outputIds.length}/4)</legend>
+            {currentSource?.columns
+              .filter((column) => column.kind !== 'status')
+              .map((column) => (
+                <label key={column.id}>
+                  <input
+                    type="checkbox"
+                    checked={outputIds.includes(column.id)}
+                    disabled={
+                      outputIds.length === 4 && !outputIds.includes(column.id)
+                    }
+                    onChange={(event) =>
+                      setOutputIds((current) =>
+                        event.target.checked
+                          ? [...current, column.id]
+                          : current.filter((id) => id !== column.id),
+                      )
+                    }
+                  />
+                  {column.title}
+                </label>
+              ))}
+          </fieldset>
+        ) : null}
         {preview && 'columns' in preview ? (
           <div className="lookup-preview">
             <p>Preview · first five rows · saved source data</p>
@@ -284,9 +332,10 @@ export default function TableLookupBuilder({
           <p className="template-error">{error || preview?.error}</p>
         ) : null}
         <p className="lookup-note">
-          Runs read the source table’s saved values. A missing or duplicate
-          match clears previous lookup outputs and records why. This does not
-          edit the source table.
+          Runs read saved source values. Unique mode flags missing or multiple
+          matches. List/count modes return an empty list or zero when a valid
+          key has no matches. Missing inputs or oversized lists stay in review.
+          The source table is unchanged.
         </p>
         <Button
           onClick={add}

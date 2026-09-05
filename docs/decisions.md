@@ -562,3 +562,18 @@ not copied into duplicated tables, and missing target columns fail validation.
 Saved rules are manually rerunnable, not scheduled synchronization or deletion
 propagation. Testing also corrected automatic formula refresh when no single
 edited-column ID is supplied, as required by multi-field transfers.
+
+## Lookup comparison and result mode are independent
+
+Existing lookups default to equal normalized keys and one unique match. Optional
+contains comparison tests whether the normalized source key includes the local
+key; it is directional. Optional result mode counts matching rows or collects
+values as JSON arrays. Lists preserve source order, blanks and duplicates across
+output fields. Count/no-match yields zero, list/no-match yields an empty array;
+missing inputs or sources remain errors requiring review.
+
+Lists reject more than 100 matches or 4,000 characters per output instead of
+presenting truncated results as complete. Counts cover all matches. Receipts
+include source snapshot context, result mode and bounded row evidence. These
+settings remain copied in local recipe templates. They do not add provider calls,
+source mutations or numeric/grouped aggregation.

@@ -54,6 +54,134 @@ function fixture() {
 }
 
 describe('table lookup recipes', () => {
+  it('collects contains matches in source order with duplicate values and blanks', () => {
+    const { source, target } = fixture();
+    source.rows = [
+      { id: 'a', values: { company: 'Acme North', title: 'Leader' } },
+      { id: 'b', values: { company: 'Acme South', title: '' } },
+      { id: 'c', values: { company: 'Acme North', title: 'Leader' } },
+    ];
+    const columns = createLookupColumns(target, source, {
+      id: 'many',
+      matchColumnId: 'company',
+      sourceMatchColumnId: 'company',
+      sourceOutputIds: ['title'],
+      normalization: 'text',
+      comparison: 'contains',
+      resultMode: 'list',
+    });
+    const result = createLookupResolver(
+      columns[0],
+      source,
+    )({ id: 'q', values: { company: ' ACME ' } });
+    expect(result.passed).toBe(true);
+    expect(JSON.parse(result.values.many)).toEqual(['Leader', '', 'Leader']);
+    expect(result.evidence).toContain('Source row: b');
+  });
+  it('counts all matches including zero without requiring output-field selection', () => {
+    const { source, target } = fixture();
+    source.rows.push({ ...source.rows[0], id: 'c2' });
+    const columns = createLookupColumns(target, source, {
+      id: 'count',
+      matchColumnId: 'domain',
+      sourceMatchColumnId: 'domain',
+      sourceOutputIds: [],
+      normalization: 'domain',
+      resultMode: 'count',
+    });
+    expect(columns[0].valueType).toBe('number');
+    expect(columns).toHaveLength(2);
+    const resolve = createLookupResolver(columns[0], source);
+    expect(resolve(target.rows[0]).values.count).toBe('2');
+    expect(resolve(target.rows[1])).toMatchObject({
+      passed: true,
+      values: { count: '0' },
+    });
+    expect(resolve({ id: 'blank', values: {} })).toMatchObject({
+      passed: false,
+      values: { count: '' },
+    });
+  });
+  it('keeps legacy unique matching and directionally applies contains', () => {
+    const { source, target, columns } = fixture();
+    source.rows.push({ ...source.rows[0], id: 'c2' });
+    delete columns[0].lookup!.comparison;
+    delete columns[0].lookup!.resultMode;
+    expect(
+      createLookupResolver(columns[0], source)(target.rows[0]).passed,
+    ).toBe(false);
+    const c = createLookupColumns(target, source, {
+      id: 'contains',
+      matchColumnId: 'company',
+      sourceMatchColumnId: 'company',
+      sourceOutputIds: ['title'],
+      normalization: 'text',
+      comparison: 'contains',
+      resultMode: 'count',
+    });
+    const resolve = createLookupResolver(c[0], source);
+    expect(
+      resolve({ id: 'x', values: { company: 'Example extended' } }).values
+        .contains,
+    ).toBe('0');
+    expect(
+      resolve({ id: 'x', values: { company: 'amp' } }).values.contains,
+    ).toBe('2');
+  });
+  it('returns empty lists for no matches and refuses truncated successful lists', () => {
+    const { source, target } = fixture();
+    const c = createLookupColumns(target, source, {
+      id: 'list',
+      matchColumnId: 'domain',
+      sourceMatchColumnId: 'domain',
+      sourceOutputIds: ['title'],
+      normalization: 'domain',
+      resultMode: 'list',
+    });
+    expect(createLookupResolver(c[0], source)(target.rows[1])).toMatchObject({
+      passed: true,
+      values: { list: '[]' },
+    });
+    source.rows = Array.from({ length: 101 }, (_, i) => ({
+      ...source.rows[0],
+      id: String(i),
+    }));
+    const oversized = createLookupResolver(c[0], source)(target.rows[0]);
+    expect(oversized.passed).toBe(false);
+    expect(oversized.values.list).toBe('');
+    source.rows = [
+      { id: 'big', values: { domain: 'example.com', title: 'x'.repeat(4001) } },
+    ];
+    expect(createLookupResolver(c[0], source)(target.rows[0]).values.list).toBe(
+      '',
+    );
+  });
+  it('retains multi-match behavior in templates and downstream local runs', () => {
+    const { source, target } = fixture();
+    const c = createLookupColumns(target, source, {
+      id: 'total',
+      matchColumnId: 'domain',
+      sourceMatchColumnId: 'domain',
+      sourceOutputIds: [],
+      normalization: 'domain',
+      resultMode: 'count',
+    });
+    target.columns.push(...c);
+    const template = createRecipeTemplate(c[0], target.columns, {
+      id: 'tpl',
+      name: 'Count',
+    });
+    const mapped = instantiateRecipeTemplate(template, target.columns, {
+      match: 'domain',
+    });
+    expect(mapped[0].lookup?.resultMode).toBe('count');
+    expect(mapped[0].lookup?.statusColumnId).toBe(mapped[1].id);
+    const result = executeWorkspace(target, ['p1'], ['total'], {
+      [source.id]: source,
+    });
+    expect(result.workspace.rows[0].values.total).toBe('1');
+  });
+
   it('matches normalized domains once, returns multiple fields, and feeds a later formula', () => {
     const { source, target } = fixture();
     target.columns.splice(-1, 0, {

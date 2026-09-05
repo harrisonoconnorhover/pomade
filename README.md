@@ -238,6 +238,22 @@ and schedules. Review receipts before manually retrying a request with possible
 remote effects. Pagination, PUT/PATCH/DELETE and inbound webhooks remain pending.
 HTTP templates can be reused locally; portable export awaits connection remapping.
 
+## Multiple-result lookups
+
+In **Recipe library → Lookup another table**, choose equality or **Source key
+contains local key** after the selected normalization. Keep **Require one match**
+for the existing ambiguity-review behavior, choose **Count matching rows** for a
+numeric total, or **List values from all matches** for JSON arrays in up to four
+output columns. Count mode does not require selecting output fields.
+
+List columns preserve source row order, duplicate values and blank values so
+parallel output arrays retain their row alignment. A valid key with no results
+returns `[]` or `0`; missing inputs or unavailable sources remain review cases.
+Lists above 100 matches or 4,000 characters per output are rejected with a clear
+review reason rather than silently truncated. Count mode still counts all matching
+rows. Runs and same-installation templates retain these settings. Numeric sums,
+minimum/maximum rollups and grouped aggregation remain pending.
+
 ## Repeatable table transfers
 
 Choose **Transfer to table** once the source table has finished saving. Select a
