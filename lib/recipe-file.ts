@@ -118,7 +118,10 @@ function validateColumn(column: PomadeColumn) {
 
 // Deliberate allowlist: no rows, account credentials, run state, or destination-table writes.
 export function exportRecipeFile(template: RecipeTemplate): string {
-  if (template.column.recipe === 'http-api')
+  if (
+    template.column.recipe === 'http-api' ||
+    template.column.recipe === 'http-waterfall'
+  )
     throw new Error(
       'HTTP recipes reference a server connection. Use them from the recipe library here; portable HTTP files are not supported yet.',
     );

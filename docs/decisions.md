@@ -520,3 +520,24 @@ The latest ten batches are listed; retention management remains future work.
 
 This is a manual source workflow. Scheduled refresh, body-based/next-URL pagination
 and update-existing-record rules remain explicit gaps. Keep all iteration local.
+
+## Provider fallback is one logical recipe with multiple observed attempts
+
+A provider waterfall contains two-to-four ordered HTTP request configurations
+and a nonempty or email-format acceptance rule. It evaluates sources lazily and
+stops at the first accepted value. Misses continue; technical errors stop unless
+the operator configures continuation. A recovered error remains in its attempt
+receipt but does not mark the whole result failed. No accepted result clears the
+old value and provider; unrecovered technical errors stop background automation.
+
+The parent receipt describes the logical result; nested attempt receipts preserve
+actual requests, values, duration and unknown costs. Usage counts leaf provider
+attempts, while run action counts remain logical recipe actions. Request consent
+uses the maximum number of provider steps, even if the first may succeed. Inputs
+are dependency-tracked and template-remapped. Portable export remains blocked
+until server connection references can be remapped across installations.
+
+Real Worker testing found and corrected a prior unsaved-row execution issue:
+foreground result merging now uses the stored table as its execution baseline,
+while revision checks reject stale requests before provider calls. This preserves
+new unsaved rows and concurrent additions without repeating enrichment requests.

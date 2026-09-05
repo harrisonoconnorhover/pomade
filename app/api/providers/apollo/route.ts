@@ -146,7 +146,15 @@ export async function POST(request: Request) {
         );
     }
 
-    const executionBase = structuredClone(workspace);
+    const storedAtStart = await db
+      .prepare('SELECT snapshot FROM workspaces WHERE id = ?')
+      .bind(workspace.id)
+      .first<{ snapshot: string }>();
+    const executionBase = storedAtStart
+      ? (JSON.parse(storedAtStart.snapshot) as WorkspaceSnapshot)
+      : structuredClone(workspace);
+    if ((workspace.revision ?? 0) !== (executionBase.revision ?? 0))
+      throw new Error('Workspace changed; reload before retrying.');
     const client = new ApolloClient({ apiKey: env.APOLLO_API_KEY ?? '' });
     const inFlight = new Map<string, Promise<ApolloEnrichmentResult>>();
     async function enrich(input: ApolloPersonInput) {

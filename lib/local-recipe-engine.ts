@@ -220,7 +220,8 @@ export function recalculateAutomaticFormulas(
       column.kind !== 'formula' ||
       !column.autoRun ||
       column.recipe === 'table-lookup' ||
-      column.recipe === 'http-api'
+      column.recipe === 'http-api' ||
+      column.recipe === 'http-waterfall'
     ) {
       continue;
     }
@@ -251,6 +252,7 @@ export function executeWorkspace(
       (column.kind === 'formula' || column.kind === 'enrichment') &&
       column.recipe !== 'web-research' &&
       column.recipe !== 'http-api' &&
+      column.recipe !== 'http-waterfall' &&
       (!selectedColumns || selectedColumns.has(column.id)),
   );
   const lookupResolvers = new Map(

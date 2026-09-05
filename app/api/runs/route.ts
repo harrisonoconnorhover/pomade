@@ -1,3 +1,4 @@
+import { executeProviderWaterfall } from '@/lib/provider-waterfall';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { env } from 'cloudflare:workers';
 import {
@@ -149,7 +150,15 @@ export async function POST(request: Request) {
         );
     }
 
-    const executionBase = structuredClone(workspace);
+    const storedAtStart = await db
+      .prepare('SELECT snapshot FROM workspaces WHERE id = ?')
+      .bind(workspace.id)
+      .first<{ snapshot: string }>();
+    const executionBase = storedAtStart
+      ? (JSON.parse(storedAtStart.snapshot) as WorkspaceSnapshot)
+      : structuredClone(workspace);
+    if ((workspace.revision ?? 0) !== (executionBase.revision ?? 0))
+      throw new Error('Workspace changed; reload before retrying.');
     const lookupTables: Record<string, WorkspaceSnapshot> = {};
     const sourceIds = new Set(
       workspace.columns
@@ -190,7 +199,8 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     const connections = externalColumns.some(
-      (column) => column.recipe === 'http-api',
+      (column) =>
+        column.recipe === 'http-api' || column.recipe === 'http-waterfall',
     )
       ? httpConnections(env.POMADE_HTTP_CONNECTIONS)
       : [];
@@ -216,6 +226,13 @@ export async function POST(request: Request) {
       columnIds,
       lookupTables,
       async (currentWorkspace, rowId, column) => {
+        if (column.recipe === 'http-waterfall')
+          return executeProviderWaterfall(
+            currentWorkspace,
+            rowId,
+            column,
+            connections,
+          );
         if (column.recipe === 'http-api')
           return executeHttpRecipe(
             currentWorkspace,

@@ -1,3 +1,4 @@
+import { providerInputFields } from './provider-waterfall';
 import { httpInputFields } from './http-enrichment';
 import type {
   PomadeColumn,
@@ -56,6 +57,11 @@ function humanize(value: string) {
 }
 
 function recipeInputSpecs(column: PomadeColumn): RecipeInputSpec[] {
+  if (column.providerWaterfall)
+    return providerInputFields(column.providerWaterfall).map((key) => ({
+      key,
+      required: true,
+    }));
   if (column.recipe === 'http-api' && column.http)
     return httpInputFields(column.http).map((key) => ({ key, required: true }));
   if (column.recipe === 'custom-formula') {
@@ -88,6 +94,9 @@ function recipeInputSpecs(column: PomadeColumn): RecipeInputSpec[] {
 function cloneColumn(column: PomadeColumn): PomadeColumn {
   return {
     ...column,
+    providerWaterfall: column.providerWaterfall
+      ? structuredClone(column.providerWaterfall)
+      : undefined,
     http: column.http ? structuredClone(column.http) : undefined,
     lookup: column.lookup ? structuredClone(column.lookup) : undefined,
     inputBindings: column.inputBindings
@@ -277,6 +286,25 @@ export function instantiateRecipeTemplate(
   const column: PomadeColumn = {
     ...cloneColumn(template.column),
     id: primary.id,
+    providerWaterfall: template.column.providerWaterfall
+      ? {
+          ...structuredClone(template.column.providerWaterfall),
+          winnerColumnId:
+            outputFields[
+              sourceOutputs.findIndex(
+                (f) =>
+                  f.id === template.column.providerWaterfall!.winnerColumnId,
+              )
+            ]?.id ?? '',
+          statusColumnId:
+            outputFields[
+              sourceOutputs.findIndex(
+                (f) =>
+                  f.id === template.column.providerWaterfall!.statusColumnId,
+              )
+            ]?.id ?? '',
+        }
+      : undefined,
     http: template.column.http
       ? {
           ...structuredClone(template.column.http),

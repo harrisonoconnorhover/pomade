@@ -238,6 +238,28 @@ and schedules. Review receipts before manually retrying a request with possible
 remote effects. Pagination, PUT/PATCH/DELETE and inbound webhooks remain pending.
 HTTP templates can be reused locally; portable export awaits connection remapping.
 
+## Provider fallback waterfalls
+
+Open **Recipe library → Provider waterfall** to configure two to four HTTP
+provider requests in order. Each step has its own connection, relative endpoint,
+GET/JSON POST inputs and response field. Choose either a nonempty result or an
+email-shaped result. The latter checks format only; it does not verify identity,
+mailbox existence or deliverability. No request occurs while building the recipe.
+
+Run the waterfall like any other recipe. A miss or rejected value advances to
+the next provider; the first accepted result stops further requests. Technical
+errors stop by default, with an explicit continue-on-error setting. Every attempt
+is preserved in the run receipt with result, elapsed time and unknown cost.
+The winner and final status appear beside the result. All misses clear stale
+values and flag review. Unrecovered technical errors stop jobs/schedules.
+
+Confirmation and background/schedule limits include every possible step per row.
+Recent usage counts actual provider attempts separately from logical recipe
+actions. Same-installation templates remap inputs and outputs; portable export
+still requires connection remapping. Existing value-selection waterfalls remain
+local and do not call providers. Native provider presets and richer acceptance
+predicates remain future work; this builder uses configured HTTP connections.
+
 ## Import lists from APIs
 
 Choose **Import from API** beside Load data and select a server-configured HTTP

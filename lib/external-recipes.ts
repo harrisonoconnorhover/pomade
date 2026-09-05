@@ -1,6 +1,10 @@
 import type { PomadeColumn, PomadeRow } from './pomade-types';
 export function isExternalRecipe(column: PomadeColumn) {
-  return column.recipe === 'web-research' || column.recipe === 'http-api';
+  return (
+    column.recipe === 'web-research' ||
+    column.recipe === 'http-api' ||
+    column.recipe === 'http-waterfall'
+  );
 }
 // Conditions may change after an earlier provider result. Consent covers the maximum, not stale row values.
 export function countMaximumExternalActions(
@@ -10,15 +14,24 @@ export function countMaximumExternalActions(
   return rows.reduce(
     (total, row) =>
       total +
-      columns.filter(
-        (column) =>
-          isExternalRecipe(column) &&
-          !(
-            column.recipe === 'web-research' &&
-            column.outputCardinality === 'list' &&
-            row.generatedByColumnId === column.id
-          ),
-      ).length,
+      columns
+        .filter(
+          (column) =>
+            isExternalRecipe(column) &&
+            !(
+              column.recipe === 'web-research' &&
+              column.outputCardinality === 'list' &&
+              row.generatedByColumnId === column.id
+            ),
+        )
+        .reduce(
+          (sum, column) =>
+            sum +
+            (column.recipe === 'http-waterfall'
+              ? (column.providerWaterfall?.steps.length ?? 4)
+              : 1),
+          0,
+        ),
     0,
   );
 }

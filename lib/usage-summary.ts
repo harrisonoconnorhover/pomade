@@ -24,7 +24,9 @@ function isProviderAction(receipt: ActionReceipt) {
 
 export function summarizeRecentUsage(runs: RunReceipt[]): RecentUsageSummary {
   const receipts = runs.flatMap((run) => run.receipts);
-  const providerReceipts = receipts.filter(isProviderAction);
+  const providerReceipts = receipts
+    .flatMap((receipt) => receipt.attempts ?? [receipt])
+    .filter(isProviderAction);
   const providerActions: RecentUsageSummary['providerActions'] = {};
   for (const receipt of providerReceipts) {
     const provider = receipt.provider as
@@ -37,7 +39,8 @@ export function summarizeRecentUsage(runs: RunReceipt[]): RecentUsageSummary {
   return {
     runCount: runs.length,
     actionCount: receipts.length,
-    localActionCount: receipts.length - providerReceipts.length,
+    localActionCount: receipts.filter((receipt) => !isProviderAction(receipt))
+      .length,
     providerActionCount: providerReceipts.length,
     cachedProviderActionCount: providerReceipts.filter(
       (receipt) => receipt.cached,

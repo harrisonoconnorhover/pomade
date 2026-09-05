@@ -1,3 +1,5 @@
+import { providerInputFields } from './provider-waterfall';
+import { httpInputFields } from './http-enrichment';
 import type { PomadeColumn, WorkspaceSnapshot } from './pomade-types';
 
 export type ColumnDependency = {
@@ -52,6 +54,10 @@ export function findColumnDependencies(
     const boundInputs = new Set(Object.values(column.inputBindings ?? {}));
     const templateInputs = [
       ...templateFields(column.expression),
+      ...(column.http ? httpInputFields(column.http) : []),
+      ...(column.providerWaterfall
+        ? providerInputFields(column.providerWaterfall)
+        : []),
       ...templateFields(column.prompt),
       ...(column.recipe ? (builtinInputs[column.recipe] ?? []) : []),
     ].map((input) => column.inputBindings?.[input] ?? input);

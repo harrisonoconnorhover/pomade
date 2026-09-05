@@ -48,6 +48,7 @@ import Papa from 'papaparse';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import ProviderWaterfallBuilder from '@/components/provider-waterfall-builder';
 import HttpRecipeBuilder from '@/components/http-recipe-builder';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import ApiSourceBuilder from '@/components/api-source-builder';
@@ -486,6 +487,7 @@ export default function PomadeWorkspace({
 
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [lookupBuilderOpen, setLookupBuilderOpen] = useState(false);
+  const [providerBuilderOpen, setProviderBuilderOpen] = useState(false);
   const [httpBuilderOpen, setHttpBuilderOpen] = useState(false);
   const [formulaBuilderOpen, setFormulaBuilderOpen] = useState(false);
   const [waterfallBuilderOpen, setWaterfallBuilderOpen] = useState(false);
@@ -3179,6 +3181,28 @@ export default function PomadeWorkspace({
         </aside>
       </div>
 
+      <ProviderWaterfallBuilder
+        open={providerBuilderOpen}
+        onOpenChange={setProviderBuilderOpen}
+        workspace={workspace}
+        onAdd={(added) => {
+          setWorkspace((current) => ({
+            ...current,
+            columns: [
+              ...current.columns.filter((c) => c.kind !== 'status'),
+              ...added,
+              ...current.columns.filter((c) => c.kind === 'status'),
+            ],
+            schedule: current.schedule?.enabled
+              ? pauseRecipeSchedule(current.schedule)
+              : current.schedule,
+            updatedAt: Date.now(),
+          }));
+          setNotice(
+            'Provider waterfall added. Any active schedule was paused; confirm the expanded request scope before restarting.',
+          );
+        }}
+      />
       <HttpRecipeBuilder
         open={httpBuilderOpen}
         onOpenChange={setHttpBuilderOpen}
@@ -3267,6 +3291,16 @@ export default function PomadeWorkspace({
               }}
             >
               <Globe2 /> HTTP API
+            </Button>
+            <Button
+              variant="outline"
+              disabled={jobLocksWorkspace}
+              onClick={() => {
+                setAddColumnOpen(false);
+                setProviderBuilderOpen(true);
+              }}
+            >
+              Provider waterfall
             </Button>
             <Button
               variant="outline"
@@ -4811,6 +4845,26 @@ export default function PomadeWorkspace({
                   <small>
                     {receipt.after || 'No output'} · {receipt.durationMs} ms
                   </small>
+                  {receipt.attempts?.length ? (
+                    <details>
+                      <summary>
+                        {receipt.attempts.length} provider attempts
+                      </summary>
+                      {receipt.attempts.map((attempt, index) => (
+                        <p key={attempt.id}>
+                          {index + 1}. {attempt.action} ·{' '}
+                          {attempt.status === 'passed'
+                            ? 'accepted'
+                            : 'not accepted'}{' '}
+                          · {attempt.error ?? attempt.after ?? 'No result'} ·{' '}
+                          {attempt.durationMs} ms ·{' '}
+                          {attempt.creditsConsumed === null
+                            ? 'cost unknown'
+                            : `${attempt.creditsConsumed ?? 0} credits`}
+                        </p>
+                      ))}
+                    </details>
+                  ) : null}
                   {receipt.references?.length ? (
                     <span className="receipt-sources">
                       {receipt.references.slice(0, 3).map((reference) => (
@@ -4862,7 +4916,7 @@ export default function PomadeWorkspace({
               <span>Total actions</span>
               <strong>{recentUsage.actionCount}</strong>
               <small>
-                {recentUsage.providerActionCount} provider ·{' '}
+                {recentUsage.providerActionCount} provider attempts ·{' '}
                 {recentUsage.localActionCount} local
               </small>
             </div>

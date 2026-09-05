@@ -119,8 +119,11 @@ Bitscale or Clay.
       schedules. Crossed off 2026-09-05.
 - [ ] Team collaboration and access controls, Google sign-in, and account-scoped
       workspaces, jobs, history, caches, and provider credentials.
-- [ ] True provider waterfalls that call fallback providers only when needed;
-      current waterfalls select already-computed values.
+- [x] True sequential fallback across two-to-four configured HTTP providers with
+      nonempty/email-format acceptance, stop-on-success, explicit error policy,
+      per-attempt receipts and weighted request limits. Verified 2026-09-05.
+- [ ] Native provider waterfall presets, richer acceptance predicates and verified
+      data-quality/cost comparison against the competitors.
 - [ ] Multi-step reusable functions with versioned changes and explicit rollout;
       current templates are copied single-column configurations.
 - [ ] Complete standalone self-host packaging, persistence, and scheduled worker
@@ -142,7 +145,7 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. True provider fallback with per-attempt results and costs.
+1. Repeatable table transfer/update rules and richer relationships.
 2. Repeatable cross-table transfers, richer lookup matching/aggregation and
    reusable workbook templates.
 3. Scheduled source refresh and update-existing-record rules with visible results.
@@ -165,7 +168,7 @@ Provider counts and coverage percentages on marketing pages are vendor claims.
 | Area | Current competitor evidence | Pomade's concrete target |
 | --- | --- | --- |
 | Reuse | Bitscale saves enrichment templates; Clay Functions bundle steps and propagate updates across tables. | Portable recipes now; versioned multi-step functions later, with preview before updating dependents. |
-| Data coverage | Both advertise multi-provider waterfalls. | Sequential fallback, visible attempt results, stop on success, then compare identical sample inputs for accepted data and actual cost. |
+| Data coverage | Both advertise multi-provider waterfalls. | Configured HTTP fallback now stops on success and records attempts; next compare identical real inputs for accepted data and actual cost. |
 | Research | Claygent browses for dynamic context; Bitscale advertises live BitAgent research. | Preserve citations and typed outputs; measure grounded answer accuracy on the same questions. |
 | Automation | Clay documents Workflows and custom signals; Bitscale documents programmatic grid execution. | Add event-driven runs with visible progress and receipts; prove retries do not duplicate successful actions. |
 | Ownership | Our product requirement is hosted convenience plus independent installation. | Same recipe format and engine in both; account-independent exports and documented self-host setup. No claim about competitor self-host support. |

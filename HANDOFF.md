@@ -2,40 +2,40 @@
 
 ## Finished
 
-- Added API list imports through configured GET/JSON POST connections with page, offset and cursor pagination.
-- Added explicit request/record limits, partial-result retention and repeated-cursor stopping.
-- Saved fetch batches for reload, preview and JSON download before table changes.
-- Added field mapping and optional stable-ID deduplication, preserving existing rows and their edits.
-- Added source provenance and paused active schedules when imports expand the table.
+- Added sequential fallback across two-to-four configured HTTP providers with stop-on-success and explicit technical-error policy.
+- Added nonempty/email-format acceptance, winner/status columns and stale-value clearing.
+- Added visible per-attempt receipts, actual-attempt usage and weighted request caps.
+- Integrated fallback with manual/background/scheduled execution, templates and input dependencies.
+- Fixed the unsaved-row execution merge conflict found by real Worker testing.
 
 ## Try It
 
-Run `npm run dev`, choose **Import from API**, select a configured connection and enter the endpoint/records path. Set pagination and bounds, confirm requests and fetch. Choose a batch, map fields and import the preview. A stable-ID field skips records already imported from that connection/endpoint. Test servers stopped after verification.
+Run `npm run dev`, open **Recipe library → Provider waterfall**, configure provider steps and add the recipe. Run its column and confirm the maximum requests. Inspect the winning-provider column and expand provider attempts in the receipt. For local background work, use the built Worker plus `npm run clock` as documented in README. Verification servers were stopped.
 
 ## Checks
 
-- 13 API-source/HTTP tests passed.
-- Typecheck, lint and production build passed.
-- Isolated Worker + D1 + fixture API passed confirmation/caps, GET page/offset/cursor, JSON POST, stable IDs, partial failures, batch reload/isolation and explicit row persistence.
-- Home HTTP 200 and final diff whitespace check passed.
-- No browser interaction test, real paid calls or public deployment.
+- 145 full-suite tests passed; final focused fallback/merge/pipeline suite: 14 passed.
+- Final typecheck, lint and production build passed.
+- Isolated Worker + D1 + fixture providers passed first-hit suppression, miss fallback, weighted caps, error stop/continuation, stale clearing, downstream formulas and durable attempts.
+- Background/scheduled execution and home HTTP 200 passed; final diff whitespace check passed.
+- No browser interaction test, paid provider calls or public deployment.
 
 ## Decisions
 
-- Save fetched data before importing; preserve earlier pages if later requests fail.
-- Existing stable IDs are skipped, not updated. Without stable IDs, deduplication is batch-local.
-- Keep the broad competitor goal active and commit locally only.
+- A logical waterfall action can contain several billable attempts; show both counts honestly.
+- Email format is not deliverability verification. Native provider presets remain separate work.
+- Keep the full competitor goal active and commit locally only.
 
 ## Remaining
 
-- True provider fallback with per-attempt results and usage.
-- Scheduled source refresh, update-existing rules and body/next-URL pagination.
-- Richer table transfers, signals and reusable multi-step functions.
-- Governed CRM writeback and source-history retention controls.
-- Independent self-host packaging, account isolation, Google sign-in and public release later.
+- Repeatable table transfer/update rules and richer relationships.
+- Native provider presets and richer acceptance predicates.
+- Scheduled sources, signals and reusable multi-step functions.
+- Governed CRM writeback and retained-history controls.
+- Independent self-host packaging, accounts, Google sign-in and public release later.
 
 ## Review First
 
-- `lib/api-source.ts` and tests for pagination, bounds and identity behavior.
-- `app/api/sources/http/route.ts` for confirmation and durable batch storage.
-- `components/api-source-builder.tsx` for fetch configuration, history and mapped import.
+- `lib/provider-waterfall.ts` and tests for acceptance and request suppression.
+- `lib/external-recipes.ts`, usage summary and recipe route for counts and execution.
+- `components/provider-waterfall-builder.tsx` and run receipts for configuration and evidence.

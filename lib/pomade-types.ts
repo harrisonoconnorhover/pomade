@@ -46,6 +46,20 @@ export type HttpRecipe = {
   statusColumnId: string;
 };
 
+export type HttpProviderStep = {
+  connectionId: string;
+  method: 'GET' | 'POST';
+  pathTemplate: string;
+  bodyTemplate?: string;
+  responsePath: string;
+};
+export type ProviderWaterfall = {
+  steps: HttpProviderStep[];
+  accept: 'nonempty' | 'email';
+  continueOnError: boolean;
+  winnerColumnId: string;
+  statusColumnId: string;
+};
 export type PomadeColumn = {
   id: string;
   title: string;
@@ -65,8 +79,10 @@ export type PomadeColumn = {
   waterfallSteps?: WaterfallStep[];
   lookup?: TableLookup;
   http?: HttpRecipe;
+  providerWaterfall?: ProviderWaterfall;
   recipe?:
     | 'http-api'
+    | 'http-waterfall'
     | 'table-lookup'
     | 'custom-formula'
     | 'normalize-domain'
@@ -193,6 +209,7 @@ export type WorkspaceSource = {
 };
 
 export type ActionReceipt = {
+  attempts?: ActionReceipt[];
   id: string;
   rowId: string;
   rowLabel: string;
