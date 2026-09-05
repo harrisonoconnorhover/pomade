@@ -6,6 +6,10 @@ Bitscale or Clay.
 
 ## Already working
 
+- [x] Apollo company enrichment preset with server-side existing-key connection,
+      domain normalization/match checking and four mapped outputs. Docs plus
+      local fixtures verified 2026-09-05; paid live qualification remains open.
+
 - [x] Watched-field change signals from recipe runs, scheduled API refreshes and
       transfers, with stable-row baselines, old/new values, review state and
       paginated history. Bounded event details; crossed off 2026-09-05.
@@ -180,7 +184,7 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Native provider presets and dedicated external-event signals.
+1. Broader provider presets, live qualification and dedicated external-event signals.
 2. Numeric/grouped aggregations and richer formula logic.
 3. Richer source pagination and native provider presets.
 4. Saved-search sources, external-event monitors and bulk function rollout.
@@ -273,3 +277,14 @@ Pomade now durably receives authenticated deliveries with retry deduplication an
 an import preview, and now supports opt-in automatic ingestion on worker ticks. It is bounded polling,
 not instant event-to-enrichment execution. Provider-specific adapters and automatic
 recipe triggering remain gaps.
+
+
+## Apollo company preset contract, refreshed 2026-09-05
+
+[Apollo organization enrichment](https://docs.apollo.io/reference/organization-enrichment)
+documents GET `/api/v1/organizations/enrich`, domain input and one credit per
+organization. The official page's embedded response example supplies
+`organization.name`, `primary_domain`, `industry` and `estimated_num_employees`.
+[OpenAPI/authentication guidance](https://docs.apollo.io/reference/openapi-specification)
+confirms the `x-api-key` header. Pomade withholds mismatched identities and keeps
+actual credit usage unknown; local fixtures are not live account qualification.

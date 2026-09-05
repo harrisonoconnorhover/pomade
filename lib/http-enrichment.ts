@@ -1,3 +1,4 @@
+import { normalizeLookupKey } from './table-lookup';
 import type {
   ActionReceipt,
   HttpRecipe,
@@ -114,7 +115,12 @@ function interpolate(
 ) {
   return text.replace(/\{\{\s*([a-zA-Z0-9_-]+)\s*\}\}/g, (_, key: string) => {
     const field = column.inputBindings?.[key] ?? key;
-    const value = row.values[field] ?? '';
+    const raw = row.values[field] ?? '';
+    const value =
+      column.http?.preset === 'apollo-company' &&
+      key === column.http.presetInputKey
+        ? normalizeLookupKey(raw, 'domain')
+        : raw;
     if (!value.trim()) throw new Error(`Missing request input: ${key}`);
     return encode ? encodeURIComponent(value) : value;
   });
@@ -132,6 +138,16 @@ export function prepareHttpRequest(
     config.pathTemplate.startsWith('//')
   )
     throw new Error('Use a relative API path beginning with one slash.');
+  if (
+    config.preset === 'apollo-company' &&
+    (config.method !== 'GET' ||
+      !config.presetInputKey ||
+      config.pathTemplate !==
+        `/api/v1/organizations/enrich?domain={{${config.presetInputKey}}}`)
+  )
+    throw new Error(
+      'Apollo preset request settings changed. Recreate the preset or use a custom HTTP recipe.',
+    );
   const path = interpolate(config.pathTemplate, row, column, true);
   const url = new URL(path, connection.origin);
   if (
@@ -345,6 +361,17 @@ export async function executeHttpRecipe(
       );
     }
     const data = await boundedJson(response);
+    if (config.preset === 'apollo-company') {
+      const expected = new URL(request.url).searchParams.get('domain');
+      const returned = jsonPath(data, 'organization.primary_domain');
+      if (
+        typeof returned !== 'string' ||
+        normalizeLookupKey(returned, 'domain') !== expected
+      )
+        throw new Error(
+          'Apollo returned no matching domain. Results withheld for review.',
+        );
+    }
     const missing: string[] = [];
     for (const output of config.outputs) {
       const value = jsonPath(data, output.path);
@@ -379,11 +406,20 @@ export async function executeHttpRecipe(
     after: values[column.id] ?? '',
     outputValues: values,
     error: failure,
-    provider: sent ? 'http' : 'local',
+    provider: sent
+      ? config.preset === 'apollo-company'
+        ? 'apollo'
+        : 'http'
+      : 'local',
     creditsConsumed: sent ? null : 0,
     evidence: [
       `Connection: ${connection?.label ?? config.connectionId}`,
       `Method: ${config.method}`,
+      ...(config.preset === 'apollo-company'
+        ? [
+            'Apollo lists 1 credit per organization; actual credit usage was not reported by this response.',
+          ]
+        : []),
       status,
     ],
   };

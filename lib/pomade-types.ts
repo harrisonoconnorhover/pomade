@@ -40,6 +40,8 @@ export type TableLookup = {
 };
 
 export type HttpRecipe = {
+  preset?: 'apollo-company';
+  presetInputKey?: string;
   connectionId: string;
   method: 'GET' | 'POST';
   pathTemplate: string;

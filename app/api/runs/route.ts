@@ -1,3 +1,4 @@
+import { configuredHttpConnections } from '@/lib/provider-connections';
 import { signalStatements } from '@/db/signal-store';
 import { executeProviderWaterfall } from '@/lib/provider-waterfall';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
@@ -6,7 +7,7 @@ import {
   countMaximumExternalActions,
   isExternalRecipe,
 } from '@/lib/external-recipes';
-import { executeHttpRecipe, httpConnections } from '@/lib/http-enrichment';
+import { executeHttpRecipe } from '@/lib/http-enrichment';
 import { executeRecipePipeline } from '@/lib/recipe-pipeline';
 
 import { ensureDatabase } from '@/db/ensure';
@@ -202,7 +203,7 @@ export async function POST(request: Request) {
       (column) =>
         column.recipe === 'http-api' || column.recipe === 'http-waterfall',
     )
-      ? httpConnections(env.POMADE_HTTP_CONNECTIONS)
+      ? configuredHttpConnections(env)
       : [];
     const parallelConfigured = Boolean(env.PARALLEL_API_KEY?.trim());
     const geminiConfigured = Boolean(env.GEMINI_API_KEY?.trim());

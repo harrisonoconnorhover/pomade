@@ -674,3 +674,17 @@ source mutations or numeric/grouped aggregation.
 - Do not claim independent external-event detection or notifications. Watch
   coverage follows configured data sources and recipe outputs. Retain watch
   configuration in templates; history stays with its original table.
+
+
+## 2026-09-05 — Apollo company preset over the HTTP runner
+
+- Reuse `APOLLO_API_KEY` through a reserved server-side connection and retain the
+  existing HTTP recipe execution/confirmation path. Keep key material out of
+  public summaries and saved column configurations.
+- Normalize domain input and require matching `organization.primary_domain`
+  before accepting mapped company fields. Flag absent fields and withhold a
+  mismatched response. Restrict preset request shape; arbitrary APIs use custom
+  HTTP recipes.
+- Distinguish Apollo's documented one-credit price from observed usage. Receipts
+  report unknown actual credits. Validate with public docs and local/mocked
+  responses; paid live validation requires separate scoped authority.

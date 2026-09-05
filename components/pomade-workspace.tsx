@@ -52,6 +52,7 @@ import ProviderWaterfallBuilder from '@/components/provider-waterfall-builder';
 import HttpRecipeBuilder from '@/components/http-recipe-builder';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { functionStepIds } from '@/lib/recipe-functions';
+import ProviderPresetBuilder from '@/components/provider-preset-builder';
 import ChangeSignals from '@/components/change-signals';
 import RecipeFunctionBuilder from '@/components/recipe-function-builder';
 import TableTransferBuilder from '@/components/table-transfer-builder';
@@ -2771,6 +2772,28 @@ export default function PomadeWorkspace({
               >
                 <Upload /> Load data
               </Button>
+              <ProviderPresetBuilder
+                key={`presets-${workspace.id}`}
+                workspace={workspace}
+                ready={canLeaveTable}
+                onAdd={(columns) => {
+                  setWorkspace((current) => ({
+                    ...current,
+                    columns: [
+                      ...current.columns.filter((c) => c.kind !== 'status'),
+                      ...columns,
+                      ...current.columns.filter((c) => c.kind === 'status'),
+                    ],
+                    schedule: current.schedule
+                      ? pauseRecipeSchedule(current.schedule)
+                      : undefined,
+                    updatedAt: Date.now(),
+                  }));
+                  setNotice(
+                    'Apollo company columns added. Review and run when ready.',
+                  );
+                }}
+              />
               <ChangeSignals
                 key={`signals-${workspace.id}`}
                 workspace={workspace}

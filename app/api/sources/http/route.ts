@@ -1,6 +1,6 @@
+import { configuredHttpConnections } from '@/lib/provider-connections';
 import { env } from 'cloudflare:workers';
 import { ensureDatabase } from '@/db/ensure';
-import { httpConnections } from '@/lib/http-enrichment';
 import {
   fetchApiSource,
   validateApiSource,
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   let connection;
   try {
     validateApiSource(body.config);
-    connection = httpConnections(env.POMADE_HTTP_CONNECTIONS).find(
+    connection = configuredHttpConnections(env).find(
       (c) => c.id === body.config.connectionId,
     );
     if (!connection) throw new Error('HTTP connection is not configured.');

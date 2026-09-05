@@ -1,11 +1,10 @@
+import { configuredHttpConnections } from '@/lib/provider-connections';
 import { env } from 'cloudflare:workers';
-import { httpConnections, publicHttpConnections } from '@/lib/http-enrichment';
+import { publicHttpConnections } from '@/lib/http-enrichment';
 export async function GET() {
   try {
     return Response.json({
-      connections: publicHttpConnections(
-        httpConnections(env.POMADE_HTTP_CONNECTIONS),
-      ),
+      connections: publicHttpConnections(configuredHttpConnections(env)),
     });
   } catch (error) {
     return Response.json(

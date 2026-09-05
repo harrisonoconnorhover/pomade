@@ -575,3 +575,25 @@ is observed field-change tracking, not an independent job-change/news monitor or
 an outbound notification service. Provider coverage and refresh cadence determine
 what changes Pomade can observe. Workbook templates preserve watch configurations
 but do not copy signal history.
+
+
+### Apollo company enrichment preset
+
+Open **Provider presets**, select the domain input and add the company columns.
+The preset reuses server-side `APOLLO_API_KEY`, calls Apollo organization enrichment
+and maps company name, returned domain, industry and estimated employee count.
+Website inputs are normalized to domains. A missing or mismatched returned domain
+withholds all preset results for review; missing optional fields remain blank and
+flagged. Adding columns makes no requests and pauses an existing schedule.
+
+Run, queue or schedule it through the ordinary external-request confirmation and
+limits. Apollo's [organization enrichment reference](https://docs.apollo.io/reference/organization-enrichment)
+currently lists one credit per organization (verified 2026-09-05). Receipts retain
+unknown actual credit usage when the response does not report it. Account/key
+scope controls access; Pomade does not promise every field will be available.
+
+`pomade_apollo_company` is a reserved built-in connection ID using
+`https://api.apollo.io` and an `x-api-key` header. Public connection summaries and
+saved recipes do not contain that key. Generic custom connections remain
+available. This preset has been checked against Apollo's public contract and
+local/mocked responses; no paid live Apollo call was used for qualification.
