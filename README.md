@@ -23,6 +23,8 @@ what changed. It is an original product built on the open-source
   Parallel Web Research—or Gemini as a fallback—with clickable citations.
 - Start from an ICP description and create an evidence-backed company list with
   canonical company/domain fields without replacing the current table.
+- Find current public business profiles at any company row and create canonical
+  person/title child rows ready for optional Apollo enrichment.
 - Schedule the whole table or a captured selection once, every 24 hours, or
   every 7 days through a durable one-minute worker clock.
 - Queue up to 100 rows for durable background execution with progress,
@@ -89,6 +91,12 @@ the exact HubSpot or Salesforce destination fields, and packages only selected
 columns. Missing clean-record inputs stay visible. The result is still a
 preview-only plan: GTM Control Tower owns freshness checks, approval, provider
 writes, native receipts, and rollback.
+
+The people finder starts from the active company or domain, accepts a role and
+seniority brief, and returns up to 25 current public profiles with title,
+LinkedIn URL, role-match reason, location, citations, and lineage back to the
+company row. It deliberately does not infer private contact details; eligible
+results can move through the separate, credit-confirmed Apollo flow.
 
 AI web research can return one answer or populate two to six typed output
 columns from one request. Structured outputs support text, date, number, and

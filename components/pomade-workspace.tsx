@@ -38,6 +38,7 @@ import {
   Table2,
   Trash2,
   Upload,
+  Users,
   WandSparkles,
   Workflow,
 } from 'lucide-react';
@@ -73,6 +74,7 @@ import {
   recalculateAutomaticFormulas,
   renderCustomFormula,
 } from '@/lib/local-recipe-engine';
+import { createPeopleListWorkspace } from '@/lib/people-list-builder';
 import type {
   ApolloEnrichmentResult,
   CrmProvider,
@@ -447,6 +449,7 @@ export default function PomadeWorkspace() {
   const [recipeSettingsOpen, setRecipeSettingsOpen] = useState(false);
   const [researchBuilderOpen, setResearchBuilderOpen] = useState(false);
   const [companyListOpen, setCompanyListOpen] = useState(false);
+  const [peopleListOpen, setPeopleListOpen] = useState(false);
   const [templateSaveOpen, setTemplateSaveOpen] = useState(false);
   const [templateUseOpen, setTemplateUseOpen] = useState(false);
   const [researchConfirmOpen, setResearchConfirmOpen] = useState(false);
@@ -505,6 +508,10 @@ export default function PomadeWorkspace() {
     'B2B software companies with lean go-to-market teams that sell to revenue operations leaders in the United States.',
   );
   const [icpListLimit, setIcpListLimit] = useState(15);
+  const [peopleBrief, setPeopleBrief] = useState(
+    'Founders and revenue, sales operations, or go-to-market leaders',
+  );
+  const [peopleListLimit, setPeopleListLimit] = useState(10);
   const [pendingRunRowIds, setPendingRunRowIds] = useState<string[]>([]);
   const [pendingRunColumnIds, setPendingRunColumnIds] = useState<string[]>([]);
   const [pendingRunMode, setPendingRunMode] =
@@ -819,6 +826,12 @@ export default function PomadeWorkspace() {
     scheduledResearchActionCount <= maximumResearchActions &&
     (webResearchColumns.length === 0 || scheduleConfirmsResearch);
   const icpListReady = Boolean(icpBrief.trim()) && icpListLimit >= 1;
+  const peopleListReady = Boolean(
+    selected &&
+    (selected.values.company?.trim() || selected.values.domain?.trim()) &&
+    peopleBrief.trim() &&
+    peopleListLimit >= 1,
+  );
   const selectedReceipts = runHistory
     .flatMap((run) => run.receipts)
     .filter((receipt) => receipt.rowId === selected?.id)
@@ -1072,6 +1085,18 @@ export default function PomadeWorkspace() {
     setCompanyListOpen(true);
   }
 
+  function openPeopleListBuilder() {
+    if (
+      !selected ||
+      (!selected.values.company?.trim() && !selected.values.domain?.trim())
+    ) {
+      setNotice('Choose a row with a company or company domain first.');
+      return;
+    }
+    setPeopleListLimit(10);
+    setPeopleListOpen(true);
+  }
+
   function createCompanyList() {
     if (!icpListReady) return;
     const result = createCompanyListWorkspace(workspace, {
@@ -1088,6 +1113,28 @@ export default function PomadeWorkspace() {
     setPendingRunColumnIds([result.researchColumnId]);
     setPendingRunMode('immediate');
     setCompanyListOpen(false);
+    setResearchConfirmOpen(true);
+    if (result.schedulePaused) {
+      setNotice('Schedule paused so you can approve the new research scope.');
+    }
+  }
+
+  function createPeopleList() {
+    if (!peopleListReady || !selected) return;
+    const result = createPeopleListWorkspace(workspace, {
+      rowId: selected.id,
+      brief: peopleBrief,
+      limit: peopleListLimit,
+    });
+    setWorkspace(result.workspace);
+    setActiveRowId(result.sourceRowId);
+    setSelectedRowIds([result.sourceRowId]);
+    setFilter('All');
+    setQuery('');
+    setPendingRunRowIds([result.sourceRowId]);
+    setPendingRunColumnIds([result.researchColumnId]);
+    setPendingRunMode('immediate');
+    setPeopleListOpen(false);
     setResearchConfirmOpen(true);
     if (result.schedulePaused) {
       setNotice('Schedule paused so you can approve the new research scope.');
@@ -2088,6 +2135,19 @@ export default function PomadeWorkspace() {
               >
                 <Building2 /> Find companies
               </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={openPeopleListBuilder}
+                disabled={
+                  jobLocksWorkspace ||
+                  !selected ||
+                  (!selected.values.company?.trim() &&
+                    !selected.values.domain?.trim())
+                }
+              >
+                <Users /> Find people
+              </Button>
               <span className="toolbar-divider" />
               <span className="toolbar-stat">
                 <Rows3 /> {visibleRows.length} rows
@@ -2162,6 +2222,17 @@ export default function PomadeWorkspace() {
                     disabled={jobLocksWorkspace}
                   >
                     <Building2 /> Find target companies
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={openPeopleListBuilder}
+                    disabled={
+                      jobLocksWorkspace ||
+                      !selected ||
+                      (!selected.values.company?.trim() &&
+                        !selected.values.domain?.trim())
+                    }
+                  >
+                    <Users /> Find people at this company
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => setRecipeSettingsOpen(true)}
@@ -2340,6 +2411,26 @@ export default function PomadeWorkspace() {
             <div>
               <strong>Research with AI</strong>
               <small>Custom prompt + cited web research</small>
+            </div>
+            <Sparkles />
+          </button>
+          <button
+            className="research-action"
+            type="button"
+            onClick={openPeopleListBuilder}
+            disabled={
+              jobLocksWorkspace ||
+              !selected ||
+              (!selected.values.company?.trim() &&
+                !selected.values.domain?.trim())
+            }
+          >
+            <span>
+              <Users />
+            </span>
+            <div>
+              <strong>Find people</strong>
+              <small>Current roles at this company</small>
             </div>
             <Sparkles />
           </button>
@@ -3421,6 +3512,86 @@ export default function PomadeWorkspace() {
               Cancel
             </Button>
             <Button onClick={createCompanyList} disabled={!icpListReady}>
+              <Globe2 /> Continue to research
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={peopleListOpen} onOpenChange={setPeopleListOpen}>
+        <DialogContent className="company-list-dialog">
+          <DialogHeader>
+            <DialogTitle>Find people at this company</DialogTitle>
+            <DialogDescription>
+              Research current public business profiles at the active company,
+              then add evidence-linked people as child rows.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="research-provider-state">
+            <span className="source-logo source-logo-gemini">
+              <Users />
+            </span>
+            <div>
+              <strong>
+                {selectedValues.company || selectedValues.domain || 'Company'}
+              </strong>
+              <small>
+                {selectedValues.domain || 'No domain'} ·{' '}
+                {researchStatus?.label ?? 'AI web research'}
+              </small>
+            </div>
+            <span
+              className={`connection-badge ${researchStatus?.configured ? 'connection-ready' : ''}`}
+            >
+              {researchStatus?.configured ? 'Key ready' : 'Add key locally'}
+            </span>
+          </div>
+          <label className="research-field">
+            <span>Roles and seniority</span>
+            <textarea
+              value={peopleBrief}
+              maxLength={2_000}
+              onChange={(event) => setPeopleBrief(event.target.value)}
+              placeholder="Who should Pomade find? Include functions, titles, seniority, geography, and exclusions."
+            />
+          </label>
+          <label className="list-result-limit company-list-limit">
+            <span>
+              Maximum results <small>1–25 people</small>
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={25}
+              value={peopleListLimit}
+              onChange={(event) =>
+                setPeopleListLimit(
+                  Math.min(25, Math.max(1, Number(event.target.value) || 1)),
+                )
+              }
+            />
+          </label>
+          <div className="company-list-outputs">
+            <span>Person</span>
+            <span>Title</span>
+            <span>LinkedIn</span>
+            <span>Role match</span>
+            <span>Location</span>
+          </div>
+          <p className="research-safety">
+            Pomade keeps the company row, adds one reusable list recipe, and
+            asks for provider confirmation before research. It returns public
+            role evidence only—use Apollo afterward for eligible work-email
+            enrichment.
+            {workspace.schedule?.enabled
+              ? ' The active schedule will pause until you approve its new provider scope.'
+              : ''}
+          </p>
+          <div className="research-confirm-actions">
+            <Button variant="outline" onClick={() => setPeopleListOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={createPeopleList} disabled={!peopleListReady}>
               <Globe2 /> Continue to research
             </Button>
           </div>

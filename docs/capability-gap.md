@@ -53,11 +53,15 @@ Bitscale or Clay.
       including portable suggestions, native destination names, missing-gate
       warnings, and mapped-only Control Tower preview payloads. Crossed off
       2026-09-04.
+- [x] First-party people finder from any company/domain row, with bounded role
+      criteria, current-public-profile grounding, canonical person/title
+      projection, child-row lineage, and an Apollo-ready follow-on. Crossed off
+      2026-09-05.
 
 ## Core gaps to cross off
 
-- [ ] First-party people lists plus company/people sourcing from saved searches,
-      Maps, and job-board sources.
+- [ ] Company and people sourcing from saved searches, Maps, and job-board
+      sources.
 - [ ] Generic HTTP API enrichment plus inbound and outbound webhooks.
 - [ ] Authenticated plan import plus governed HubSpot/Salesforce writeback
       through GTM Control Tower.
@@ -90,8 +94,8 @@ Bitscale or Clay.
    approval, receipt, and rollback outside the enrichment grid.
 2. Multiple tables per workbook with reusable table templates and relationships,
    so prospecting, people, and campaign views do not have to share one grid.
-3. First-party people lists plus saved-search, Maps, and job-board sources so
-   list building is not limited to ICP-to-company research.
+3. Saved-search, Maps, and job-board sources so list building is not limited to
+   ICP company and company-to-people research.
 
 ## Official product references
 

@@ -190,6 +190,19 @@ fresh reads, duplicate and clean-record gates, explicit approval, native
 receipts, and rollback. This adds useful preparation without bypassing the
 governed execution workflow that already exists.
 
+## People discovery stays public and composes with Apollo
+
+The people finder is a bounded list-research recipe attached to one company or
+domain row. It asks for current role evidence, public LinkedIn URLs, a role-match
+reason, and location, then projects verified names and titles into the canonical
+person and title columns. Generated people remain provenance-linked children of
+the source company and reruns replace only that recipe's earlier children.
+
+The finder does not request or infer private contact details. Work-email lookup
+remains a separate Apollo action with its own eligibility checks, explicit
+credit confirmation, cache, and receipts. This makes the company-to-person-to-
+enrichment funnel composable without hiding provider cost or uncertainty.
+
 ## Waterfalls compose upstream results
 
 A data waterfall is a local auto-updating recipe with two to six ordered input
