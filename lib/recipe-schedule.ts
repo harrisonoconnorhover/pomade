@@ -1,5 +1,7 @@
+import { functionStepIds } from './recipe-functions';
 import type {
   RecipeSchedule,
+  TableTransferRule,
   RecipeScheduleCadence,
   RunReceipt,
   WorkspaceSnapshot,
@@ -20,6 +22,8 @@ export function createRecipeSchedule(input: {
   cadence: RecipeScheduleCadence;
   nextRunAt: number;
   rowIds?: string[];
+  functionInstanceId?: string;
+  afterRunTransfer?: TableTransferRule;
   now?: number;
 }): RecipeSchedule {
   const now = input.now ?? Date.now();
@@ -29,6 +33,11 @@ export function createRecipeSchedule(input: {
   const rowIds = Array.from(new Set(input.rowIds ?? [])).filter(Boolean);
   return {
     id: input.id,
+    functionInstanceId: input.functionInstanceId || undefined,
+    afterRunTransfer: input.afterRunTransfer
+      ? structuredClone(input.afterRunTransfer)
+      : undefined,
+    lastTransferRunId: undefined,
     cadence: input.cadence,
     enabled: true,
     nextRunAt: input.nextRunAt,
@@ -147,4 +156,9 @@ export function pauseRecipeSchedule(
     leaseUntil: undefined,
     updatedAt: now,
   };
+}
+
+export function scheduledColumnIds(workspace: WorkspaceSnapshot) {
+  const id = workspace.schedule?.functionInstanceId;
+  return id ? functionStepIds(workspace.columns, id) : undefined;
 }

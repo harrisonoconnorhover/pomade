@@ -2,39 +2,40 @@
 
 ## Finished
 
-- Added reusable groups of two to ten same-row recipe steps.
-- Added cross-table library selection, external input mapping and output preview.
-- Automatically remapped intermediate structured outputs and run conditions.
-- Added grouped immediate/background execution with existing request controls.
-- Preserved independent copies and detected missing/reordered group steps.
+- Added function-only scope to existing recipe schedules.
+- Added optional post-success transfer using a captured saved mapping.
+- Kept original scheduled row scope through both stages.
+- Committed destination changes, receipt and schedule completion together.
+- Stopped failed/broken recipes and ambiguous transfers before destination changes.
 
 ## Try It
 
-Run `npm run dev`, open **Recipe functions**, and save two configured recipe columns. In another table choose the source library, map inputs and add the function. Use **Run function** or **Queue function** for selected/visible rows. Background execution needs the existing Worker tick/clock. Test server stopped after verification.
+Configure and preview a transfer in **Transfer rows**. Open **Schedule recipe runs**, choose a function or all recipes, then select the transfer under **After a successful run**. Save a future time. Keep the local Worker and `npm run clock` running for scheduled execution. Test Worker stopped after verification.
 
 ## Checks
 
-- 16 focused function, template and ordered-pipeline tests passed, including mocked HTTP chaining.
+- 20 focused schedule, function and transfer tests passed.
 - Typecheck, lint and production build passed.
-- Isolated Worker + D1 passed definition persistence, cross-table mapping, scoped manual and queued runs, unchanged source and home HTTP 200.
-- Final whitespace/diff review passed. No browser interaction test, real provider call or deployment.
+- Isolated Worker + D1 passed scoped execution, copied mapping, selected rows, receipts, completed-tick deduplication and repeatable upsert.
+- Duplicate-key and broken-function failures left the destination unchanged; home HTTP 200 passed.
+- Diff whitespace/review passed. No browser interaction test, real provider calls or deployment.
 
 ## Decisions
 
-- Same-row functions reuse existing execution; list-producing steps remain separate stages.
-- Saved definitions and added instances are independent copies.
-- Keep builds and commits local; full competitor goal remains active.
+- Capture transfer settings when saving; later rule edits do not affect active schedules.
+- Scheduled match-key review blocks the whole transfer.
+- Recipe lease recovery can repeat provider execution; no exactly-once claim.
 
 ## Remaining
 
-- Versioned function updates and portable export.
-- Scheduled table workflows and workbook templates.
-- Numeric/grouped aggregations, native provider presets and signals.
+- Scheduled API-source refresh and branching workflows.
+- Workbook templates and versioned function updates.
+- Native provider presets, signals and numeric/grouped aggregations.
 - Governed CRM writeback and retained-history controls.
 - Self-host packaging, hosted accounts and public release later.
 
 ## Review First
 
-- `lib/recipe-functions.ts` and tests for dependency mapping and execution scope.
-- `components/recipe-function-builder.tsx` for capture, reuse and grouped runs.
+- `worker.ts` and `db/scheduled-transfer.ts` for ordered execution and atomic completion.
+- `lib/recipe-schedule.ts` and schedule UI for captured scope/settings.
 - `docs/capability-gap.md` for remaining competitor gaps.

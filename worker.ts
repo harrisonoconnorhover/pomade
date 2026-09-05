@@ -1,9 +1,11 @@
 import app from 'vinext/server/fetch-handler';
+import { scheduledTransferStatements } from './db/scheduled-transfer';
 
 import { versionedWorkspaceStatements } from './db/workspace-store';
 import { ingestWebhookEvents } from './db/webhook-ingestion';
 import { ensureDatabaseSchema } from './db/ensure';
 import {
+  scheduledColumnIds,
   claimDueSchedule,
   completeClaimedSchedule,
   failClaimedSchedule,
@@ -113,6 +115,7 @@ export async function runDueSchedules(
           body: JSON.stringify({
             workspace: claimed,
             rowIds,
+            columnIds: scheduledColumnIds(claimed),
             confirmExternalResearch:
               claimed.schedule?.confirmExternalResearch === true,
           }),
@@ -135,10 +138,25 @@ export async function runDueSchedules(
         (receipt) => receipt.error,
       )?.error;
       if (stepError) throw new Error(stepError);
-      await saveWorkspace(
-        env,
-        completeClaimedSchedule(result.workspace, result.run, Date.now()),
+      const transfer = await scheduledTransferStatements(
+        env.DB,
+        result.workspace,
+        rowIds ?? claimed.rows.map((row) => row.id),
       );
+      const completed = completeClaimedSchedule(
+        result.workspace,
+        result.run,
+        Date.now(),
+      );
+      completed.schedule!.lastTransferRunId = transfer.receiptId;
+      await env.DB.batch([
+        ...transfer.statements,
+        ...(await versionedWorkspaceStatements(
+          env.DB,
+          completed,
+          'Background run queued',
+        )),
+      ]);
     } catch (error) {
       if (!latestWorkspace) continue;
       const message =

@@ -6,6 +6,10 @@ Bitscale or Clay.
 
 ## Already working
 
+- [x] Scheduled all-recipe or function-only runs followed by a captured mapped
+      table transfer, with original-row scope and stop-on-error behavior.
+      Crossed off 2026-09-05; source refresh and branching remain gaps.
+
 - [x] Save two-to-ten-step same-row recipe functions, reuse across local tables
       with mapped external inputs and connected internal outputs, and run or
       queue just their steps. Independent copies; crossed off 2026-09-05.
@@ -156,7 +160,7 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Scheduled table workflows connecting existing sources, recipes and transfers.
+1. Scheduled source refresh feeding existing recipe-to-transfer workflows.
 2. Reusable workbook templates with explicit table/input remapping.
 3. Scheduled source refresh and update-existing-record rules with visible results.
 4. Saved-search sources, recurring signals and versioned function updates.

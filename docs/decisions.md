@@ -591,3 +591,17 @@ source mutations or numeric/grouped aggregation.
 - Store definitions in table snapshots and copy them into new independent column
   groups. No live version propagation, portable connection remapping, accounts or
   publication in this slice. Continue local-only iteration.
+
+
+## 2026-09-05 — Scheduled recipe-to-transfer workflows
+
+- Extend the existing schedule with optional function membership and a captured
+  transfer rule. Legacy schedules retain all-column execution and no transfer.
+  Reuse ordinary provider consent/counts for the selected function.
+- Transfer original scheduled rows after recipe success; stop the whole transfer
+  on ambiguous keys. Commit destination changes, receipt and source completion
+  in one D1 batch with existing revision checks. An interrupted recipe run may
+  still repeat on lease recovery; do not claim exactly-once provider calls.
+- Keep one source-to-destination flow in this slice. Scheduled API-source refresh,
+  child-row routing and arbitrary branching remain future work. Preserve current
+  destination schedule pause behavior and local-only iteration.

@@ -51,6 +51,7 @@ import { Button } from '@/components/ui/button';
 import ProviderWaterfallBuilder from '@/components/provider-waterfall-builder';
 import HttpRecipeBuilder from '@/components/http-recipe-builder';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
+import { functionStepIds } from '@/lib/recipe-functions';
 import RecipeFunctionBuilder from '@/components/recipe-function-builder';
 import TableTransferBuilder from '@/components/table-transfer-builder';
 import ApiSourceBuilder from '@/components/api-source-builder';
@@ -594,6 +595,8 @@ export default function PomadeWorkspace({
   const [scheduleRowIds, setScheduleRowIds] = useState<string[]>([]);
   const [scheduleConfirmsResearch, setScheduleConfirmsResearch] =
     useState(false);
+  const [scheduleFunctionId, setScheduleFunctionId] = useState('');
+  const [scheduleTransferId, setScheduleTransferId] = useState('');
   const [scheduleError, setScheduleError] = useState('');
   const [scheduleNow, setScheduleNow] = useState(() => Date.now());
 
@@ -1007,18 +1010,41 @@ export default function PomadeWorkspace({
     scheduleTarget === 'selected'
       ? workspace.rows.filter((row) => scheduleRowIds.includes(row.id))
       : workspace.rows;
+  const scheduleFunctions = [
+    ...new Map(
+      workspace.columns
+        .filter((c) => c.functionInstance)
+        .map((c) => [c.functionInstance!.id, c.functionInstance!]),
+    ).values(),
+  ];
+  let scheduleColumnIds: string[] | undefined;
+  let scheduleScopeError = '';
+  try {
+    if (scheduleFunctionId)
+      scheduleColumnIds = functionStepIds(
+        workspace.columns,
+        scheduleFunctionId,
+      );
+  } catch (error) {
+    scheduleScopeError =
+      error instanceof Error ? error.message : 'Function is unavailable.';
+  }
+  const scheduledExternalColumns = scheduleColumnIds
+    ? webResearchColumns.filter((c) => scheduleColumnIds.includes(c.id))
+    : webResearchColumns;
   const scheduledResearchActionCount = countMaximumExternalActions(
     scheduledTargetRows,
-    webResearchColumns,
+    scheduledExternalColumns,
   );
   const scheduleTimestamp = new Date(scheduleRunAt).getTime();
   const scheduleReady =
+    !scheduleScopeError &&
     recipeCount > 0 &&
     Number.isFinite(scheduleTimestamp) &&
     scheduleTimestamp > scheduleNow &&
     scheduledTargetRows.length > 0 &&
     scheduledResearchActionCount <= maximumResearchActions &&
-    (webResearchColumns.length === 0 || scheduleConfirmsResearch);
+    (scheduledExternalColumns.length === 0 || scheduleConfirmsResearch);
   const icpListReady = Boolean(icpBrief.trim()) && icpListLimit >= 1;
   const peopleListReady = Boolean(
     selected &&
@@ -2408,6 +2434,8 @@ export default function PomadeWorkspace({
       existing?.nextRunAt && existing.nextRunAt > now
         ? existing.nextRunAt
         : new Date(defaultScheduleTime()).getTime();
+    setScheduleFunctionId(existing?.functionInstanceId ?? '');
+    setScheduleTransferId(existing?.afterRunTransfer?.id ?? '');
     setScheduleNow(now);
     setScheduleCadence(existing?.cadence ?? 'once');
     setScheduleRunAt(dateTimeInputValue(nextRunAt));
@@ -2426,8 +2454,16 @@ export default function PomadeWorkspace({
 
   function saveRecipeSchedule() {
     try {
+      if (scheduleScopeError) throw new Error(scheduleScopeError);
+      const afterRunTransfer = scheduleTransferId
+        ? workspace.tableTransfers?.find((r) => r.id === scheduleTransferId)
+        : undefined;
+      if (scheduleTransferId && !afterRunTransfer)
+        throw new Error('Choose an existing saved transfer rule.');
       const schedule = createRecipeSchedule({
         id: workspace.schedule?.id ?? crypto.randomUUID(),
+        functionInstanceId: scheduleFunctionId,
+        afterRunTransfer,
         cadence: scheduleCadence,
         nextRunAt: scheduleTimestamp,
         rowIds: scheduleTarget === 'selected' ? scheduleRowIds : undefined,
@@ -4695,7 +4731,8 @@ export default function PomadeWorkspace({
             <DialogTitle>Schedule recipe runs</DialogTitle>
             <DialogDescription>
               Run this table once later or refresh it on a deliberate recurring
-              interval—even when Pomade is closed.
+              interval. The local Worker and clock must keep running when the
+              browser is closed.
             </DialogDescription>
           </DialogHeader>
           {workspace.schedule ? (
@@ -4748,6 +4785,60 @@ export default function PomadeWorkspace({
               />
             </label>
           </div>
+          <div className="schedule-fields">
+            <label>
+              Recipe scope
+              <select
+                value={scheduleFunctionId}
+                onChange={(e) => {
+                  setScheduleFunctionId(e.target.value);
+                  setScheduleConfirmsResearch(false);
+                }}
+              >
+                <option value="">All recipe columns</option>
+                {scheduleFunctions.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+                {scheduleFunctionId &&
+                !scheduleFunctions.some((f) => f.id === scheduleFunctionId) ? (
+                  <option value={scheduleFunctionId}>Missing function</option>
+                ) : null}
+              </select>
+            </label>
+            <label>
+              After a successful run
+              <select
+                value={scheduleTransferId}
+                onChange={(e) => setScheduleTransferId(e.target.value)}
+              >
+                <option value="">Keep results in this table</option>
+                {(workspace.tableTransfers ?? []).map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+                {scheduleTransferId &&
+                !workspace.tableTransfers?.some(
+                  (r) => r.id === scheduleTransferId,
+                ) ? (
+                  <option value={scheduleTransferId}>
+                    Missing saved transfer
+                  </option>
+                ) : null}
+              </select>
+            </label>
+          </div>
+          {scheduleScopeError ? <p role="alert">{scheduleScopeError}</p> : null}
+          {scheduleTransferId ? (
+            <p>
+              Transfers the scheduled source rows after recipes succeed. The
+              saved mapping is copied when you save this schedule. Missing or
+              duplicate keys stop the transfer before destination changes.
+              Configure and preview rules in Transfer rows first.
+            </p>
+          ) : null}
           <fieldset className="research-output-shape schedule-target-shape">
             <legend>Rows to run</legend>
             <div>
@@ -4772,7 +4863,7 @@ export default function PomadeWorkspace({
               </button>
             </div>
           </fieldset>
-          {webResearchColumns.length ? (
+          {scheduledExternalColumns.length ? (
             <div className="schedule-provider-confirmation">
               <input
                 id="schedule-provider-consent"

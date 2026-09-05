@@ -133,6 +133,9 @@ export type RecipeFunction = {
 export type RecipeScheduleCadence = 'once' | 'every_day' | 'every_week';
 
 export type RecipeSchedule = {
+  functionInstanceId?: string;
+  afterRunTransfer?: TableTransferRule;
+  lastTransferRunId?: string;
   id: string;
   cadence: RecipeScheduleCadence;
   enabled: boolean;

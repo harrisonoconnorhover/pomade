@@ -449,3 +449,25 @@ Definitions and added instances are independent copies. Editing the library does
 not update existing instances. Functions currently operate on the same rows;
 list-producing recipes need a separate table stage. Version rollout, cross-table
 orchestration and portable function export remain future work.
+
+
+### Scheduled function-to-table workflows
+
+Open **Schedule recipe runs**, choose all recipe columns or one added function,
+and optionally choose a saved transfer under **After a successful run**. Configure
+and preview that transfer in **Transfer rows** first. The schedule captures its
+mapping when saved; later rule edits do not silently change an active workflow.
+It uses the same selected-row or whole-table scope for recipes and transfer,
+including only the original source rows when a recipe creates child rows.
+
+Recipe errors, broken function groups, missing destinations, active destination
+jobs or ambiguous match keys stop the schedule. A match-key review blocks the
+whole scheduled transfer; manual transfers can still preview partial changes.
+Successful destination changes, the transfer receipt and schedule completion are
+committed together. Read receipts under **Transfer rows**. Existing schedules
+without these options keep running all recipes with no transfer.
+
+The Worker and local clock must remain running. This is a recipe-then-transfer
+workflow, not automatic API-source refresh or a branching multi-table executor.
+Destination schedules still pause when transferred data changes. Recovering an
+expired schedule lease can rerun recipes; provider execution is not exactly-once.

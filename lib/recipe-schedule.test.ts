@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { RunReceipt, WorkspaceSnapshot } from './pomade-types';
 import {
+  scheduledColumnIds,
   claimDueSchedule,
   completeClaimedSchedule,
   createRecipeSchedule,
@@ -156,5 +157,55 @@ describe('recipe schedules', () => {
       nextRunAt: 5_000,
       updatedAt: 2_000,
     });
+  });
+});
+
+describe('scheduled workflows', () => {
+  it('captures transfer settings independently and retains them across claims', () => {
+    const transfer = {
+      id: 't',
+      name: 'Send',
+      targetTableId: 'dest',
+      sourceKey: 'domain',
+      targetKey: 'domain',
+      mode: 'upsert' as const,
+      normalization: 'domain' as const,
+      mapping: { company: 'label' },
+      skipBlank: true,
+    };
+    const workspace = createSampleWorkspace();
+    workspace.schedule = createRecipeSchedule({
+      id: 's',
+      cadence: 'every_day',
+      nextRunAt: 2000,
+      now: 1000,
+      functionInstanceId: 'f',
+      afterRunTransfer: transfer,
+    });
+    transfer.mapping.company = 'other';
+    const claimed = claimDueSchedule(workspace, 2000)!;
+    expect(claimed.schedule?.afterRunTransfer?.mapping.company).toBe('label');
+    const completed = completeClaimedSchedule(claimed, run, 2100);
+    expect(completed.schedule?.functionInstanceId).toBe('f');
+    expect(completed.schedule?.afterRunTransfer?.mapping.company).toBe('label');
+  });
+  it('resolves only the scheduled function and fails when its group is broken', () => {
+    const workspace = scheduledWorkspace(2000);
+    expect(scheduledColumnIds(workspace)).toBeUndefined();
+    const columns = workspace.columns.filter((c) => c.recipe).slice(0, 2);
+    expect(columns).toHaveLength(2);
+    columns.forEach((c, step) => {
+      c.functionInstance = {
+        id: 'f',
+        definitionId: 'd',
+        name: 'Workflow',
+        step,
+        total: 2,
+      };
+    });
+    workspace.schedule!.functionInstanceId = 'f';
+    expect(scheduledColumnIds(workspace)).toEqual(columns.map((c) => c.id));
+    workspace.columns = workspace.columns.filter((c) => c.id !== columns[1].id);
+    expect(() => scheduledColumnIds(workspace)).toThrow('removed or reordered');
   });
 });
