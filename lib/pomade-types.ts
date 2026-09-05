@@ -142,6 +142,7 @@ export type RunJob = {
 };
 
 export type PomadeRow = {
+  webhookSource?: { sourceId: string; eventId: string; receivedAt: number };
   sourceRecord?: { tableId: string; rowId: string; tableName: string };
   id: string;
   generatedByColumnId?: string;

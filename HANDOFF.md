@@ -2,39 +2,40 @@
 
 ## Finished
 
-- Added HTTP API recipes with server-stored connection credentials, GET/JSON POST, row-token inputs and one-to-four JSON output mappings.
-- Added request preview, stale-output clearing, review reasons and honest unknown-cost/remote-effect receipts.
-- Unified local, HTTP and research execution in grid-column order so downstream recipes see earlier results.
-- Preserved partial results and stopped background/scheduled runs on technical errors; confirmation limits cover conditions activated by upstream results.
-- Updated the competitive checklist and local setup instructions. No public publication.
+- Added authenticated JSON webhook delivery into a durable, table-scoped inbox.
+- Added delivery-key deduplication, changed-payload conflict detection and bounded payload validation.
+- Added inbox pagination, delivery selection, nested JSON field mapping and import previews.
+- Imported rows preserve source provenance and existing edits; repeat imports skip existing event rows and pause active schedules.
+- Updated the competitor checklist with automatic ingestion explicitly remaining open. Local build only.
 
 ## Try It
 
-Set `POMADE_HTTP_CONNECTIONS` in ignored `.env.local` using `.env.example`, restart with `npm run dev`, then choose **Recipe library → HTTP API**. Configure a relative endpoint and response paths, preview the request, add the recipe and run it with confirmation. Test servers were stopped after verification.
+Set `POMADE_WEBHOOK_SOURCES` in ignored `.env.local` using `.env.example`, then run `npm run dev`. Open **Webhook inbox** beside Find companies for the table ID and endpoint. POST JSON with a bearer token and stable Idempotency-Key. Refresh the inbox, select deliveries, map fields and import. Run recipes separately. Test server stopped after verification.
 
 ## Checks
 
-- 123 tests passed across 26 files; typecheck, lint and production build passed.
-- Isolated built Worker + D1 + local API passed: credential-free catalog, consent/caps, ordered formulas, GET/POST, escaped JSON, partial results, successful background execution and failed job/schedule stopping.
-- Home page returned HTTP 200; final diff whitespace check passed.
-- No browser interaction test, real paid provider request or public deployment.
+- Full suite: 127 tests passed before final schedule adjustment; focused webhook suite: 5 passed after it.
+- Final typecheck, lint and production build passed.
+- Isolated Worker + D1 passed authentication, durable receipts, retries, concurrent deduplication, changed-payload conflicts, invalid/oversized rejection, token-free catalog, table separation and pagination.
+- Receiving events left the grid unchanged; home HTTP smoke and final diff whitespace check passed.
+- No browser interaction test, real provider calls or public deployment.
 
 ## Decisions
 
-- Connection credentials remain server-side; this remains one operator's installation.
-- Generic HTTP has no automatic retry/cache, refuses redirects and reports unknown remote effects.
-- Prioritize usable integrations over signup/hosting; keep the broad competitor goal active and commit locally.
+- Stage deliveries separately because whole-table editor saves cannot yet safely overlap automatic ingestion.
+- Reuse sender delivery keys and stable event row IDs; do not imply business-key deduplication.
+- Pause schedules when imports add rows. Keep publication and signup deferred.
 
 ## Remaining
 
-- Authenticated inbound webhooks and API-as-source; HTTP pagination/additional methods.
-- True provider fallback with per-attempt usage and receipts.
-- Repeatable table transfers, richer lookups and reusable multi-step functions.
-- More sourcing, signals and governed CRM writeback.
-- Later: standalone self-host packaging, portable connection mapping, account isolation, Google sign-in and public release.
+- Saved mappings and automatic webhook ingestion with safe overlapping table writes.
+- API-as-source, pagination, true provider fallback and richer table transfers.
+- More sourcing, signals, reusable multi-step functions and governed CRM writeback.
+- Event retention controls and provider-specific signature adapters.
+- Later: independent self-host packaging, account isolation, Google sign-in and public release.
 
 ## Review First
 
-- `lib/http-enrichment.ts` and tests for request construction, credentials and failures.
-- `lib/recipe-pipeline.ts`, `app/api/runs/route.ts` and `worker.ts` for execution order and automation stopping.
-- `components/http-recipe-builder.tsx` for connection setup and mapping.
+- `app/api/webhooks/route.ts` for authentication, idempotency and durable receipt behavior.
+- `lib/webhook-inbox.ts` and tests for mapping, stable IDs and schedule scope.
+- `components/webhook-inbox.tsx` for inbox selection and import preview.

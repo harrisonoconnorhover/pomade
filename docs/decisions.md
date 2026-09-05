@@ -448,3 +448,23 @@ The first HTTP slice supports GET and JSON POST, 15-second requests, 1 MiB JSON
 responses, one-to-four mapped fields and no redirects. Same-installation templates
 remap row inputs and outputs. Export rejects HTTP recipes until cross-installation
 connection mapping exists. Keep commits local and defer signup and publication.
+
+## Webhook delivery uses a durable inbox before table import
+
+The current editor saves a complete table snapshot. Uncoordinated incoming table
+writes could be lost on a later editor save. This slice stores authenticated
+JSON deliveries separately and imports through the editor's existing save path.
+Automatic ingestion requires safe concurrent table writes and stays on the roadmap.
+
+Named server-side sources bind a token to one table. Delivery ID is a hash of the
+source, table and sender's Idempotency-Key; a unique database key deduplicates even
+concurrent requests. Reused keys with changed serialized records return 409.
+Events retain their raw records. Import uses stable event/index row IDs, skips
+existing IDs and records provenance. It does not match people or companies by
+business keys. Import pauses an active schedule before expanding its row scope.
+
+This remains a private single-operator installation: the delivery endpoint needs
+a bearer token; operator inbox reads share the rest of the application's current
+access boundary. No tunnel or public deployment was created. Events are retained,
+and mappings are currently dialog-local; automatic processing and retention
+management remain follow-on work.

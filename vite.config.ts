@@ -13,6 +13,7 @@ const { d1, r2 } = hostingConfig;
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
 const localVariableNames = [
   'POMADE_HTTP_CONNECTIONS',
+  'POMADE_WEBHOOK_SOURCES',
   'APOLLO_API_KEY',
   'PARALLEL_API_KEY',
   'PARALLEL_MODEL',

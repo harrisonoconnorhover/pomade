@@ -238,6 +238,31 @@ and schedules. Review receipts before manually retrying a request with possible
 remote effects. Pagination, PUT/PATCH/DELETE and inbound webhooks remain pending.
 HTTP templates can be reused locally; portable export awaits connection remapping.
 
+## Inbound webhook inbox
+
+Open **Webhook inbox** beside Find companies. It shows the current table ID.
+Configure `POMADE_WEBHOOK_SOURCES` in ignored `.env.local`, using `.env.example`,
+then restart Pomade. Each source has a table ID and a random bearer token of at
+least 32 characters. A sender posts to `/api/webhooks?source=YOUR_SOURCE` with
+`Authorization: Bearer YOUR_TOKEN` and an `Idempotency-Key` unique to that delivery.
+Send one JSON object or an array of up to 100 objects (maximum 256 KiB).
+
+A 202 response means the delivery is saved in the inbox, not imported or enriched.
+Retries using the same key and payload return the original event with 200; a
+changed payload with the same key returns 409. Keep the same key after a timeout.
+The inbox shows 50 deliveries per page. Select deliveries, map nested JSON paths
+to input columns, inspect the preview and import. Existing rows stay intact;
+previously imported event rows are skipped. Imported rows retain event provenance,
+start in Review and pause any active schedule. Run enrichments when ready.
+
+Events are retained for reimport; deleting an imported row permits its deliberate
+reimport. Matching uses delivery identity, not company/domain deduplication.
+Mappings currently apply to the open dialog; saved mappings and automatic table
+ingestion are pending. Keep the installation private: bearer authentication covers
+webhook delivery, while the operator UI and inbox use the existing single-user
+trust boundary. Remote senders need a reachable installation; no public endpoint
+or tunnel was created for this local build.
+
 ## Check it
 
 ```bash

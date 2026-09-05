@@ -3342,3 +3342,7 @@ button {
 .http-output-fields input, .workbook-name textarea { border: 1px solid var(--border); padding: 8px; border-radius: 6px; min-width: 0; }
 .http-request-preview { font-size: 14px; overflow-x: auto; }
 .http-request-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; background: var(--muted); }
+
+.webhook-events { display: grid; gap: 8px; max-height: 180px; overflow: auto; }
+.webhook-events label { display: flex; align-items: center; gap: 8px; }
+.webhook-events small { color: var(--muted-foreground); }

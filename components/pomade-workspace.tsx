@@ -49,6 +49,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import HttpRecipeBuilder from '@/components/http-recipe-builder';
+import WebhookInbox from '@/components/webhook-inbox';
 import {
   countMaximumExternalActions,
   isExternalRecipe,
@@ -2620,6 +2621,16 @@ export default function PomadeWorkspace({
               >
                 <Upload /> Load data
               </Button>
+              <WebhookInbox
+                workspace={workspace}
+                disabled={jobLocksWorkspace}
+                onImport={(next, count) => {
+                  setWorkspace(next);
+                  setNotice(
+                    `${count} webhook rows imported. Any active schedule was paused; run recipes when ready.`,
+                  );
+                }}
+              />
               <Button
                 variant="outline"
                 size="lg"
@@ -2899,6 +2910,13 @@ export default function PomadeWorkspace({
               </a>
             ) : null}
           </div>
+          {selected?.webhookSource ? (
+            <p className="source-record-link">
+              Webhook: {selected.webhookSource.sourceId} · received{' '}
+              {new Date(selected.webhookSource.receivedAt).toLocaleString()} ·
+              event {selected.webhookSource.eventId.slice(0, 12)}
+            </p>
+          ) : null}
           {selected?.sourceRecord ? (
             <Button
               className="source-record-link"

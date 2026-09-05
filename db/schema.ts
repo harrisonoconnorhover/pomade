@@ -85,3 +85,22 @@ export const runJobs = sqliteTable(
     index('idx_run_jobs_status_updated').on(table.status, table.updatedAt),
   ],
 );
+
+export const webhookEvents = sqliteTable(
+  'webhook_events',
+  {
+    id: text('id').primaryKey(),
+    sourceId: text('source_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    payloadHash: text('payload_hash').notNull(),
+    records: text('records').notNull(),
+    receivedAt: integer('received_at').notNull(),
+  },
+  (table) => [
+    index('idx_webhook_events_workspace').on(
+      table.workspaceId,
+      table.receivedAt,
+      table.id,
+    ),
+  ],
+);

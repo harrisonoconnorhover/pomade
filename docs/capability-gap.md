@@ -80,8 +80,13 @@ Bitscale or Clay.
       row-token inputs, one-to-four JSON output paths, explicit request consent,
       column-ordered execution and manual/background/scheduled runs. Verified
       against an isolated local API and D1 on 2026-09-05.
+- [x] Authenticated durable inbound webhook inbox with delivery-key deduplication,
+      payload conflict detection, paginated retrieval, nested field mapping,
+      import preview and source provenance. Verified locally on 2026-09-05.
+- [ ] Automatic webhook-to-table ingestion, saved source mappings, provider-specific
+      signatures and trigger-to-recipe execution.
 - [ ] HTTP pagination, additional methods, connection portability, API-as-source,
-      and authenticated inbound/outbound webhook workflows.
+      and outbound webhook workflows.
 - [ ] Authenticated plan import plus governed HubSpot/Salesforce writeback
       through GTM Control Tower.
 - [x] Multiple persistent tables, blank creation, duplication, selected-row copies
@@ -128,7 +133,8 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Authenticated inbound webhooks and API-as-source to feed real table workflows.
+1. Saved webhook mappings and automatic ingestion with safe concurrent table writes;
+   API-as-source to feed real table workflows.
 2. Repeatable cross-table transfers, richer lookup matching/aggregation and
    reusable workbook templates.
 3. True provider fallback with per-attempt receipts and usage. Prove a valid
@@ -214,3 +220,11 @@ documents arbitrary API enrichment and API sources, authentication, JSON respons
 mapping, more request methods and pagination. Pomade now covers bounded GET and
 JSON POST enrichment with server-stored credentials. The remaining HTTP items
 above are explicit gaps; this first slice does not establish full HTTP parity.
+
+## Inbound webhook comparison, refreshed 2026-09-05
+
+[Clay webhooks](https://university.clay.com/docs/webhook-integration-guide) add
+incoming JSON records to a table immediately and support an authentication token.
+Pomade now durably receives authenticated deliveries with retry deduplication and
+an import preview, but requires an explicit import step. Automatic table updates
+remain a material parity gap, not a completed capability.
