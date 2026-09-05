@@ -16,8 +16,9 @@ remain separate from implemented features.
 - [x] Source-linked account signals, set comparisons, current-job verification and
       signal fields for qualification/CRM; buying-intent sources are fixture-only.
 - [x] Native custom-field metadata and typed CRM writes/imports. Scheduled qualified
-      revenue/employee updates verified for three companies in each dev CRM;
-      custom score/tag permissions are still pending.
+      revenue/employee updates and reviewed score/tier/tag round trips verified
+      for three companies in each dev CRM. Saved automation includes those custom
+      fields; a one-time scheduled check verified six unchanged records.
 
 - [x] Named CRM mappings per table and verified native-ID copying from receipts.
       Exact matching saved mappings reuse copied IDs; changed/conflicting rows

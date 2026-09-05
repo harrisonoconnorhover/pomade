@@ -2,39 +2,38 @@
 
 ## Finished
 
-- Numeric AND/OR cost gates, verified-status provider waterfalls, Hunter/Apollo email presets, rich Apollo data and a PDL company adapter.
-- Source-linked hiring/leadership presets, technology/title comparisons, normalized intent feed and opt-in signal fields for qualification and CRM.
-- Native CRM field discovery, typed custom mappings/imports and qualified scheduled writes.
-- Real Apollo revenue/employee data updated three existing companies in each dev CRM; all six records read back and imported, with unchanged repeat previews and no duplicate scheduled batches.
-- Reviewed the three companies' leadership rosters against owned pages; retained raw AI misses and excluded unsupported dates/off-focus hiring. All work remains local.
+- Waterfall enrichment, qualification rules, rich company data, source-linked research and normalized signal fields remain available locally.
+- Salesforce access is enabled for exactly the three approved Pomade Account fields. Matching HubSpot company properties are created; no API token scope expansion was needed.
+- Wrote and read back ICP scores, priority tiers and reviewed research tags for HealthEdge, Clearwater Security and Solera in both dev CRMs. Imported the exact values into the existing Pomade tables.
+- Research and automation mappings now include all three custom fields. The automation also retains revenue/employee mappings and its qualification rules.
+- The one-time custom-field schedule passed and is disabled. All code and documentation remain local.
 
 ## Try It
 
-Open localhost:8798 and select **DemandDrive — CRM automation**; inspect **Write to CRM** history. The one-time test schedule is complete. **DemandDrive — 3 ICP accounts** contains enrichment/research. **Signals — local acceptance fixture** demonstrates signal tags feeding a formula. Use **Change signals** for research/watches and signal fields, then **Schedule** for recurring CRM mappings. Recurring local runs need `npm run clock -- 8798` alongside the server.
+Open localhost:8798 and select **DemandDrive — 3 ICP accounts**. In **Write to CRM**, load either saved account mapping to inspect score/tier/tag bindings and write history. Open the HubSpot company or Salesforce account import table for returned custom values. **DemandDrive — CRM automation** contains the qualified scheduled example; resave its schedule to enable future runs. Local recurring runs need the server plus `npm run clock -- 8798`.
 
 ## Checks
 
-- 73 focused tests passed; typecheck, lint and production build passed.
-- Live HubSpot/Salesforce scheduled revenue writes, native read-back, imports and repeat/no-duplicate checks passed for all three accounts.
-- Fixture webhook deduplication/conflict checks and signal-to-formula persistence passed; no real G2/LinkedIn/visitor feed is connected.
-- Live ATS validation rejected an expired Workday listing and verified another posting; manual relevance review excluded the latter. AI leadership coverage/dates still needed correction.
+- Both live custom-field round trips passed: three existing companies per CRM, exact native values, persisted imports and six unchanged repeat actions.
+- Updated scheduled mappings passed with six verified unchanged actions, three retained rows and a complete/disabled schedule. No enrichment calls were made.
+- Earlier implementation checks: 73 focused tests, typecheck, lint and production build passed. This follow-up changes account configuration, saved tables and documentation; runtime code is unchanged.
+- Documentation diff and handoff format/length checks passed.
 
 ## Decisions
 
-- Keep event dates separate from observed changes; failures do not establish departures/removals.
-- Capture bounded CRM mappings per schedule; verified completed batches are reused, uncertain writes stop.
-- Prioritize local usefulness; no hosted-account work, public publishing or outreach.
+- Scope Salesforce permission changes to the approved fields and reuse HubSpot's existing token scopes.
+- Preserve reviewed ICP tags separately from real visitor/G2/LinkedIn events.
+- Keep the finished automation example stopped and retain prior write receipts.
 
 ## Remaining
 
-- Salesforce: approval pending for System Administrator read/edit access to three new fields. Automatic approval review rejected this persistent permission change as outside record-write authorization; no custom values have been written.
-- HubSpot sign-in/schema permission to create score/tag properties.
-- Real Hunter/PDL/phone credentials and multi-provider coverage; Apollo People access remains account-gated.
-- Actual visitor/G2/LinkedIn delivery, native workflow/owner/sequence setup and more reliable automated research.
-- Follow the active checklist in `docs/requested-workflows.md`.
+- Real Hunter/PDL/phone credentials and live multi-provider coverage; Apollo People access remains account-gated.
+- Actual visitor/G2/LinkedIn delivery and native CRM workflow/owner/sequence setup.
+- More reliable automated research and broader hiring-source validation.
+- Continue the active checklist in `docs/requested-workflows.md`; hosted accounts and independent self-host packaging remain later milestones.
 
 ## Review First
 
 - `docs/requested-workflows.md` and `docs/signals-and-crm.md`.
-- `db/scheduled-crm.ts`, `lib/account-signals.ts`, `lib/hiring-evidence.ts`.
-- Private `outputs/demanddrive/scheduled-crm-round-trip.json` and `signal-baseline-manual-review.json`.
+- Private `outputs/demanddrive/hubspot-custom-fields-round-trip.json` and `salesforce-custom-fields-round-trip.json`.
+- Private `outputs/demanddrive/scheduled-custom-fields-round-trip.json`.

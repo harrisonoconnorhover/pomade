@@ -64,6 +64,34 @@ imported and persisted; repeat previews were unchanged and a second clock tick
 created no extra write batches. See private `outputs/demanddrive/` receipts:
 `scheduled-crm-round-trip.json` and `signal-fields-pipeline.json`.
 
+The approved custom-field setup is also live in both dev CRMs. Salesforce has
+read/edit access on exactly the three Account fields below for the existing
+System Administrator profile. Matching HubSpot company properties were created
+through the signed-in account interface; the existing API token needed no new
+scopes. Native metadata confirmed a number field for score and text fields for
+tier/tags.
+
+| Pomade column | HubSpot company property | Salesforce Account field |
+|---|---|---|
+| `total` | `pomade_icp_score` | `Pomade_ICP_Score__c` |
+| `tier` | `pomade_priority_tier` | `Pomade_Priority_Tier__c` |
+| `crm_signal_tags` | `pomade_signal_tags` | `Pomade_Signal_Tags__c` |
+
+HealthEdge, Clearwater Security and Solera received scores of 100, 90 and 95,
+respectively, with High tiers and `eol_evidence;high_icp;timing_evidence` tags.
+These are reviewed assignment findings, not website/G2/LinkedIn intent events.
+All six native records were read back and imported into the existing Pomade CRM
+tables; exact custom values persisted and repeat previews were unchanged.
+Saved mappings in both the research and automation tables now include the three
+fields. The updated automation passed one scheduled check with six verified
+unchanged actions and is complete/disabled. No enrichment requests were needed.
+
+Private receipts: `hubspot-custom-fields-round-trip.json`,
+`salesforce-custom-fields-round-trip.json`, `salesforce-field-access.json` and
+`scheduled-custom-fields-round-trip.json`. The earlier revenue-write receipts
+remain intact. This verifies field synchronization; native workflow enrollment,
+owner routing and sequence setup remain separate work.
+
 Parallel now uses documented JSON-schema output for structured requests and keeps
 raw answers/citations. Invalid JSON or types do not spill into qualification
 fields. Hiring checks verify Workday availability or JobPosting metadata on

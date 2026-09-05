@@ -786,3 +786,17 @@ no prospect messaging was authorized or sent.
   evidence rather than downstream fields. Direct ATS checks were added after a
   real stale listing returned HTTP 200. Keep manual source review explicit: valid
   JSON/citations alone did not establish current roles, dates or relevance.
+
+
+## Approved CRM custom-field activation (2026-09-05)
+
+- Apply the user's approval to read/edit access for exactly the three Pomade
+  Account fields on the existing Salesforce System Administrator profile. Create
+  matching HubSpot properties in the signed-in interface, preserving the API
+  token's existing scopes. No broader permission changes are needed.
+- Reuse the existing company IDs, reviewed source values and saved mappings.
+  Keep ICP research tags distinct from live intent. Verify native values, import
+  persistence and unchanged repeats before marking field setup complete.
+- Include custom fields in the saved automation and capture them in a new
+  one-time schedule, retaining the previous receipts. Leave the successful test
+  schedule disabled; recurring operation remains an explicit local setup choice.
