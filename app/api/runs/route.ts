@@ -1,3 +1,4 @@
+import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { env } from 'cloudflare:workers';
 import {
   countMaximumExternalActions,
@@ -59,7 +60,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body: unknown = await request.json();
-    const workspace = (body as { workspace?: unknown })?.workspace;
+    let workspace = (body as { workspace: WorkspaceSnapshot })?.workspace;
     const requestedRowIds = (body as { rowIds?: unknown })?.rowIds;
     const requestedColumnIds = (body as { columnIds?: unknown })?.columnIds;
     const confirmedResearch =
@@ -99,8 +100,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const rowIds = requestedRowIds as string[] | undefined;
-    const columnIds = requestedColumnIds as string[] | undefined;
+    const rowIds =
+      (requestedRowIds as string[] | undefined) ??
+      workspace.rows.map((row) => row.id);
+    const columnIds =
+      (requestedColumnIds as string[] | undefined) ??
+      workspace.columns
+        .filter(
+          (column) => column.kind === 'formula' || column.kind === 'enrichment',
+        )
+        .map((column) => column.id);
     const knownRows = new Set(workspace.rows.map((row) => row.id));
     if (rowIds?.some((rowId) => !knownRows.has(rowId))) {
       return Response.json(
@@ -126,6 +135,21 @@ export async function POST(request: Request) {
       ? workspace.rows.filter((row) => rowIds.includes(row.id))
       : workspace.rows;
     const db = await ensureDatabase();
+    const base = (body as { baseWorkspace?: WorkspaceSnapshot }).baseWorkspace;
+    if (base) {
+      const record = await db
+        .prepare('SELECT snapshot FROM workspaces WHERE id = ?')
+        .bind(workspace.id)
+        .first<{ snapshot: string }>();
+      if (record)
+        workspace = mergeWorkspaceEdits(
+          base,
+          workspace,
+          JSON.parse(record.snapshot),
+        );
+    }
+
+    const executionBase = structuredClone(workspace);
     const lookupTables: Record<string, WorkspaceSnapshot> = {};
     const sourceIds = new Set(
       workspace.columns
@@ -299,12 +323,22 @@ export async function POST(request: Request) {
         }
       },
     );
-    const updated = result.workspace;
+    let updated = result.workspace;
     const run = result.run;
     if (run.receipts.some((receipt) => receipt.provider === researchProvider))
       run.researchProvider = researchProvider;
     const finishedAt = run.finishedAt;
 
+    const newest = await db
+      .prepare('SELECT snapshot FROM workspaces WHERE id = ?')
+      .bind(updated.id)
+      .first<{ snapshot: string }>();
+    if (newest)
+      updated = mergeWorkspaceEdits(
+        executionBase,
+        updated,
+        JSON.parse(newest.snapshot),
+      );
     const workspaceStatements = await versionedWorkspaceStatements(
       db,
       updated,

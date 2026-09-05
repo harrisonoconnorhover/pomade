@@ -49,6 +49,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import HttpRecipeBuilder from '@/components/http-recipe-builder';
+import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import WebhookInbox from '@/components/webhook-inbox';
 import {
   countMaximumExternalActions,
@@ -600,6 +601,14 @@ export default function PomadeWorkspace({
   const hydrated = useRef(false);
   const [savedWorkspace, setSavedWorkspace] = useState<WorkspaceSnapshot>();
   const [loaded, setLoaded] = useState(false);
+  const latestLocal = useRef(workspace);
+  useEffect(() => {
+    latestLocal.current = workspace;
+  }, [workspace]);
+  const lastSaved = useRef<WorkspaceSnapshot | undefined>(undefined);
+  useEffect(() => {
+    lastSaved.current = savedWorkspace;
+  }, [savedWorkspace]);
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const jobRevision = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -744,19 +753,38 @@ export default function PomadeWorkspace({
       saveQueue.current = saveQueue.current
         .catch(() => {})
         .then(async () => {
+          if (cancelled) return;
           const response = await fetch(workspaceUrl, {
             method: 'PUT',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ workspace }),
+            body: JSON.stringify({
+              workspace,
+              baseWorkspace: lastSaved.current,
+            }),
           });
-          if (!response.ok) throw new Error('Save failed');
-          if (!cancelled) {
-            setSavedWorkspace(workspace);
-            setSaveState('Saved');
-          }
+          const data = (await response.json()) as {
+            workspace?: WorkspaceSnapshot;
+            error?: string;
+          };
+          if (!response.ok || !data.workspace)
+            throw new Error(data.error ?? 'Save failed');
+          const stored = data.workspace;
+          const merged =
+            latestLocal.current === workspace
+              ? stored
+              : mergeWorkspaceEdits(workspace, latestLocal.current, stored);
+          lastSaved.current = stored;
+          setSavedWorkspace(stored);
+          setWorkspace(merged);
+          setSaveState('Saved');
         })
-        .catch(() => {
-          if (!cancelled) setSaveState('Offline');
+        .catch((error) => {
+          setSaveState('Offline');
+          setNotice(
+            error instanceof Error
+              ? error.message
+              : 'Save failed; edits remain in this tab.',
+          );
         });
     }, 500);
     return () => {
@@ -771,6 +799,49 @@ export default function PomadeWorkspace({
     apolloRunning,
     jobSaving,
     saveAttempt,
+  ]);
+
+  useEffect(() => {
+    if (
+      !loaded ||
+      savedWorkspace !== workspace ||
+      running ||
+      apolloRunning ||
+      jobSaving
+    )
+      return;
+    let cancelled = false;
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await fetch(workspaceUrl);
+        if (!response.ok) return;
+        const data = (await response.json()) as {
+          workspace: WorkspaceSnapshot;
+        };
+        if (
+          cancelled ||
+          (data.workspace.revision ?? 0) === (workspace.revision ?? 0)
+        )
+          return;
+        lastSaved.current = data.workspace;
+        setSavedWorkspace(data.workspace);
+        setWorkspace(data.workspace);
+      } catch {
+        /* Keep the last usable snapshot when offline. */
+      }
+    }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [
+    loaded,
+    savedWorkspace,
+    workspace,
+    running,
+    apolloRunning,
+    jobSaving,
+    workspaceUrl,
   ]);
 
   const canLeaveTable =
@@ -1986,7 +2057,12 @@ export default function PomadeWorkspace({
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          workspace,
+          workspace: mergeWorkspaceEdits(
+            savedWorkspace ?? workspace,
+            workspace,
+            lastSaved.current ?? workspace,
+          ),
+          baseWorkspace: lastSaved.current,
           rowIds: apolloTargetRows.map((row) => row.id),
           confirmCreditSpend: true,
         }),
@@ -2071,7 +2147,12 @@ export default function PomadeWorkspace({
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          workspace,
+          workspace: mergeWorkspaceEdits(
+            savedWorkspace ?? workspace,
+            workspace,
+            lastSaved.current ?? workspace,
+          ),
+          baseWorkspace: lastSaved.current,
           rowIds,
           columnIds,
           confirmExternalResearch,
@@ -2162,7 +2243,12 @@ export default function PomadeWorkspace({
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          workspace,
+          workspace: mergeWorkspaceEdits(
+            savedWorkspace ?? workspace,
+            workspace,
+            lastSaved.current ?? workspace,
+          ),
+          baseWorkspace: lastSaved.current,
           rowIds,
           columnIds,
           confirmExternalResearch,

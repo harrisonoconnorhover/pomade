@@ -13,7 +13,7 @@ export type WorkspaceVersionReason =
   | 'Version restore';
 
 export function workspaceContent(workspace: WorkspaceSnapshot) {
-  const { updatedAt: _updatedAt, ...content } = workspace;
+  const { updatedAt: _updatedAt, revision: _revision, ...content } = workspace;
   return content;
 }
 

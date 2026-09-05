@@ -104,3 +104,8 @@ export const webhookEvents = sqliteTable(
     ),
   ],
 );
+
+export const webhookImports = sqliteTable('webhook_imports', {
+  eventId: text('event_id').primaryKey(),
+  importedAt: integer('imported_at').notNull(),
+});

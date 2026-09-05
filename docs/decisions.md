@@ -478,3 +478,25 @@ and restores its preset; source changes clear prior selections. Validation rejec
 missing destination columns rather than silently omitting mapped values. Duplicate
 tables drop source-bound mappings because receiver routing remains server-configured.
 Automatic delivery processing still requires concurrent-write coordination.
+
+## Automatic webhook ingestion and concurrent table saves
+
+This supersedes the inbox-only delivery limitation. Opted-in sources use their
+saved mappings on worker ticks. The import and processed-event marker share one
+D1 transaction; stable row IDs retain manual-import deduplication. Mapping/capacity
+failures pause the source, retain the event and expose the reason. Active jobs or
+running schedules defer ingestion. Imports still pause existing recipe schedules
+and never themselves initiate paid enrichment.
+
+Table snapshots carry revisions. SQLite rejects an update unless its revision is
+exactly one beyond the stored snapshot, including competing transactions. Grid
+saves send their last saved base: three-way merging preserves independent changes
+and appends, while same-cell and deletion/edit conflicts fail visibly. Foreground
+results merge against the latest table without expanding their original row or
+column execution scope. Idle editors refresh from the server. History restoration
+uses the current revision and disables webhook auto-import. This is concurrency
+protection for our operator workflows, not collaborative authorization.
+
+A small local clock drives the same scheduled handler used in hosted operation.
+It uses only localhost and never deploys anything. This makes background work
+usable locally without a cloud account; independent runtime packaging remains open.

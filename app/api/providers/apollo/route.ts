@@ -1,3 +1,4 @@
+import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { env } from 'cloudflare:workers';
 
 import { ensureDatabase } from '@/db/ensure';
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
   const startedAt = Date.now();
   try {
     const body: unknown = await request.json();
-    const workspace = (body as { workspace?: unknown })?.workspace;
+    let workspace = (body as { workspace: WorkspaceSnapshot })?.workspace;
     const requestedRowId = (body as { rowId?: unknown })?.rowId;
     const requestedRowIds = (body as { rowIds?: unknown })?.rowIds;
     const confirmedCreditSpend =
@@ -131,6 +132,21 @@ export async function POST(request: Request) {
     }
 
     const db = await ensureDatabase();
+    const base = (body as { baseWorkspace?: WorkspaceSnapshot }).baseWorkspace;
+    if (base) {
+      const record = await db
+        .prepare('SELECT snapshot FROM workspaces WHERE id = ?')
+        .bind(workspace.id)
+        .first<{ snapshot: string }>();
+      if (record)
+        workspace = mergeWorkspaceEdits(
+          base,
+          workspace,
+          JSON.parse(record.snapshot),
+        );
+    }
+
+    const executionBase = structuredClone(workspace);
     const client = new ApolloClient({ apiKey: env.APOLLO_API_KEY ?? '' });
     const inFlight = new Map<string, Promise<ApolloEnrichmentResult>>();
     async function enrich(input: ApolloPersonInput) {
@@ -224,12 +240,24 @@ export async function POST(request: Request) {
     );
     if (!successful.length) throw new Error(failures[0]?.error);
 
-    const { workspace: updated, run } = applyApolloBatchEnrichment(
+    const enriched = applyApolloBatchEnrichment(
       workspace,
       successful,
       startedAt,
     );
+    let updated = enriched.workspace;
+    const run = enriched.run;
     const finishedAt = Date.now();
+    const newest = await db
+      .prepare('SELECT snapshot FROM workspaces WHERE id = ?')
+      .bind(updated.id)
+      .first<{ snapshot: string }>();
+    if (newest)
+      updated = mergeWorkspaceEdits(
+        executionBase,
+        updated,
+        JSON.parse(newest.snapshot),
+      );
     const workspaceStatements = await versionedWorkspaceStatements(
       db,
       updated,

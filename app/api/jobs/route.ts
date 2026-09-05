@@ -1,3 +1,4 @@
+import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { ensureDatabase } from '@/db/ensure';
 import { versionedWorkspaceStatements } from '@/db/workspace-store';
 import {
@@ -104,7 +105,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body: unknown = await request.json();
-    const workspace = (body as { workspace?: unknown })?.workspace;
+    let workspace = (body as { workspace: WorkspaceSnapshot })?.workspace;
     const requestedRowIds = (body as { rowIds?: unknown })?.rowIds;
     const requestedColumnIds = (body as { columnIds?: unknown })?.columnIds;
     const confirmExternalResearch =
@@ -202,6 +203,20 @@ export async function POST(request: Request) {
       confirmExternalResearch,
     });
     const db = await ensureDatabase();
+    const base = (body as { baseWorkspace?: WorkspaceSnapshot }).baseWorkspace;
+    if (base) {
+      const record = await db
+        .prepare('SELECT snapshot FROM workspaces WHERE id = ?')
+        .bind(workspace.id)
+        .first<{ snapshot: string }>();
+      if (record)
+        workspace = mergeWorkspaceEdits(
+          base,
+          workspace,
+          JSON.parse(record.snapshot),
+        );
+    }
+
     const active = await db
       .prepare(
         `SELECT id FROM run_jobs

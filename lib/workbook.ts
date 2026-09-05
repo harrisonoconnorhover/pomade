@@ -57,6 +57,8 @@ export function createTable(options: {
       name,
       schedule: undefined,
       webhookMappings: undefined,
+      webhookAutoImport: undefined,
+      revision: 0,
       updatedAt: now,
     };
   }

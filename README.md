@@ -260,11 +260,48 @@ reimport. Matching uses delivery identity, not company/domain deduplication.
 Choose a mapping source to filter deliveries and restore its saved field map.
 Use **Save mapping for source** to reuse it after reloading; **Forget saved mapping**
 removes that preset. Deleted destination columns block import until corrected.
-Duplicating a table does not copy source-bound mappings. Automatic table ingestion
-is still pending. Keep the installation private: bearer authentication covers
+Duplicating a table does not copy source-bound mappings. Enable **Automatically
+import pending and future deliveries** after saving a mapping to process records
+on worker ticks. Each tick handles up to ten deliveries from a bounded pending
+window. Bad mappings or capacity errors pause the source and leave its event
+pending; correct the mapping and re-enable to recover. Imports do not run paid
+recipes, and an active recipe schedule pauses when its row scope expands.
+Previously processed delivery IDs prevent automatic replay even after a table
+restore; use the inbox for a deliberate reimport. Keep the installation private: bearer authentication covers
 webhook delivery, while the operator UI and inbox use the existing single-user
 trust boundary. Remote senders need a reachable installation; no public endpoint
 or tunnel was created for this local build.
+
+## Run background work locally
+
+For a local build with scheduled work, run:
+
+```bash
+npm run build
+npm run start
+```
+
+Then, in another terminal in this project:
+
+```bash
+npm run clock
+```
+
+The clock calls only the local Worker on port 8787 once per minute, after the
+previous request finishes. For another port use `npm run clock -- 8798`; add
+`--once` for a single tick. Keep both processes running and stop them with Ctrl+C.
+Ticks process enabled webhook sources, due schedules and queued jobs, including
+provider requests already approved in those schedules/jobs. `npm run dev` remains
+the editor development preview; it does not itself supply a recurring clock.
+No deployment or public endpoint is required. Cloud-hosted operation uses the
+Worker's existing scheduled handler instead of this local driver.
+
+Grid saves merge independent cell edits and incoming rows using their last saved
+snapshot. A real same-cell or deletion/edit conflict returns an error and keeps
+local edits in the tab; preserve them before reloading. Idle grids refresh every
+four seconds. History restores disable automatic webhook ingestion until you
+explicitly enable it again. These protections do not constitute multi-user access
+control or collaborative editing.
 
 ## Check it
 

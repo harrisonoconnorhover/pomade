@@ -161,6 +161,9 @@ export type SavedView = {
 };
 
 export type WorkspaceSnapshot = {
+  revision?: number;
+  webhookAutoImport?: Record<string, boolean>;
+  webhookImportErrors?: Record<string, string>;
   id: string;
   name: string;
   columns: PomadeColumn[];

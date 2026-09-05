@@ -2,38 +2,40 @@
 
 ## Finished
 
-- Added saved webhook mappings per source, restored when that source is selected.
-- Filtered inbox deliveries by source before pagination and cleared stale selections on source changes.
-- Added explicit correction for missing destination columns and removal of saved presets.
-- Kept source-bound mappings out of duplicated tables.
+- Added opt-in automatic webhook imports using saved source mappings, atomic completion markers and recoverable source pauses.
+- Added protected table revisions and three-way save merging to preserve incoming rows and independent edits.
+- Added idle-grid refresh and kept foreground runs scoped to their originally requested rows/columns.
+- Updated manual, background, scheduled and history-restore paths for revision checks; restores disable auto-import.
+- Added a localhost clock command for private scheduled work without deployment.
 
 ## Try It
 
-Run `npm run dev`, open **Webhook inbox**, choose a **Mapping source**, map JSON paths and click **Save mapping for source**. Select deliveries and preview the import. Reloading the table and selecting that source restores its mapping. Test server stopped after verification.
+Run `npm run build` then `npm run start`. In another terminal run `npm run clock` (default port 8787). In **Webhook inbox**, save a mapping and enable automatic import. Send a delivery; worker ticks import it and the idle grid refreshes. Correct a failed mapping and re-enable its source to retry pending data. Stop both processes with Ctrl+C. Verification servers were stopped.
 
 ## Checks
 
-- 10 focused webhook/workbook tests passed.
-- Typecheck, lint and final production build passed.
-- Isolated Worker + D1 checks passed: save/reload, filtered source reads, duplication, persistent preset removal and home HTTP 200.
-- Final diff whitespace check passed. No browser interaction test, paid calls or public deployment.
+- 133 full-suite tests passed; final focused merge/version/pipeline suite: 11 passed.
+- Typecheck, lint and production build passed; local clock syntax and isolated one-tick checks passed.
+- Isolated Worker + D1 passed automatic import, duplicate replay, stale/conflicting saves, concurrent merges, mapping recovery, manual runs, background jobs and schedules.
+- Final Worker scope/restore checks and home HTTP 200 passed; diff whitespace check passed.
+- No browser interaction test, real paid calls or public deployment.
 
 ## Decisions
 
-- Store mappings in existing versioned table snapshots.
-- Reject missing destinations instead of dropping values silently.
-- Keep the full competitor goal active; commit locally only.
+- Import records automatically; run paid recipes separately.
+- Reject real edit conflicts rather than silently overwriting either side.
+- Keep the full competitor goal active and all commits local.
 
 ## Remaining
 
-- Automatic webhook ingestion with safe concurrent table writes.
-- API-as-source, pagination and true provider fallback.
-- Richer table transfers, more sources, signals and reusable multi-step functions.
-- Governed CRM writeback and webhook retention controls.
-- Later: independent self-host packaging, account isolation, Google sign-in and public release.
+- API-as-source with pagination; true provider fallback.
+- Richer table transfers, sourcing, signals and reusable multi-step functions.
+- Trigger-to-recipe automation and governed CRM writeback.
+- Webhook retention controls and provider-specific signatures.
+- Independent self-host packaging, account isolation, Google sign-in and public release later.
 
 ## Review First
 
-- `components/webhook-inbox.tsx` for source selection and saved mapping controls.
-- `lib/webhook-inbox.ts` and tests for mapping persistence and destination validation.
-- `app/api/webhooks/route.ts` for filtering before pagination.
+- `db/webhook-ingestion.ts`, `db/workspace-store.ts` and the revision trigger.
+- `lib/workspace-merge.ts`, its tests and grid autosave integration.
+- `worker.ts` and `scripts/local-clock.mjs` for scheduled local operation.

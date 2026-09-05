@@ -22,6 +22,14 @@ export async function ensureDatabaseSchema(db: D1Database) {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )`),
+    db.prepare(`CREATE TRIGGER IF NOT EXISTS workspace_revision_guard
+      BEFORE UPDATE ON workspaces
+      WHEN COALESCE(json_extract(NEW.snapshot, '$.revision'), 0) != COALESCE(json_extract(OLD.snapshot, '$.revision'), 0) + 1
+      BEGIN SELECT RAISE(ABORT, 'Workspace changed; reload before retrying.'); END`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS webhook_imports (
+      event_id TEXT PRIMARY KEY NOT NULL,
+      imported_at INTEGER NOT NULL
+    )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS workspace_versions (
       id TEXT PRIMARY KEY NOT NULL,
       workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,

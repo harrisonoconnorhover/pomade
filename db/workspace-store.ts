@@ -23,6 +23,9 @@ export async function versionedWorkspaceStatements(
 
   if (current) {
     const previous = JSON.parse(current.snapshot) as WorkspaceSnapshot;
+    if ((workspace.revision ?? 0) !== (previous.revision ?? 0))
+      throw new Error('Workspace changed; reload before retrying.');
+    workspace.revision = (previous.revision ?? 0) + 1;
     if (!workspaceContentMatches(previous, workspace)) {
       statements.push(
         db

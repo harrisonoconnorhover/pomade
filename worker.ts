@@ -1,5 +1,7 @@
 import app from 'vinext/server/fetch-handler';
 
+import { versionedWorkspaceStatements } from './db/workspace-store';
+import { ingestWebhookEvents } from './db/webhook-ingestion';
 import { ensureDatabaseSchema } from './db/ensure';
 import {
   claimDueSchedule,
@@ -37,18 +39,13 @@ async function saveWorkspace(
   env: Cloudflare.Env,
   workspace: WorkspaceSnapshot,
 ) {
-  await env.DB.prepare(
-    `UPDATE workspaces
-     SET name = ?, snapshot = ?, updated_at = ?
-     WHERE id = ?`,
-  )
-    .bind(
-      workspace.name,
-      JSON.stringify(workspace),
-      workspace.updatedAt,
-      workspace.id,
-    )
-    .run();
+  await env.DB.batch(
+    await versionedWorkspaceStatements(
+      env.DB,
+      workspace,
+      'Background run queued',
+    ),
+  );
 }
 
 async function claimWorkspace(
@@ -59,16 +56,17 @@ async function claimWorkspace(
   const workspace = JSON.parse(record.snapshot) as WorkspaceSnapshot;
   const claimed = claimDueSchedule(workspace, now);
   if (!claimed) return null;
+  claimed.revision = (workspace.revision ?? 0) + 1;
   const result = await env.DB.prepare(
     `UPDATE workspaces
      SET snapshot = ?, updated_at = ?
-     WHERE id = ? AND updated_at = ?`,
+     WHERE id = ? AND snapshot = ?`,
   )
     .bind(
       JSON.stringify(claimed),
       claimed.updatedAt,
       record.id,
-      record.updated_at,
+      record.snapshot,
     )
     .run();
   return result.meta.changes === 1 ? claimed : null;
@@ -329,6 +327,7 @@ async function runBackgroundWork(
     await ensureDatabaseSchema(env.DB);
     workerSchemaReady = true;
   }
+  await ingestWebhookEvents(env.DB);
   await runDueSchedules(scheduledTime, env, ctx);
   await runQueuedJobs(scheduledTime, env, ctx);
 }

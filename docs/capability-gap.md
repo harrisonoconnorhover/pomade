@@ -85,8 +85,11 @@ Bitscale or Clay.
       import preview and source provenance. Verified locally on 2026-09-05.
 - [x] Saved per-source webhook field mappings, filtered inbox pages and validation
       against current destination columns. Verified on 2026-09-05.
-- [ ] Automatic webhook-to-table ingestion, provider-specific
-      signatures and trigger-to-recipe execution.
+- [x] Opt-in automatic webhook-to-table ingestion on worker ticks, atomic delivery
+      completion, per-source failure pause/recovery, protected table revisions,
+      nonconflicting edit merges and idle-grid refresh. Verified locally on
+      2026-09-05, including concurrent saves and existing background/schedule paths.
+- [ ] Provider-specific webhook signatures and trigger-to-recipe execution.
 - [ ] HTTP pagination, additional methods, connection portability, API-as-source,
       and outbound webhook workflows.
 - [ ] Authenticated plan import plus governed HubSpot/Salesforce writeback
@@ -135,8 +138,7 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Automatic ingestion with safe concurrent table writes;
-   API-as-source to feed real table workflows.
+1. API-as-source with pagination to feed real table workflows.
 2. Repeatable cross-table transfers, richer lookup matching/aggregation and
    reusable workbook templates.
 3. True provider fallback with per-attempt receipts and usage. Prove a valid
@@ -228,5 +230,6 @@ above are explicit gaps; this first slice does not establish full HTTP parity.
 [Clay webhooks](https://university.clay.com/docs/webhook-integration-guide) add
 incoming JSON records to a table immediately and support an authentication token.
 Pomade now durably receives authenticated deliveries with retry deduplication and
-an import preview, but requires an explicit import step. Automatic table updates
-remain a material parity gap, not a completed capability.
+an import preview, and now supports opt-in automatic ingestion on worker ticks. It is bounded polling,
+not instant event-to-enrichment execution. Provider-specific adapters and automatic
+recipe triggering remain gaps.

@@ -105,6 +105,14 @@ export async function POST(request: Request) {
     const stored = JSON.parse(record.snapshot) as WorkspaceSnapshot;
     if (stored.id !== tableId) throw new Error('Workspace mismatch');
     const restored = prepareRestoredWorkspace(stored, Date.now());
+    const latest = await db
+      .prepare('SELECT snapshot FROM workspaces WHERE id = ?')
+      .bind(tableId)
+      .first<{ snapshot: string }>();
+    restored.revision = latest
+      ? (JSON.parse(latest.snapshot) as WorkspaceSnapshot).revision
+      : 0;
+    restored.webhookAutoImport = {};
     await db.batch(
       await versionedWorkspaceStatements(
         db,

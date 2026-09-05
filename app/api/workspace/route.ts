@@ -1,3 +1,4 @@
+import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { ensureDatabase } from '@/db/ensure';
 import { versionedWorkspaceStatements } from '@/db/workspace-store';
 import { createSampleWorkspace } from '@/lib/sample-workspace';
@@ -66,12 +67,23 @@ export async function PUT(request: Request) {
     return Response.json({ error: 'Table ID mismatch.' }, { status: 400 });
   const db = await ensureDatabase();
   const exists = await db
-    .prepare('SELECT id FROM workspaces WHERE id = ?')
+    .prepare('SELECT snapshot FROM workspaces WHERE id = ?')
     .bind(workspace.id)
-    .first();
+    .first<{ snapshot: string }>();
   if (!exists)
     return Response.json({ error: 'Table not found.' }, { status: 404 });
-  const updated = { ...workspace, updatedAt: Date.now() };
-  await saveWorkspace(updated);
-  return Response.json({ workspace: updated });
+  try {
+    const current = JSON.parse(exists.snapshot) as WorkspaceSnapshot;
+    const base = (body as { baseWorkspace?: WorkspaceSnapshot }).baseWorkspace;
+    const updated = base
+      ? mergeWorkspaceEdits(base, workspace, current)
+      : { ...workspace, updatedAt: Date.now() };
+    await saveWorkspace(updated);
+    return Response.json({ workspace: updated });
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : 'Table save failed.' },
+      { status: 409 },
+    );
+  }
 }

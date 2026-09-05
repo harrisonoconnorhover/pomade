@@ -262,6 +262,34 @@ export default function WebhookInbox({
           >
             Save mapping for source
           </Button>
+          {sourceId && workspace.webhookImportErrors?.[sourceId] ? (
+            <p role="alert">
+              Last automatic import stopped:{' '}
+              {workspace.webhookImportErrors[sourceId]}
+            </p>
+          ) : null}
+          {sourceId && workspace.webhookMappings?.[sourceId] ? (
+            <label>
+              <input
+                type="checkbox"
+                checked={Boolean(workspace.webhookAutoImport?.[sourceId])}
+                disabled={disabled || busy || Boolean(mappingError)}
+                onChange={(e) =>
+                  onSaveMapping({
+                    ...workspace,
+                    webhookAutoImport: {
+                      ...workspace.webhookAutoImport,
+                      [sourceId]: e.target.checked,
+                    },
+                    updatedAt: Date.now(),
+                  })
+                }
+              />
+              Automatically import pending and future deliveries using the saved
+              mapping. With the worker clock running, checks about once per
+              minute; paid recipes require a separate run.
+            </label>
+          ) : null}
           {sourceId && workspace.webhookMappings?.[sourceId] ? (
             <Button
               variant="outline"
@@ -272,6 +300,10 @@ export default function WebhookInbox({
                 onSaveMapping({
                   ...workspace,
                   webhookMappings: next,
+                  webhookAutoImport: {
+                    ...workspace.webhookAutoImport,
+                    [sourceId]: false,
+                  },
                   updatedAt: Date.now(),
                 });
                 setError('Saved mapping removed.');
