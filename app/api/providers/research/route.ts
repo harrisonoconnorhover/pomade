@@ -24,6 +24,8 @@ export async function GET() {
         webResearch: true,
         citations: true,
         maximumActionsPerRun: 10,
+        localBrowser: status.browser,
+        maximumPagesPerResearch: status.browser ? 6 : null,
       },
     });
   } catch (e) {

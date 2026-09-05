@@ -2,38 +2,41 @@
 
 ## Finished
 
-- Pomade has scoped API keys and nine authenticated `/api/v1` operations for saved tables, search, recipes, receipts and CRM reads/previewed writes.
-- An official-SDK stdio MCP server exposes the permitted tools. It is registered as `pomade` in this Mac's Codex configuration, with a private credential-file reference and longer research timeout.
-- All nine tools were exercised through a real MCP client. HealthEdge, Clearwater Security and Solera research reused cached results. Both dev CRMs returned three records and verified existing values through the preview/execute flow; no new records or changed field values were needed.
-- Refreshed the expired Salesforce dev credential from its existing CLI login. The app is running at http://localhost:8798. No public publishing or GitHub push occurred.
+- Pomade's Codex research provider now opens public websites in local Playwright/Chromium. The model chooses relevant links through a read-only browser MCP tool and returns the existing typed table outputs.
+- Browser mode is enabled on this Mac. Each research request gets an isolated browser with a six-page budget; the browser starts and closes automatically through the existing Codex helper.
+- Citations require an exact quotation from a successfully visited final URL. Run receipts expose browser visits, timestamps, outcomes and checked quotations; row evidence and cached results preserve them.
+- Live research passed for HealthEdge, Clearwater Security and Solera in **DemandDrive — Local browser research**. Each read its homepage plus a relevant second page: six pages and seven checked quotations total.
+- All three repeat runs reused cached browser results. The same work ran through Pomade's previously registered MCP connection. Nothing was published or pushed to GitHub.
 
 ## Try It
 
-Reconnect the Pomade MCP or start a fresh Codex session, then ask: “Show the DemandDrive account and buyer tables, find Clearwater's existing buying committee, and preview its saved HubSpot mapping.” The app must stay running. Start `npm run research:codex` as well for uncached subscription research.
+Open http://localhost:8798 and select **DemandDrive — Local browser research**. Inspect the offering, business-customer flag and target-customer fields, then open a run receipt's **Browser visits** section.
 
-See `docs/api-and-mcp.md`. Generate another key with `npm run api:key -- create "Assistant"`; add `--scopes read,run,crm:read,crm:write` when those permissions are wanted. Key creation/revocation requires rebuilding and restarting the local app. The existing consumer configurations are in ignored `outputs/api-keys/`.
+The local preview and Codex helper are running. After restarting the Mac, run `npm run research:codex` and `npm run start -- --port 8798` in separate terminals. Installation and switching modes are in `docs/local-browser-research.md`.
+
+Use the existing research editor or MCP `run_recipe` tool for another question. Keep synchronous browser calls to one account at a time. Mode changes require rebuilding and restarting the preview.
 
 ## Checks
 
-- Eight focused tests passed: credentials/revocation, permissions, row/recipe scope, saved CRM mappings and an official MCP client connection.
-- TypeScript, lint, script syntax checks, production build and diff checks passed.
-- Live API returned 401 for missing/invalid keys and 403 for read-only run/write attempts. The read-only catalog exposed four tools.
-- Live MCP exercised nine tools against saved data. Three cached research receipts passed; HubSpot and Salesforce each verified three unchanged accounts. Private receipts: `outputs/pomade-mcp-live.json`.
+- 23 focused tests passed, including real Chromium rendering, link navigation, blocked pages, page budgets, POST blocking, private URL rejection, quotation validation and research persistence.
+- TypeScript, lint, script syntax checks and production build passed.
+- Three live account runs passed with six recorded page reads and seven accepted quotations; all results persisted. A three-row repeat hit the cache for every row.
+- Private evidence: `outputs/browser-research-live.json`.
 
 ## Decisions
 
-- Keep API/MCP local and reuse existing execution paths and JSON-schema tool definitions.
-- Keep per-consumer secrets private; save only hashes in server configuration. Preserve separate run and CRM permissions.
-- Distinguish stored-row search from new company discovery; adding MCP does not add a provider database.
+- Reuse the subscription helper, recipe pipeline, cache and MCP interface; run browsers locally for personal batches.
+- Check source quotations against actually returned page text. Missing/blocked evidence stays unknown or in review.
+- Keep clean public-site browser contexts; preserve the user's signed-in Chrome profile separately.
 
 ## Remaining
 
-- Live company discovery and easier conversational creation of tables/recipes.
-- Hosted users, remote MCP transport/authentication and broader self-host packaging.
-- Automatic Salesforce OAuth refresh, PDL business-email connection, and the wider capability backlog in `docs/requested-workflows.md`.
+- Authenticated websites, broader UI interactions, alternate LLM providers and larger evaluations.
+- Whole-market discovery and easier conversational creation of tables/recipes.
+- Mid-research recovery across helper crashes; the existing pipeline already retains completed rows.
 
 ## Review First
 
-- `docs/api-and-mcp.md` for connection setup and local boundaries.
-- `lib/pomade-api.ts` and `lib/pomade-api-auth.ts` for tool scope and authentication.
-- `scripts/pomade-mcp.mjs` and `outputs/pomade-mcp-live.json` for protocol behavior and live evidence.
+- `docs/local-browser-research.md` and the new table's run receipts.
+- `scripts/research-browser.mjs` and `scripts/codex-research.mjs`.
+- `outputs/browser-research-live.json` for the six-page live check and cache replay.

@@ -686,3 +686,9 @@ Pomade can now be called from a local assistant or script using scoped Pomade AP
 keys. Nine tools cover saved table search, selected recipe runs, CRM reads and
 previewed CRM syncs. See [API and MCP setup](docs/api-and-mcp.md) for key generation,
 client configuration and current local-only limits.
+
+### Local browser research
+
+The Codex research provider can now open public websites in local Playwright,
+follow relevant links, and return structured answers backed by checked quotations
+and browser visit receipts. See [Local browser research](docs/local-browser-research.md).

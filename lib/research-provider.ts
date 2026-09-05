@@ -6,6 +6,7 @@ export type ResearchEnvironment = {
   POMADE_CODEX_URL?: string;
   POMADE_CODEX_TOKEN?: string;
   POMADE_CODEX_MODEL?: string;
+  POMADE_CODEX_BROWSER?: string;
   PARALLEL_API_KEY?: string;
   PARALLEL_MODEL?: string;
   GEMINI_API_KEY?: string;
@@ -22,8 +23,10 @@ export function researchConfiguration(env: ResearchEnvironment) {
     | 'codex'
     | 'parallel'
     | 'gemini';
+  const browser = provider === 'codex' && env.POMADE_CODEX_BROWSER === 'true';
   return {
     provider,
+    browser,
     configured: Boolean(
       provider === 'codex'
         ? env.POMADE_CODEX_TOKEN?.trim()
@@ -33,13 +36,16 @@ export function researchConfiguration(env: ResearchEnvironment) {
     ),
     model:
       provider === 'codex'
-        ? env.POMADE_CODEX_MODEL?.trim() || 'Codex default'
+        ? (env.POMADE_CODEX_MODEL?.trim() || 'Codex default') +
+          (browser ? ' + local-browser-v1' : '')
         : provider === 'parallel'
           ? env.PARALLEL_MODEL?.trim() || 'speed'
           : env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash',
     label:
       provider === 'codex'
-        ? 'Codex · ChatGPT subscription'
+        ? browser
+          ? 'Codex + local browser'
+          : 'Codex · ChatGPT subscription'
         : provider === 'parallel'
           ? 'Parallel Web Research'
           : 'Gemini + Google Search',
@@ -51,6 +57,7 @@ export function createResearchClient(env: ResearchEnvironment) {
     return new CodexWebResearchClient({
       url: env.POMADE_CODEX_URL,
       token: env.POMADE_CODEX_TOKEN,
+      browser: env.POMADE_CODEX_BROWSER === 'true',
       model: env.POMADE_CODEX_MODEL?.trim(),
     });
   if (provider === 'parallel')

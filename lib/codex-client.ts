@@ -7,6 +7,7 @@ export class CodexWebResearchClient {
       url?: string;
       token?: string;
       model?: string;
+      browser?: boolean;
       fetchImpl?: typeof fetch;
     },
   ) {
@@ -40,7 +41,9 @@ export class CodexWebResearchClient {
         },
         ...(body ? { body: JSON.stringify(body) } : {}),
         redirect: 'manual',
-        signal: AbortSignal.timeout(body ? 200_000 : 15_000),
+        signal: AbortSignal.timeout(
+          body ? (this.options.browser ? 260_000 : 200_000) : 15_000,
+        ),
       });
     } catch {
       throw new Error(
@@ -62,13 +65,21 @@ export class CodexWebResearchClient {
     return response.json();
   }
   async status(): Promise<{ configured: boolean }> {
-    const data = (await this.request('/status')) as { configured?: unknown };
+    const data = (await this.request('/status')) as {
+      configured?: unknown;
+      browserAvailable?: unknown;
+    };
+    if (this.options.browser && data.browserAvailable !== true)
+      throw new Error(
+        'Install local Chromium with npm run research:browser:install, then restart the Codex helper.',
+      );
     return { configured: data?.configured === true };
   }
   async research(prompt: string): Promise<WebResearchResult> {
     const raw = await this.request('/research', {
       prompt,
       model: this.options.model,
+      browser: this.options.browser,
     });
     const data = raw as Partial<WebResearchResult> | null;
     if (
@@ -89,7 +100,12 @@ export class CodexWebResearchClient {
           typeof c.title === 'string',
       ),
       queries: data.queries.filter((q: unknown) => typeof q === 'string'),
-      model: this.options.model || 'Codex default',
+      model:
+        (this.options.model || 'Codex default') +
+        (this.options.browser ? ' + local-browser-v1' : ''),
+      ...(this.options.browser && Array.isArray(data.browserVisits)
+        ? { browserVisits: data.browserVisits }
+        : {}),
       cached: false,
     };
   }

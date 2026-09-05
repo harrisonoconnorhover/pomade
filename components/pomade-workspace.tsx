@@ -5151,17 +5151,41 @@ export default function PomadeWorkspace({
                   ) : null}
                   {receipt.references?.length ? (
                     <span className="receipt-sources">
-                      {receipt.references.slice(0, 3).map((reference) => (
-                        <a
-                          key={reference.url}
-                          href={reference.url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {reference.title}
-                        </a>
-                      ))}
+                      {receipt.references
+                        .slice(0, 3)
+                        .map((reference, index) => (
+                          <a
+                            key={`${reference.url}-${index}`}
+                            href={reference.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {reference.title}
+                          </a>
+                        ))}
                     </span>
+                  ) : null}
+                  {receipt.browserVisits?.length ? (
+                    <details>
+                      <summary>
+                        Browser visits · {receipt.browserVisits.length}
+                      </summary>
+                      {receipt.browserVisits.map((visit, index) => (
+                        <p key={`${visit.url}-${index}`}>
+                          {visit.status} · {visit.title || visit.url}
+                          {visit.error ? ` · ${visit.error}` : ''}
+                          {' · '}
+                          {new Date(visit.visitedAt).toLocaleString()}
+                        </p>
+                      ))}
+                      {receipt.references
+                        ?.filter((reference) => reference.excerpt)
+                        .map((reference, index) => (
+                          <blockquote key={`${reference.url}-${index}`}>
+                            {reference.excerpt}
+                          </blockquote>
+                        ))}
+                    </details>
                   ) : null}
                   {receipt.outputValues &&
                   Object.keys(receipt.outputValues).length > 1 ? (

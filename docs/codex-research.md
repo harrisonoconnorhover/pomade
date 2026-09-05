@@ -73,3 +73,11 @@ References: [Job Ops](https://github.com/dakheera47/Job-Ops),
 [official Codex app-server](https://learn.chatgpt.com/docs/app-server),
 [Codex web search](https://learn.chatgpt.com/docs/web-search),
 [Codex configuration](https://learn.chatgpt.com/docs/config-file/config-reference).
+
+## Optional local browser navigation
+
+Set `POMADE_CODEX_BROWSER=true` to give the research agent a local Playwright
+browser. It can render public pages and follow relevant links before producing
+structured answers with checked source quotes and visit receipts. See
+[Local browser research](local-browser-research.md) for installation, use and
+limits. The browser starts automatically through the existing helper.

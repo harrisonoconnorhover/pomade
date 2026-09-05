@@ -337,6 +337,9 @@ export function applyWebResearchResult(
       [`__research_${column.id}_raw`]: result.answer,
       [`__research_${column.id}_sources`]: JSON.stringify(result.citations),
       [`__research_${column.id}_queries`]: JSON.stringify(result.queries),
+      [`__research_${column.id}_browser`]: JSON.stringify(
+        result.browserVisits ?? [],
+      ),
       status: grounded ? 'Ready' : 'Review',
     };
     const createdRows = items.map<PomadeRow>((values, index) => ({
@@ -402,6 +405,7 @@ export function applyWebResearchResult(
       createdRowIds: createdRows.map((created) => created.id),
       references: result.citations,
       queries: result.queries,
+      browserVisits: result.browserVisits,
     };
     return {
       workspace: { ...workspace, rows, updatedAt: finishedAt },
@@ -429,6 +433,9 @@ export function applyWebResearchResult(
     [`__research_${column.id}_raw`]: result.answer,
     [`__research_${column.id}_sources`]: JSON.stringify(result.citations),
     [`__research_${column.id}_queries`]: JSON.stringify(result.queries),
+    [`__research_${column.id}_browser`]: JSON.stringify(
+      result.browserVisits ?? [],
+    ),
     status: grounded ? 'Ready' : 'Review',
   };
   const rows = workspace.rows.map((candidate, index) =>
@@ -453,6 +460,7 @@ export function applyWebResearchResult(
     outputValues,
     references: result.citations,
     queries: result.queries,
+    browserVisits: result.browserVisits,
   };
 
   return {

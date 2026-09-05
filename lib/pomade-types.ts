@@ -305,6 +305,7 @@ export type ActionReceipt = {
   createdRowIds?: string[];
   outputValues?: Record<string, string>;
   references?: WebResearchCitation[];
+  browserVisits?: BrowserResearchVisit[];
   queries?: string[];
 };
 
@@ -351,12 +352,26 @@ export type ApolloEnrichmentResult = {
   cached: boolean;
 };
 
+export type BrowserResearchVisit = {
+  requestedUrl: string;
+  url: string;
+  title: string;
+  status: 'read' | 'blocked' | 'rate_limited' | 'error';
+  visitedAt: string;
+  httpStatus?: number;
+  truncated: boolean;
+  error?: string;
+};
+
 export type WebResearchCitation = {
+  excerpt?: string;
+  visitedAt?: string;
   title: string;
   url: string;
 };
 
 export type WebResearchResult = {
+  browserVisits?: BrowserResearchVisit[];
   answer: string;
   citations: WebResearchCitation[];
   queries: string[];

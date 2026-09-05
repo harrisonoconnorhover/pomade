@@ -833,3 +833,24 @@ research conditions, caches, CRM previews and native verification. Keep calls
 synchronous for this slice; document timeouts and receipt inspection rather than
 introducing another job runner. Refresh an expired Salesforce session using the
 existing CLI login, without changing its organization or permissions.
+
+## 2026-09-05: Browser research on the user's machine
+
+Add an optional Playwright/Chromium reader to the existing Codex subscription
+helper. The model chooses public pages and follows returned links through one
+read-only MCP tool. Keep one isolated browser per research request and six page
+attempts; reuse existing typed output handling, row persistence, cache and MCP
+recipe execution. Do not build distributed browser infrastructure for personal
+batches.
+
+Require actual browser visits and exact quotation matches before accepting browser
+citations. Keep visit outcomes and source quotes in receipts and row evidence,
+with a separate cache identity from search-only research. Failed access is not
+negative evidence. Preserve source text only temporarily; retain the bounded
+quotes and visit metadata as the useful durable evidence.
+
+Use a clean browser context without Chrome account cookies or write interactions.
+Block private-network destinations and non-read methods because public websites
+are untrusted and the reader runs alongside the user's local services. Leave
+logged-in sessions, arbitrary UI actions and other model providers for a later
+requested slice.

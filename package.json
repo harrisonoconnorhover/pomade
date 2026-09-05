@@ -17,7 +17,8 @@
     "clock": "node scripts/local-clock.mjs",
     "research:codex": "node --env-file-if-exists=.env.local scripts/codex-research.mjs",
     "api:key": "node scripts/pomade-api-key.mjs",
-    "mcp": "node scripts/pomade-mcp.mjs"
+    "mcp": "node scripts/pomade-mcp.mjs",
+    "research:browser:install": "playwright install chromium"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
@@ -31,6 +32,7 @@
     "lucide-react": "1.31.0",
     "marked": "^18.0.11",
     "papaparse": "^5.7.0",
+    "playwright": "^1.63.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-responsive-carousel": "^3.2.23",
