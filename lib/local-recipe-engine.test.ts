@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { toControlTowerPreview } from './control-tower-adapter';
-import { executeWorkspace, renderCustomFormula } from './local-recipe-engine';
+import {
+  countEligibleRecipeActions,
+  executeWorkspace,
+  matchesRunCondition,
+  recalculateAutomaticFormulas,
+  renderCustomFormula,
+} from './local-recipe-engine';
 import { createSampleWorkspace } from './sample-workspace';
 import { toScoutboundPipeline } from './scoutbound-adapter';
 
@@ -85,6 +91,142 @@ describe('Pomade recipe execution', () => {
     expect(result.workspace.rows[0].values.account_key).toBe(
       'mercury::mercury.com',
     );
+  });
+
+  it('evaluates row conditions without case sensitivity', () => {
+    const row = createSampleWorkspace().rows[0];
+
+    expect(
+      matchesRunCondition(
+        { field: 'title', operator: 'contains', value: 'FOUNDER' },
+        row,
+      ),
+    ).toBe(true);
+    expect(
+      matchesRunCondition({ field: 'email', operator: 'is_empty' }, row),
+    ).toBe(true);
+    expect(
+      matchesRunCondition(
+        { field: 'company', operator: 'not_equals', value: 'Mercury' },
+        row,
+      ),
+    ).toBe(false);
+    expect(
+      countEligibleRecipeActions(
+        [row],
+        [
+          {
+            id: 'eligible',
+            title: 'Eligible',
+            kind: 'enrichment',
+            recipe: 'company-summary',
+            width: 180,
+            runCondition: {
+              field: 'company',
+              operator: 'equals',
+              value: 'mercury',
+            },
+          },
+          {
+            id: 'ineligible',
+            title: 'Ineligible',
+            kind: 'enrichment',
+            recipe: 'company-summary',
+            width: 180,
+            runCondition: { field: 'email', operator: 'is_not_empty' },
+          },
+        ],
+      ),
+    ).toBe(1);
+  });
+
+  it('skips recipe actions when their row condition is false', () => {
+    const workspace = createSampleWorkspace();
+    workspace.columns.find((column) => column.id === 'fit')!.runCondition = {
+      field: 'title',
+      operator: 'contains',
+      value: 'engineering',
+    };
+
+    const result = executeWorkspace(workspace, ['sample-1']);
+
+    expect(result.run.actionCount).toBe(1);
+    expect(result.run.skippedCount).toBe(1);
+    expect(result.run.receipts.map((receipt) => receipt.columnId)).toEqual([
+      'opener',
+    ]);
+  });
+
+  it('auto-updates safe formulas in column order after an input edit', () => {
+    const workspace = createSampleWorkspace();
+    const columns = [
+      ...workspace.columns.slice(0, -1),
+      {
+        id: 'first',
+        title: 'First name',
+        kind: 'formula' as const,
+        recipe: 'first-name' as const,
+        autoRun: true,
+        width: 140,
+      },
+      {
+        id: 'label',
+        title: 'Label',
+        kind: 'formula' as const,
+        recipe: 'custom-formula' as const,
+        expression: '{{first}} @ {{company | lower}}',
+        autoRun: true,
+        width: 220,
+        runCondition: {
+          field: 'company',
+          operator: 'is_not_empty' as const,
+        },
+      },
+      workspace.columns.at(-1)!,
+    ];
+    const edited = {
+      ...workspace.rows[0],
+      values: { ...workspace.rows[0].values, person: 'Ada Lovelace' },
+    };
+
+    const updated = recalculateAutomaticFormulas(edited, columns, 'person');
+
+    expect(updated.values.first).toBe('Ada');
+    expect(updated.values.label).toBe('Ada @ mercury');
+  });
+
+  it('preserves a directly edited formula while updating dependents', () => {
+    const workspace = createSampleWorkspace();
+    const columns = [
+      ...workspace.columns.slice(0, -1),
+      {
+        id: 'first',
+        title: 'First name',
+        kind: 'formula' as const,
+        recipe: 'first-name' as const,
+        autoRun: true,
+        width: 140,
+      },
+      {
+        id: 'label',
+        title: 'Label',
+        kind: 'formula' as const,
+        recipe: 'custom-formula' as const,
+        expression: '{{first}} @ {{company}}',
+        autoRun: true,
+        width: 220,
+      },
+      workspace.columns.at(-1)!,
+    ];
+    const edited = {
+      ...workspace.rows[0],
+      values: { ...workspace.rows[0].values, first: 'Immy' },
+    };
+
+    const updated = recalculateAutomaticFormulas(edited, columns, 'first');
+
+    expect(updated.values.first).toBe('Immy');
+    expect(updated.values.label).toBe('Immy @ Mercury');
   });
 
   it('runs only selected rows when a row scope is supplied', () => {

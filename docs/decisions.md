@@ -58,6 +58,19 @@ code. Formulas run in visual column order, so a later formula can intentionally
 reference an earlier result. The builder previews five rows before the column is
 added, while generated values remain editable afterward.
 
+## Conditions run before provider calls
+
+Each recipe may have one row-level condition against a prior visible column.
+Conditions are case-insensitive and support empty, equality, and contains
+checks. A false condition produces no action receipt and increments the run's
+skipped count; for web research, it is excluded from the request total before
+the user confirms possible provider cost.
+
+Only deterministic formula columns can auto-update after a cell edit. They run
+locally in visual column order, skip the cell being directly edited, and may
+feed later formulas. Provider-backed enrichments remain manual so editing a grid
+never creates an external request or surprise spend.
+
 ## GTM Control Tower owns mutation
 
 Pomade can export a bounded preview plan containing only the rows and fields

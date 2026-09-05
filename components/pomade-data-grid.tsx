@@ -17,7 +17,7 @@ import type { PomadeColumn, PomadeRow } from '@/lib/pomade-types';
 type Props = {
   columns: PomadeColumn[];
   rows: PomadeRow[];
-  onRowsChange: (rows: PomadeRow[]) => void;
+  onRowsChange: (rows: PomadeRow[], editedColumnId?: string) => void;
   onActiveRowChange: (rowId: string) => void;
   onSelectedRowIdsChange: (rowIds: string[]) => void;
 };
@@ -88,12 +88,15 @@ export default function PomadeDataGrid({
     ([col, row]: Item, value: EditableGridCell) => {
       const column = columns[col];
       if (value.kind !== GridCellKind.Text || column.kind === 'status') return;
+      const changedRow = rows[row];
       onRowsChange(
-        rows.map((item, index) =>
-          index === row
-            ? { ...item, values: { ...item.values, [column.id]: value.data } }
-            : item,
-        ),
+        [
+          {
+            ...changedRow,
+            values: { ...changedRow.values, [column.id]: value.data },
+          },
+        ],
+        column.id,
       );
     },
     [columns, onRowsChange, rows],

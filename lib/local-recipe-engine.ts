@@ -2,6 +2,7 @@ import type {
   ActionReceipt,
   PomadeColumn,
   PomadeRow,
+  RecipeRunCondition,
   RunReceipt,
   WorkspaceSnapshot,
 } from './pomade-types';
@@ -107,6 +108,68 @@ function runRecipe(column: PomadeColumn, row: PomadeRow) {
   }
 }
 
+export function matchesRunCondition(
+  condition: RecipeRunCondition | undefined,
+  row: PomadeRow,
+) {
+  if (!condition) return true;
+  const actual = (row.values[condition.field] ?? '').trim();
+  const expected = (condition.value ?? '').trim();
+  const normalizedActual = actual.toLocaleLowerCase();
+  const normalizedExpected = expected.toLocaleLowerCase();
+
+  switch (condition.operator) {
+    case 'is_not_empty':
+      return actual.length > 0;
+    case 'is_empty':
+      return actual.length === 0;
+    case 'equals':
+      return normalizedActual === normalizedExpected;
+    case 'not_equals':
+      return normalizedActual !== normalizedExpected;
+    case 'contains':
+      return normalizedActual.includes(normalizedExpected);
+    case 'not_contains':
+      return !normalizedActual.includes(normalizedExpected);
+  }
+}
+
+export function shouldRunRecipe(column: PomadeColumn, row: PomadeRow) {
+  return matchesRunCondition(column.runCondition, row);
+}
+
+export function countEligibleRecipeActions(
+  rows: PomadeRow[],
+  columns: PomadeColumn[],
+) {
+  return rows.reduce(
+    (count, row) =>
+      count + columns.filter((column) => shouldRunRecipe(column, row)).length,
+    0,
+  );
+}
+
+export function recalculateAutomaticFormulas(
+  row: PomadeRow,
+  columns: PomadeColumn[],
+  editedColumnId?: string,
+) {
+  const values = { ...row.values };
+  for (const column of columns) {
+    if (
+      column.kind !== 'formula' ||
+      !column.autoRun ||
+      column.id === editedColumnId
+    ) {
+      continue;
+    }
+    const currentRow = { ...row, values };
+    if (!shouldRunRecipe(column, currentRow)) continue;
+    values[column.id] = runRecipe(column, currentRow);
+  }
+  return { ...row, values };
+}
+
 export function executeWorkspace(
   input: WorkspaceSnapshot,
   selectedRowIds?: string[],
@@ -118,6 +181,7 @@ export function executeWorkspace(
       column.recipe !== 'web-research',
   );
   const receipts: ActionReceipt[] = [];
+  let skippedCount = 0;
   const selected = selectedRowIds ? new Set(selectedRowIds) : null;
   const targetRows = selected
     ? input.rows.filter((row) => selected.has(row.id))
@@ -128,6 +192,10 @@ export function executeWorkspace(
     const values = { ...row.values };
 
     for (const [columnIndex, column] of recipeColumns.entries()) {
+      if (!shouldRunRecipe(column, { ...row, values })) {
+        skippedCount += 1;
+        continue;
+      }
       const before = values[column.id] ?? '';
       const after = runRecipe(column, { ...row, values });
       values[column.id] = after;
@@ -165,6 +233,7 @@ export function executeWorkspace(
     passedCount: receipts.filter((receipt) => receipt.status === 'passed')
       .length,
     reviewCount,
+    skippedCount,
     externalWrites: 0,
     receipts,
   };

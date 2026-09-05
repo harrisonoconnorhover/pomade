@@ -2,19 +2,19 @@
 
 ## Finished
 
-- Added a dated, official-source capability checklist for Pomade versus Bitscale and Clay.
-- Crossed off custom merge formulas with column tokens and safe text transforms.
-- Added a builder with variable chips and a live five-row preview before the column is created.
-- Made formulas run in visual column order so later formulas can use earlier outputs.
-- Documented the formula syntax and non-executable safety boundary.
+- Crossed off row-level recipe conditions with six practical comparison operators.
+- Added one settings surface for every formula, deterministic enrichment, and web-research column.
+- Made safe formula columns auto-update in dependency order after an input cell changes.
+- Counted condition-skipped actions in run receipts and excluded them from research request totals.
+- Updated the living Bitscale/Clay capability checklist and product boundaries.
 
 ## Try It
 
-Open **Add recipe column → Custom formula**. Try `{{person | first}} at {{company | upper}}`, review the five-row preview, add the column, and run selected or visible rows.
+Open **Recipe engine** or **Action → Recipe run settings**. Set **Personal opener** to run only if **Title contains founder**, then run the grid. Add a formula column and edit one of its source cells to see local auto-update.
 
 ## Checks
 
-- `npm test`: 31 tests passed across 8 files.
+- `npm test`: 35 tests passed across 8 files.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `npm run build`: passed.
@@ -22,20 +22,20 @@ Open **Add recipe column → Custom formula**. Try `{{person | first}} at {{comp
 
 ## Decisions
 
-- Formula inputs are text templates with an allowlist of transforms, never executable JavaScript.
-- Unknown columns render blank and unknown transforms leave the value unchanged.
-- The next core slice is conditional run settings and automatic updates.
+- One clear condition per recipe is the first complete slice; nested rule groups remain unnecessary until real use demands them.
+- Conditions are evaluated before provider requests, so skipped research does not spend a request.
+- Auto-update is limited to deterministic local formulas; external enrichments remain explicit.
 
 ## Remaining
 
-- Add conditional run settings and automatic updates.
 - Produce structured AI output across multiple typed columns.
 - Save configured recipes as reusable templates/functions.
 - Add enrichment waterfalls with fallback lineage.
+- Add delayed and scheduled recipe execution.
 - Continue down `docs/capability-gap.md` without claiming broad feature parity.
 
 ## Review First
 
-- `components/pomade-workspace.tsx` for the formula-builder flow.
-- `lib/local-recipe-engine.ts` for safe rendering and column-order execution.
-- `docs/capability-gap.md` for the scoped product roadmap and official references.
+- `components/pomade-workspace.tsx` for the recipe-settings flow.
+- `lib/local-recipe-engine.ts` for condition and auto-update semantics.
+- `app/api/runs/route.ts` for cost-aware research gating.

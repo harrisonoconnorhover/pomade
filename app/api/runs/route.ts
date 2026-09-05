@@ -2,7 +2,11 @@ import { env } from 'cloudflare:workers';
 
 import { ensureDatabase } from '@/db/ensure';
 import { GeminiWebResearchClient } from '@/lib/gemini-client';
-import { executeWorkspace } from '@/lib/local-recipe-engine';
+import {
+  countEligibleRecipeActions,
+  executeWorkspace,
+  shouldRunRecipe,
+} from '@/lib/local-recipe-engine';
 import { ParallelWebResearchClient } from '@/lib/parallel-client';
 import type {
   PomadeColumn,
@@ -90,15 +94,24 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = await ensureDatabase();
-    const targetRows = rowIds
+    const originalTargetRows = rowIds
       ? workspace.rows.filter((row) => rowIds.includes(row.id))
       : workspace.rows;
     const researchColumns = workspace.columns.filter(
       (column): column is PomadeColumn & { prompt: string } =>
         column.recipe === 'web-research' && Boolean(column.prompt?.trim()),
     );
-    const researchActionCount = targetRows.length * researchColumns.length;
+    const localResult = executeWorkspace(workspace, rowIds);
+    let updated = localResult.workspace;
+    const targetRows = rowIds
+      ? updated.rows.filter((row) => rowIds.includes(row.id))
+      : updated.rows;
+    const researchActionCount = countEligibleRecipeActions(
+      targetRows,
+      researchColumns,
+    );
+    const skippedResearchActionCount =
+      originalTargetRows.length * researchColumns.length - researchActionCount;
     if (researchActionCount > MAX_RESEARCH_ACTIONS) {
       return Response.json(
         {
@@ -127,8 +140,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const localResult = executeWorkspace(workspace, rowIds);
-    let updated = localResult.workspace;
+    const db = await ensureDatabase();
     const receipts = [...localResult.run.receipts];
     const researchProvider = parallelConfigured ? 'parallel' : 'gemini';
     const model = parallelConfigured
@@ -146,6 +158,7 @@ export async function POST(request: Request) {
 
     for (const row of targetRows) {
       for (const column of researchColumns) {
+        if (!shouldRunRecipe(column, row)) continue;
         const actionStartedAt = Date.now();
         const currentRow = updated.rows.find(
           (candidate) => candidate.id === row.id,
@@ -216,6 +229,8 @@ export async function POST(request: Request) {
         .length,
       reviewCount: receipts.filter((receipt) => receipt.status === 'review')
         .length,
+      skippedCount:
+        (localResult.run.skippedCount ?? 0) + skippedResearchActionCount,
       externalWrites: 0,
       provider:
         hasResearchActions && hasLocalActions

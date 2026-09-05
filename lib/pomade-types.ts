@@ -1,12 +1,28 @@
 export type ColumnKind = 'text' | 'formula' | 'enrichment' | 'status';
 
+export type RunConditionOperator =
+  | 'is_not_empty'
+  | 'is_empty'
+  | 'equals'
+  | 'not_equals'
+  | 'contains'
+  | 'not_contains';
+
+export type RecipeRunCondition = {
+  field: string;
+  operator: RunConditionOperator;
+  value?: string;
+};
+
 export type PomadeColumn = {
   id: string;
   title: string;
   kind: ColumnKind;
   width: number;
+  autoRun?: boolean;
   expression?: string;
   prompt?: string;
+  runCondition?: RecipeRunCondition;
   recipe?:
     | 'custom-formula'
     | 'normalize-domain'
@@ -67,6 +83,7 @@ export type RunReceipt = {
   actionCount: number;
   passedCount: number;
   reviewCount: number;
+  skippedCount?: number;
   externalWrites: 0;
   provider?: 'apollo' | 'gemini' | 'parallel' | 'local' | 'mixed';
   researchProvider?: 'gemini' | 'parallel';

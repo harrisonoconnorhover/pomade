@@ -13,6 +13,10 @@ Bitscale or Clay.
       visible-row execution.
 - [x] Custom merge formulas with column tokens, safe transforms, column-order
       dependencies, and a five-row preview. Crossed off 2026-09-04.
+- [x] Row-level recipe conditions with empty, equality, and contains operators;
+      skipped actions are counted in receipts. Crossed off 2026-09-04.
+- [x] Safe local formula auto-update after cell edits, with dependency-order
+      recalculation and editable overrides. Crossed off 2026-09-04.
 - [x] Bring-your-own-key web research through Parallel or Gemini with citations,
       confirmation, caching, and bounded runs.
 - [x] Selected-person Apollo enrichment with identity checks and credit-aware
@@ -22,8 +26,8 @@ Bitscale or Clay.
 
 ## Core gaps to cross off
 
-- [ ] Conditional run settings: only run a recipe when row criteria are true.
-- [ ] Automatic refresh and delayed/scheduled recipe execution.
+- [ ] Delayed and scheduled recipe execution, including deliberate recurring
+      refreshes for external providers.
 - [ ] Structured AI output into several typed columns, including lists that can
       become new rows.
 - [ ] Ordered enrichment waterfalls with fallback rules and winning-provider
@@ -63,12 +67,12 @@ Bitscale or Clay.
 
 ## Next three slices
 
-1. Conditional run settings and automatic updates, because they prevent wasted
-   provider calls and make every existing recipe more useful.
-2. Structured AI output into multiple columns, because one research call should
+1. Structured AI output into multiple columns, because one research call should
    populate facts, confidence, and evidence separately.
-3. Reusable recipe templates/functions, because repeatability is the bridge from
+2. Reusable recipe templates/functions, because repeatability is the bridge from
    a polished table to a real GTM system.
+3. Ordered enrichment waterfalls, because fallback providers and winning-source
+   lineage make enrichment coverage materially better.
 
 ## Official product references
 

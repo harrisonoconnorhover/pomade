@@ -13,6 +13,8 @@ what changed. It is an original product built on the open-source
 - Preview and import contacts from HubSpot or leads from Salesforce without writing back.
 - Add preset formulas or build custom merge formulas with safe transforms and a
   five-row preview, then run selected or visible rows.
+- Gate any recipe by a row condition and auto-update safe formula columns when
+  an input cell changes.
 - Create custom AI research columns that use Parallel Web Research—or Gemini as a fallback—with clickable citations.
 - Enrich one selected person through Apollo with exact-name/company-domain safeguards.
 - Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
@@ -46,6 +48,12 @@ Custom formulas use column tokens such as `{{person}}` and may apply `trim`,
 templates, not executable JavaScript. See the living
 [Bitscale and Clay capability gap](docs/capability-gap.md) for what Pomade does
 and does not support yet.
+
+Open **Recipe engine** or **Action → Recipe run settings** to make a recipe run
+only when a prior column is empty, present, equal to, or contains a value.
+Conditions are case-insensitive and are checked before provider calls. Formula
+auto-update is local and free; external research remains an explicit,
+credit-confirmed run.
 
 To enable grounded web research locally, set `PARALLEL_API_KEY` in the ignored
 `.env.local` file and restart Pomade. `PARALLEL_MODEL=speed` is the fast default;

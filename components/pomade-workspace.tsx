@@ -27,6 +27,7 @@ import {
   Rows3,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   Table2,
   Upload,
@@ -52,14 +53,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { applyCrmImport, type CrmImportMode } from '@/lib/crm-import';
 import { toControlTowerPreview } from '@/lib/control-tower-adapter';
-import { renderCustomFormula } from '@/lib/local-recipe-engine';
+import {
+  countEligibleRecipeActions,
+  recalculateAutomaticFormulas,
+  renderCustomFormula,
+} from '@/lib/local-recipe-engine';
 import type {
   ApolloEnrichmentResult,
   CrmProvider,
   CrmSourcePreview,
   PomadeColumn,
   PomadeRow,
+  RecipeRunCondition,
   RunReceipt,
+  RunConditionOperator,
   WorkspaceSnapshot,
 } from '@/lib/pomade-types';
 import { createSampleWorkspace } from '@/lib/sample-workspace';
@@ -102,7 +109,14 @@ type CrmCatalogStatus = {
 
 type RecipePreset = Pick<
   PomadeColumn,
-  'title' | 'kind' | 'expression' | 'prompt' | 'recipe' | 'width'
+  | 'title'
+  | 'kind'
+  | 'autoRun'
+  | 'expression'
+  | 'prompt'
+  | 'recipe'
+  | 'runCondition'
+  | 'width'
 > & {
   group: 'Transform' | 'Research';
   description: string;
@@ -112,11 +126,29 @@ type RecipePreset = Pick<
 const DEFAULT_RESEARCH_PROMPT =
   'Find one recent, credible development about {{company}} ({{domain}}) that would be useful in a sales conversation. Include the date and why it matters.';
 
+const conditionOperators: Array<{
+  value: RunConditionOperator;
+  label: string;
+  needsValue: boolean;
+}> = [
+  { value: 'is_not_empty', label: 'is not empty', needsValue: false },
+  { value: 'is_empty', label: 'is empty', needsValue: false },
+  { value: 'equals', label: 'equals', needsValue: true },
+  { value: 'not_equals', label: 'does not equal', needsValue: true },
+  { value: 'contains', label: 'contains', needsValue: true },
+  { value: 'not_contains', label: 'does not contain', needsValue: true },
+];
+
+function conditionNeedsValue(operator: RunConditionOperator) {
+  return conditionOperators.find((item) => item.value === operator)?.needsValue;
+}
+
 const recipePresets: RecipePreset[] = [
   {
     title: 'Custom formula',
     kind: 'formula',
     recipe: 'custom-formula',
+    autoRun: true,
     width: 280,
     group: 'Transform',
     description:
@@ -127,6 +159,7 @@ const recipePresets: RecipePreset[] = [
     title: 'Normalized domain',
     kind: 'formula',
     recipe: 'normalize-domain',
+    autoRun: true,
     width: 190,
     group: 'Transform',
     description: 'Strip protocols, paths, and www from a company website.',
@@ -136,6 +169,7 @@ const recipePresets: RecipePreset[] = [
     title: 'First name',
     kind: 'formula',
     recipe: 'first-name',
+    autoRun: true,
     width: 150,
     group: 'Transform',
     description: 'Pull a greeting-ready first name from the person field.',
@@ -145,6 +179,7 @@ const recipePresets: RecipePreset[] = [
     title: 'Email domain',
     kind: 'formula',
     recipe: 'email-domain',
+    autoRun: true,
     width: 180,
     group: 'Transform',
     description: 'Extract the domain from an imported or Apollo email.',
@@ -154,6 +189,7 @@ const recipePresets: RecipePreset[] = [
     title: 'Dedupe key',
     kind: 'formula',
     recipe: 'dedupe-key',
+    autoRun: true,
     width: 260,
     group: 'Transform',
     description: 'Build a stable email-first identity key for review.',
@@ -292,6 +328,7 @@ export default function PomadeWorkspace() {
 
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [formulaBuilderOpen, setFormulaBuilderOpen] = useState(false);
+  const [recipeSettingsOpen, setRecipeSettingsOpen] = useState(false);
   const [researchBuilderOpen, setResearchBuilderOpen] = useState(false);
   const [researchConfirmOpen, setResearchConfirmOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -443,8 +480,15 @@ export default function PomadeWorkspace() {
   const reviewCount = workspace.rows.filter(
     (row) => row.values.status === 'Review',
   ).length;
-  const recipeCount = workspace.columns.filter(
+  const recipeColumns = workspace.columns.filter(
     (column) => column.kind === 'formula' || column.kind === 'enrichment',
+  );
+  const recipeCount = recipeColumns.length;
+  const conditionCount = recipeColumns.filter(
+    (column) => column.runCondition,
+  ).length;
+  const automaticFormulaCount = recipeColumns.filter(
+    (column) => column.kind === 'formula' && column.autoRun,
   ).length;
   const webResearchColumns = workspace.columns.filter(
     (column) => column.recipe === 'web-research',
@@ -455,8 +499,13 @@ export default function PomadeWorkspace() {
     crmCatalog.providers.hubspot.configured,
     crmCatalog.providers.salesforce.configured,
   ].filter(Boolean).length;
-  const pendingResearchActionCount =
-    pendingRunRowIds.length * webResearchColumns.length;
+  const pendingResearchActionCount = useMemo(() => {
+    const pending = new Set(pendingRunRowIds);
+    return countEligibleRecipeActions(
+      workspace.rows.filter((row) => pending.has(row.id)),
+      webResearchColumns,
+    );
+  }, [pendingRunRowIds, webResearchColumns, workspace.rows]);
   const maximumResearchActions =
     researchStatus?.capabilities.maximumActionsPerRun ?? 10;
   const selectedReceipts = runHistory
@@ -477,14 +526,24 @@ export default function PomadeWorkspace() {
     [handoffRowIds, workspace],
   );
 
-  const updateVisibleRows = useCallback((changedRows: PomadeRow[]) => {
-    const changedById = new Map(changedRows.map((row) => [row.id, row]));
-    setWorkspace((current) => ({
-      ...current,
-      rows: current.rows.map((row) => changedById.get(row.id) ?? row),
-      updatedAt: Date.now(),
-    }));
-  }, []);
+  const updateVisibleRows = useCallback(
+    (changedRows: PomadeRow[], editedColumnId?: string) => {
+      setWorkspace((current) => {
+        const changedById = new Map(
+          changedRows.map((row) => [
+            row.id,
+            recalculateAutomaticFormulas(row, current.columns, editedColumnId),
+          ]),
+        );
+        return {
+          ...current,
+          rows: current.rows.map((row) => changedById.get(row.id) ?? row),
+          updatedAt: Date.now(),
+        };
+      });
+    },
+    [],
+  );
 
   const updateSelectedRows = useCallback((rowIds: string[]) => {
     setSelectedRowIds(rowIds);
@@ -499,21 +558,46 @@ export default function PomadeWorkspace() {
       requires: _requires,
       ...column
     } = preset;
-    setWorkspace((current) => ({
-      ...current,
-      columns: [
+    const nextColumn = { id, ...column };
+    setWorkspace((current) => {
+      const columns = [
         ...current.columns.filter((item) => item.kind !== 'status'),
-        { id, ...column },
+        nextColumn,
         ...current.columns.filter((item) => item.kind === 'status'),
-      ],
-      rows: current.rows.map((row) => ({
-        ...row,
-        values: { ...row.values, [id]: '' },
-      })),
-      updatedAt: Date.now(),
-    }));
+      ];
+      const rows = current.rows.map((row) =>
+        recalculateAutomaticFormulas(
+          { ...row, values: { ...row.values, [id]: '' } },
+          columns,
+        ),
+      );
+      return { ...current, columns, rows, updatedAt: Date.now() };
+    });
     setAddColumnOpen(false);
-    setNotice(`${preset.title} is ready to run.`);
+    setNotice(
+      preset.kind === 'formula' && preset.autoRun
+        ? `${preset.title} is live and will update with its inputs.`
+        : `${preset.title} is ready to run.`,
+    );
+  }
+
+  function updateRecipeColumn(
+    columnId: string,
+    patch: Partial<Pick<PomadeColumn, 'autoRun' | 'runCondition'>>,
+  ) {
+    setWorkspace((current) => {
+      const columns = current.columns.map((column) =>
+        column.id === columnId ? { ...column, ...patch } : column,
+      );
+      return {
+        ...current,
+        columns,
+        rows: current.rows.map((row) =>
+          recalculateAutomaticFormulas(row, columns),
+        ),
+        updatedAt: Date.now(),
+      };
+    });
   }
 
   function openResearchBuilder() {
@@ -538,6 +622,7 @@ export default function PomadeWorkspace() {
       title,
       kind: 'formula',
       recipe: 'custom-formula',
+      autoRun: true,
       expression,
       width: 280,
       group: 'Transform',
@@ -768,12 +853,16 @@ export default function PomadeWorkspace() {
     confirmExternalResearch = false,
   ) {
     if (running || rowIds.length === 0) return;
-    if (webResearchColumns.length && !confirmExternalResearch) {
+    const target = new Set(rowIds);
+    const eligibleResearchActions = countEligibleRecipeActions(
+      workspace.rows.filter((row) => target.has(row.id)),
+      webResearchColumns,
+    );
+    if (eligibleResearchActions > 0 && !confirmExternalResearch) {
       setPendingRunRowIds(rowIds);
       setResearchConfirmOpen(true);
       return;
     }
-    const target = new Set(rowIds);
     setRunning(true);
     setWorkspace((current) => ({
       ...current,
@@ -804,8 +893,9 @@ export default function PomadeWorkspace() {
       setWorkspace(result.workspace);
       rememberRun(result.run);
       setSaveState('Saved');
+      const skipped = result.run.skippedCount ?? 0;
       setNotice(
-        `${result.run.actionCount} actions finished across ${result.run.rowCount} rows.`,
+        `${result.run.actionCount} actions finished across ${result.run.rowCount} rows${skipped ? ` · ${skipped} skipped by rules` : ''}.`,
       );
     } catch (error) {
       setWorkspace((current) => ({
@@ -978,16 +1068,22 @@ export default function PomadeWorkspace() {
           >
             <Plus /> Add recipe column
           </button>
-          <div className="engine-card">
+          <button
+            className="engine-card"
+            type="button"
+            onClick={() => setRecipeSettingsOpen(true)}
+          >
             <span className="engine-icon">
               <Braces />
             </span>
             <div>
               <strong>Recipe engine</strong>
-              <span>{recipeCount} columns ready</span>
+              <span>
+                {automaticFormulaCount} automatic · {conditionCount} rules
+              </span>
             </div>
             <span className="live-dot" />
-          </div>
+          </button>
         </aside>
 
         <section className="grid-workspace">
@@ -1059,6 +1155,9 @@ export default function PomadeWorkspace() {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={openResearchBuilder}>
                     <Globe2 /> Add AI web research
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRecipeSettingsOpen(true)}>
+                    <SlidersHorizontal /> Recipe run settings
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={exportCsv}>
                     <Download /> Export CSV
@@ -1258,7 +1357,7 @@ export default function PomadeWorkspace() {
             </div>
             <p>
               {latestRun
-                ? `${providerLabel(latestRun)} completed ${latestRun.actionCount} actions across ${latestRun.rowCount} rows. External writes: ${latestRun.externalWrites}.`
+                ? `${providerLabel(latestRun)} completed ${latestRun.actionCount} actions across ${latestRun.rowCount} rows${latestRun.skippedCount ? ` and skipped ${latestRun.skippedCount} by rule` : ''}. External writes: ${latestRun.externalWrites}.`
                 : 'Every run records its inputs, outputs, duration, and review state.'}
             </p>
             <button
@@ -1332,6 +1431,159 @@ export default function PomadeWorkspace() {
               </div>
             </section>
           ))}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={recipeSettingsOpen} onOpenChange={setRecipeSettingsOpen}>
+        <DialogContent className="recipe-settings-dialog">
+          <DialogHeader>
+            <DialogTitle>Recipe run settings</DialogTitle>
+            <DialogDescription>
+              Choose which rows each recipe may run on. Safe formula columns can
+              also update immediately when an input cell changes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="recipe-settings-summary">
+            <div>
+              <span>Recipe columns</span>
+              <strong>{recipeCount}</strong>
+            </div>
+            <div>
+              <span>Conditional</span>
+              <strong>{conditionCount}</strong>
+            </div>
+            <div>
+              <span>Auto-updating</span>
+              <strong>{automaticFormulaCount}</strong>
+            </div>
+          </div>
+          <div className="recipe-settings-list">
+            {recipeColumns.map((column) => {
+              const columnIndex = workspace.columns.findIndex(
+                (item) => item.id === column.id,
+              );
+              const availableInputs = workspace.columns
+                .slice(0, columnIndex)
+                .filter((item) => item.kind !== 'status');
+              const condition = column.runCondition;
+              return (
+                <article className="recipe-setting" key={column.id}>
+                  <div className="recipe-setting-heading">
+                    <span
+                      className={
+                        column.kind === 'formula'
+                          ? 'formula-preset'
+                          : 'ai-preset'
+                      }
+                    >
+                      {column.kind === 'formula' ? (
+                        <FunctionSquare />
+                      ) : (
+                        <Sparkles />
+                      )}
+                    </span>
+                    <div>
+                      <strong>{column.title}</strong>
+                      <small>
+                        {column.kind === 'formula'
+                          ? 'Deterministic formula'
+                          : column.recipe === 'web-research'
+                            ? 'Credit-gated web research'
+                            : 'Manual enrichment'}
+                      </small>
+                    </div>
+                    {column.kind === 'formula' ? (
+                      <label className="auto-update-toggle">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(column.autoRun)}
+                          onChange={(event) =>
+                            updateRecipeColumn(column.id, {
+                              autoRun: event.target.checked,
+                            })
+                          }
+                        />
+                        <span>Auto-update</span>
+                      </label>
+                    ) : (
+                      <span className="manual-run-badge">Manual run</span>
+                    )}
+                  </div>
+                  <div className="condition-builder">
+                    <span>Only run if</span>
+                    <select
+                      value={condition?.field ?? ''}
+                      aria-label={`Condition field for ${column.title}`}
+                      onChange={(event) => {
+                        const field = event.target.value;
+                        const nextCondition: RecipeRunCondition | undefined =
+                          field
+                            ? { field, operator: 'is_not_empty' }
+                            : undefined;
+                        updateRecipeColumn(column.id, {
+                          runCondition: nextCondition,
+                        });
+                      }}
+                    >
+                      <option value="">Always run</option>
+                      {availableInputs.map((input) => (
+                        <option value={input.id} key={input.id}>
+                          {input.title}
+                        </option>
+                      ))}
+                    </select>
+                    {condition ? (
+                      <select
+                        value={condition.operator}
+                        aria-label={`Condition operator for ${column.title}`}
+                        onChange={(event) => {
+                          const operator = event.target
+                            .value as RunConditionOperator;
+                          updateRecipeColumn(column.id, {
+                            runCondition: {
+                              ...condition,
+                              operator,
+                              value: conditionNeedsValue(operator)
+                                ? condition.value
+                                : undefined,
+                            },
+                          });
+                        }}
+                      >
+                        {conditionOperators.map((operator) => (
+                          <option value={operator.value} key={operator.value}>
+                            {operator.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                    {condition && conditionNeedsValue(condition.operator) ? (
+                      <input
+                        value={condition.value ?? ''}
+                        aria-label={`Condition value for ${column.title}`}
+                        placeholder="Value"
+                        onChange={(event) =>
+                          updateRecipeColumn(column.id, {
+                            runCondition: {
+                              ...condition,
+                              value: event.target.value,
+                            },
+                          })
+                        }
+                      />
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="recipe-settings-actions">
+            <p>
+              Conditions are checked locally before any provider request, so
+              skipped research rows do not consume a request.
+            </p>
+            <Button onClick={() => setRecipeSettingsOpen(false)}>Done</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1584,6 +1836,10 @@ export default function PomadeWorkspace() {
               <strong>{currentReceipt?.actionCount ?? 0}</strong>
             </div>
             <div>
+              <span>Skipped by rules</span>
+              <strong>{currentReceipt?.skippedCount ?? 0}</strong>
+            </div>
+            <div>
               <span>External writes</span>
               <strong>{currentReceipt?.externalWrites ?? 0}</strong>
             </div>
@@ -1665,6 +1921,7 @@ export default function PomadeWorkspace() {
                   <span className="run-history-metrics">
                     {run.rowCount} rows · {run.actionCount} actions ·{' '}
                     {run.reviewCount} review
+                    {run.skippedCount ? ` · ${run.skippedCount} skipped` : ''}
                   </span>
                   <ChevronDown className="history-arrow" />
                 </button>
