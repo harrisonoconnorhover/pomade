@@ -33,7 +33,8 @@ what changed. It is an original product built on the open-source
 - Map selected columns to portable HubSpot Contact or Salesforce Lead fields
   and download a preview-only GTM Control Tower handoff.
 - Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
-- Search, filter, sort, add rows, and export the resulting CSV.
+- Search, filter, sort, add rows, save reusable filtered views, and export the
+  resulting CSV.
 - Inspect row quality and field-level lineage, or download a bounded GTM Control Tower preview plan.
 
 The included formula runner is deterministic and credential-free. CRM
@@ -97,6 +98,11 @@ seniority brief, and returns up to 25 current public profiles with title,
 LinkedIn URL, role-match reason, location, citations, and lineage back to the
 company row. It deliberately does not infer private contact details; eligible
 results can move through the separate, credit-confirmed Apollo flow.
+
+Saved views pin a named one-column filter to the workspace. They support empty,
+equality, and contains rules, show a live matching-row count in the sidebar,
+and automatically reflect later edits and enrichment results. Free-text search
+remains temporary, so a saved view never captures an accidental search query.
 
 AI web research can return one answer or populate two to six typed output
 columns from one request. Structured outputs support text, date, number, and

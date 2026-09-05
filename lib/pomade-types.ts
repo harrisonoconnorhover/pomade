@@ -128,12 +128,22 @@ export type PomadeRow = {
   values: Record<string, string>;
 };
 
+export type SavedView = {
+  id: string;
+  name: string;
+  columnId: string;
+  operator: RunConditionOperator;
+  value?: string;
+  createdAt: number;
+};
+
 export type WorkspaceSnapshot = {
   id: string;
   name: string;
   columns: PomadeColumn[];
   rows: PomadeRow[];
   recipeTemplates?: RecipeTemplate[];
+  savedViews?: SavedView[];
   schedule?: RecipeSchedule;
   updatedAt: number;
   source?: WorkspaceSource;

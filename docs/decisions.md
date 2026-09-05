@@ -203,6 +203,17 @@ remains a separate Apollo action with its own eligibility checks, explicit
 credit confirmation, cache, and receipts. This makes the company-to-person-to-
 enrichment funnel composable without hiding provider cost or uncertainty.
 
+## Saved views persist rules, not transient search state
+
+A saved view belongs to one workspace and stores a name plus one column,
+operator, and optional comparison value. It recomputes against current row
+values, so later edits and enrichments automatically enter or leave the view.
+The initial slice uses the same six bounded operators as recipe conditions.
+
+Free-text search and row selection remain temporary UI state. Saving those
+implicitly would make a view hard to explain and easy to create accidentally;
+they can still narrow an active saved view without changing its definition.
+
 ## Waterfalls compose upstream results
 
 A data waterfall is a local auto-updating recipe with two to six ordered input

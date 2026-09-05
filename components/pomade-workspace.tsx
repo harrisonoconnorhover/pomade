@@ -100,6 +100,7 @@ import {
   createRecipeSchedule,
   pauseRecipeSchedule,
 } from '@/lib/recipe-schedule';
+import { createSavedView, rowMatchesSavedView } from '@/lib/saved-views';
 import {
   MAX_BACKGROUND_RESEARCH_ACTIONS,
   MAX_BACKGROUND_ROWS,
@@ -439,6 +440,7 @@ export default function PomadeWorkspace() {
   const [saveState, setSaveState] = useState<SaveState>('Loading');
   const [running, setRunning] = useState(false);
   const [filter, setFilter] = useState<FilterMode>('All');
+  const [activeSavedViewId, setActiveSavedViewId] = useState('');
   const [query, setQuery] = useState('');
   const [sortAscending, setSortAscending] = useState(true);
   const [notice, setNotice] = useState('');
@@ -450,6 +452,7 @@ export default function PomadeWorkspace() {
   const [researchBuilderOpen, setResearchBuilderOpen] = useState(false);
   const [companyListOpen, setCompanyListOpen] = useState(false);
   const [peopleListOpen, setPeopleListOpen] = useState(false);
+  const [savedViewOpen, setSavedViewOpen] = useState(false);
   const [templateSaveOpen, setTemplateSaveOpen] = useState(false);
   const [templateUseOpen, setTemplateUseOpen] = useState(false);
   const [researchConfirmOpen, setResearchConfirmOpen] = useState(false);
@@ -512,6 +515,12 @@ export default function PomadeWorkspace() {
     'Founders and revenue, sales operations, or go-to-market leaders',
   );
   const [peopleListLimit, setPeopleListLimit] = useState(10);
+  const [savedViewName, setSavedViewName] = useState('Priority targets');
+  const [savedViewColumnId, setSavedViewColumnId] = useState('status');
+  const [savedViewOperator, setSavedViewOperator] =
+    useState<RunConditionOperator>('equals');
+  const [savedViewValue, setSavedViewValue] = useState('Ready');
+  const [savedViewError, setSavedViewError] = useState('');
   const [pendingRunRowIds, setPendingRunRowIds] = useState<string[]>([]);
   const [pendingRunColumnIds, setPendingRunColumnIds] = useState<string[]>([]);
   const [pendingRunMode, setPendingRunMode] =
@@ -687,18 +696,23 @@ export default function PomadeWorkspace() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  const activeSavedView = (workspace.savedViews ?? []).find(
+    (view) => view.id === activeSavedViewId,
+  );
   const visibleRows = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return workspace.rows.filter((row) => {
       const matchesStatus = filter === 'All' || row.values.status === filter;
+      const matchesSaved =
+        !activeSavedView || rowMatchesSavedView(row, activeSavedView);
       const matchesQuery =
         !needle ||
         Object.values(row.values).some((value) =>
           value.toLowerCase().includes(needle),
         );
-      return matchesStatus && matchesQuery;
+      return matchesStatus && matchesSaved && matchesQuery;
     });
-  }, [filter, query, workspace.rows]);
+  }, [activeSavedView, filter, query, workspace.rows]);
 
   const selected =
     workspace.rows.find((row) => row.id === activeRowId) ?? workspace.rows[0];
@@ -831,6 +845,11 @@ export default function PomadeWorkspace() {
     (selected.values.company?.trim() || selected.values.domain?.trim()) &&
     peopleBrief.trim() &&
     peopleListLimit >= 1,
+  );
+  const savedViewReady = Boolean(
+    savedViewName.trim() &&
+    savedViewColumnId &&
+    (!conditionNeedsValue(savedViewOperator) || savedViewValue.trim()),
   );
   const selectedReceipts = runHistory
     .flatMap((run) => run.receipts)
@@ -1108,6 +1127,7 @@ export default function PomadeWorkspace() {
     setActiveRowId(result.sourceRowId);
     setSelectedRowIds([result.sourceRowId]);
     setFilter('All');
+    setActiveSavedViewId('');
     setQuery('');
     setPendingRunRowIds([result.sourceRowId]);
     setPendingRunColumnIds([result.researchColumnId]);
@@ -1130,6 +1150,7 @@ export default function PomadeWorkspace() {
     setActiveRowId(result.sourceRowId);
     setSelectedRowIds([result.sourceRowId]);
     setFilter('All');
+    setActiveSavedViewId('');
     setQuery('');
     setPendingRunRowIds([result.sourceRowId]);
     setPendingRunColumnIds([result.researchColumnId]);
@@ -1376,6 +1397,7 @@ export default function PomadeWorkspace() {
     setActiveRowId(id);
     setSelectedRowIds([]);
     setFilter('All');
+    setActiveSavedViewId('');
   }
 
   function sortRows() {
@@ -1395,9 +1417,63 @@ export default function PomadeWorkspace() {
 
   function cycleFilter() {
     setSelectedRowIds([]);
+    setActiveSavedViewId('');
     setFilter((current) =>
       current === 'All' ? 'Ready' : current === 'Ready' ? 'Review' : 'All',
     );
+  }
+
+  function openSavedViewBuilder() {
+    const statusColumn = workspace.columns.find(
+      (column) => column.kind === 'status',
+    );
+    const firstColumn = statusColumn ?? workspace.columns[0];
+    setSavedViewName('Priority targets');
+    setSavedViewColumnId(firstColumn?.id ?? '');
+    setSavedViewOperator(statusColumn ? 'equals' : 'is_not_empty');
+    setSavedViewValue(statusColumn ? 'Ready' : '');
+    setSavedViewError('');
+    setSavedViewOpen(true);
+  }
+
+  function saveCurrentView() {
+    try {
+      const view = createSavedView(workspace, {
+        id: crypto.randomUUID(),
+        name: savedViewName,
+        columnId: savedViewColumnId,
+        operator: savedViewOperator,
+        value: savedViewValue,
+      });
+      setWorkspace((current) => ({
+        ...current,
+        savedViews: [...(current.savedViews ?? []), view],
+        updatedAt: Date.now(),
+      }));
+      setSelectedRowIds([]);
+      setFilter('All');
+      setQuery('');
+      setActiveSavedViewId(view.id);
+      setSavedViewOpen(false);
+      setNotice(`${view.name} saved to this workspace.`);
+    } catch (error) {
+      setSavedViewError(
+        error instanceof Error ? error.message : 'The view could not be saved.',
+      );
+    }
+  }
+
+  function deleteSavedView(viewId: string, name: string) {
+    if (!window.confirm(`Delete the saved view “${name}”?`)) return;
+    setWorkspace((current) => ({
+      ...current,
+      savedViews: (current.savedViews ?? []).filter(
+        (view) => view.id !== viewId,
+      ),
+      updatedAt: Date.now(),
+    }));
+    if (activeSavedViewId === viewId) setActiveSavedViewId('');
+    setNotice(`${name} removed.`);
   }
 
   function importCsv(file: File) {
@@ -1423,6 +1499,12 @@ export default function PomadeWorkspace() {
             kind: 'status',
             width: 140,
           });
+        const columnIds = new Set(columns.map((column) => column.id));
+        const savedViews = (workspace.savedViews ?? []).filter((view) =>
+          columnIds.has(view.columnId),
+        );
+        const removedViewCount =
+          (workspace.savedViews?.length ?? 0) - savedViews.length;
         const rows = data.map((record) => ({
           id: crypto.randomUUID(),
           values: Object.fromEntries([
@@ -1438,6 +1520,7 @@ export default function PomadeWorkspace() {
           name: file.name.replace(/\.csv$/i, '') || 'Imported table',
           columns,
           rows,
+          savedViews,
           updatedAt: Date.now(),
           source: {
             provider: 'csv',
@@ -1452,10 +1535,11 @@ export default function PomadeWorkspace() {
         setActiveRowId(rows[0]?.id ?? '');
         setSelectedRowIds([]);
         setFilter('All');
+        setActiveSavedViewId('');
         setQuery('');
         setSourcesOpen(false);
         setNotice(
-          `${rows.length} CSV rows loaded${workspace.schedule?.enabled ? ' · schedule paused for review' : ''}.`,
+          `${rows.length} CSV rows loaded${removedViewCount ? ` · ${removedViewCount} incompatible ${removedViewCount === 1 ? 'view' : 'views'} removed` : ''}${workspace.schedule?.enabled ? ' · schedule paused for review' : ''}.`,
         );
       },
       error: () => setSourceError('Pomade could not read that CSV file.'),
@@ -1520,10 +1604,15 @@ export default function PomadeWorkspace() {
       return;
     const sample = createSampleWorkspace();
     sample.recipeTemplates = workspace.recipeTemplates ?? [];
+    const sampleColumnIds = new Set(sample.columns.map((column) => column.id));
+    sample.savedViews = (workspace.savedViews ?? []).filter((view) =>
+      sampleColumnIds.has(view.columnId),
+    );
     setWorkspace(sample);
     setActiveRowId(sample.rows[0]?.id ?? '');
     setSelectedRowIds([]);
     setFilter('All');
+    setActiveSavedViewId('');
     setQuery('');
     setNotice('Sample workspace restored.');
   }
@@ -1841,6 +1930,7 @@ export default function PomadeWorkspace() {
     setActiveRowId(next.rows[0]?.id ?? '');
     setSelectedRowIds([]);
     setFilter('All');
+    setActiveSavedViewId('');
     setQuery('');
     setSourcesOpen(false);
     setNotice(
@@ -2062,6 +2152,7 @@ export default function PomadeWorkspace() {
               type="button"
               onClick={() => {
                 setSelectedRowIds([]);
+                setActiveSavedViewId('');
                 setFilter(filter === 'Ready' ? 'All' : 'Ready');
               }}
             >
@@ -2072,10 +2163,51 @@ export default function PomadeWorkspace() {
               type="button"
               onClick={() => {
                 setSelectedRowIds([]);
+                setActiveSavedViewId('');
                 setFilter(filter === 'Review' ? 'All' : 'Review');
               }}
             >
               <Search /> Needs review <span>{reviewCount}</span>
+            </button>
+            {(workspace.savedViews ?? []).map((view) => (
+              <div className="saved-view-nav" key={view.id}>
+                <button
+                  className={`nav-item ${activeSavedViewId === view.id ? 'active' : ''}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRowIds([]);
+                    setFilter('All');
+                    setActiveSavedViewId(
+                      activeSavedViewId === view.id ? '' : view.id,
+                    );
+                  }}
+                >
+                  <BookmarkPlus /> {view.name}
+                  <span>
+                    {
+                      workspace.rows.filter((row) =>
+                        rowMatchesSavedView(row, view),
+                      ).length
+                    }
+                  </span>
+                </button>
+                <button
+                  className="saved-view-delete"
+                  type="button"
+                  aria-label={`Delete ${view.name}`}
+                  onClick={() => deleteSavedView(view.id, view.name)}
+                >
+                  <Trash2 />
+                </button>
+              </div>
+            ))}
+            <button
+              className="nav-item nav-item-add"
+              type="button"
+              onClick={openSavedViewBuilder}
+              disabled={jobLocksWorkspace}
+            >
+              <Plus /> Save a view
             </button>
           </nav>
           <button
@@ -2167,10 +2299,14 @@ export default function PomadeWorkspace() {
                 <ArrowDownUp /> Sort
               </Button>
               <Button
-                variant={filter === 'All' ? 'ghost' : 'secondary'}
+                variant={
+                  filter === 'All' && !activeSavedView ? 'ghost' : 'secondary'
+                }
                 onClick={cycleFilter}
               >
-                <Filter /> {filter === 'All' ? 'Filter' : filter}
+                <Filter />
+                {activeSavedView?.name ??
+                  (filter === 'All' ? 'Filter' : filter)}
               </Button>
               <label className="toolbar-search">
                 <Search />
@@ -4270,6 +4406,102 @@ export default function PomadeWorkspace() {
               </div>
             </section>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={savedViewOpen} onOpenChange={setSavedViewOpen}>
+        <DialogContent className="saved-view-dialog">
+          <DialogHeader>
+            <DialogTitle>Save a filtered view</DialogTitle>
+            <DialogDescription>
+              Pin a reusable one-column filter to this workspace. Search text
+              stays temporary and is not included.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="saved-view-fields">
+            <label className="research-field">
+              <span>View name</span>
+              <input
+                value={savedViewName}
+                maxLength={60}
+                onChange={(event) => setSavedViewName(event.target.value)}
+              />
+            </label>
+            <label className="research-field">
+              <span>Column</span>
+              <select
+                value={savedViewColumnId}
+                onChange={(event) => setSavedViewColumnId(event.target.value)}
+              >
+                {workspace.columns.map((column) => (
+                  <option key={column.id} value={column.id}>
+                    {column.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="research-field">
+              <span>Rule</span>
+              <select
+                value={savedViewOperator}
+                onChange={(event) => {
+                  const operator = event.target.value as RunConditionOperator;
+                  setSavedViewOperator(operator);
+                  if (!conditionNeedsValue(operator)) setSavedViewValue('');
+                }}
+              >
+                {conditionOperators.map((operator) => (
+                  <option key={operator.value} value={operator.value}>
+                    {operator.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {conditionNeedsValue(savedViewOperator) ? (
+              <label className="research-field">
+                <span>Value</span>
+                <input
+                  value={savedViewValue}
+                  onChange={(event) => setSavedViewValue(event.target.value)}
+                  placeholder="Enter a comparison value"
+                />
+              </label>
+            ) : null}
+          </div>
+          <div className="saved-view-preview">
+            <Filter />
+            <span>
+              <strong>
+                {
+                  workspace.rows.filter((row) =>
+                    rowMatchesSavedView(row, {
+                      id: 'preview',
+                      name: savedViewName,
+                      columnId: savedViewColumnId,
+                      operator: savedViewOperator,
+                      value: savedViewValue,
+                      createdAt: 0,
+                    }),
+                  ).length
+                }{' '}
+                matching rows
+              </strong>
+              <small>Updates automatically as table values change.</small>
+            </span>
+          </div>
+          {savedViewError ? (
+            <p className="apollo-error" role="alert">
+              {savedViewError}
+            </p>
+          ) : null}
+          <div className="rename-actions">
+            <Button variant="outline" onClick={() => setSavedViewOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveCurrentView} disabled={!savedViewReady}>
+              <BookmarkPlus /> Save view
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

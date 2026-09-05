@@ -8,6 +8,9 @@ Bitscale or Clay.
 
 - [x] Fast editable grid with copy, paste, fill, row selection, search, sort,
       filters, CSV import, and CSV export.
+- [x] Persistent named views with column rules, live row counts, sidebar
+      switching, automatic value updates, and safe removal. Crossed off
+      2026-09-05.
 - [x] Read-only HubSpot contact and Salesforce lead preview/import.
 - [x] Deterministic formula and enrichment recipe columns with selected-row or
       visible-row execution.

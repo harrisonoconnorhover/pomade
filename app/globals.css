@@ -322,6 +322,44 @@ button {
   color: #929b95;
   font-variant-numeric: tabular-nums;
 }
+.saved-view-nav {
+  position: relative;
+}
+.saved-view-nav .nav-item {
+  padding-right: 30px;
+}
+.saved-view-nav .nav-item span {
+  margin-left: auto;
+}
+.saved-view-delete {
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  color: #89928c;
+  background: transparent;
+  opacity: 0;
+}
+.saved-view-nav:hover .saved-view-delete,
+.saved-view-delete:focus-visible {
+  opacity: 1;
+}
+.saved-view-delete:hover {
+  color: #9b493b;
+  background: #fff1ee;
+}
+.saved-view-delete svg {
+  width: 12px;
+}
+.nav-item-add {
+  color: #718078;
+  font-size: 11px;
+}
 .new-table {
   position: absolute;
   left: 12px;
@@ -2344,6 +2382,7 @@ button {
   text-transform: uppercase;
 }
 .research-field input,
+.research-field select,
 .research-field textarea {
   width: 100%;
   padding: 9px 10px;
@@ -2358,14 +2397,50 @@ button {
 .research-field input {
   height: 38px;
 }
+.research-field select {
+  height: 38px;
+}
 .research-field textarea {
   min-height: 118px;
   resize: vertical;
 }
 .research-field input:focus,
+.research-field select:focus,
 .research-field textarea:focus {
   border-color: #6f9698;
   box-shadow: 0 0 0 3px rgba(43, 104, 120, 0.1);
+}
+.saved-view-dialog {
+  max-width: 560px !important;
+}
+.saved-view-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.saved-view-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid #d7e2d2;
+  border-radius: 10px;
+  color: #3f6550;
+  background: #f3f9ef;
+}
+.saved-view-preview > svg {
+  width: 16px;
+}
+.saved-view-preview > span {
+  display: grid;
+  gap: 2px;
+}
+.saved-view-preview strong {
+  font-size: 11px;
+}
+.saved-view-preview small {
+  color: #718078;
+  font-size: 9px;
 }
 .company-list-dialog {
   max-width: 640px !important;
