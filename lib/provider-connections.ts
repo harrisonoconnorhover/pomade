@@ -1,25 +1,60 @@
 import { httpConnections, type HttpConnection } from './http-enrichment';
-import { APOLLO_COMPANY_CONNECTION } from './provider-presets';
+import {
+  APOLLO_COMPANY_CONNECTION,
+  APOLLO_PEOPLE_CONNECTION,
+  HUNTER_CONNECTION,
+  PDL_COMPANY_CONNECTION,
+} from './provider-presets';
 export function configuredHttpConnections(env: {
   POMADE_HTTP_CONNECTIONS?: string;
   APOLLO_API_KEY?: string;
+  HUNTER_API_KEY?: string;
+  PDL_API_KEY?: string;
 }): HttpConnection[] {
   const custom = httpConnections(env.POMADE_HTTP_CONNECTIONS);
-  if (custom.some((c) => c.id === APOLLO_COMPANY_CONNECTION))
+  const reserved = [
+    APOLLO_COMPANY_CONNECTION,
+    APOLLO_PEOPLE_CONNECTION,
+    HUNTER_CONNECTION,
+    PDL_COMPANY_CONNECTION,
+  ];
+  if (custom.some((c) => reserved.includes(c.id)))
     throw new Error(
-      'pomade_apollo_company is reserved for the built-in Apollo connection. Rename the custom connection.',
+      'Built-in provider connection IDs are reserved. Rename the custom connection.',
     );
-  const key = env.APOLLO_API_KEY?.trim();
-  return key
-    ? [
-        ...custom,
-        {
-          id: APOLLO_COMPANY_CONNECTION,
-          label: 'Apollo company enrichment',
-          origin: 'https://api.apollo.io',
-          methods: ['GET'],
-          headers: { 'x-api-key': key },
-        },
-      ]
-    : custom;
+  const connections: HttpConnection[] = [...custom];
+  if (env.APOLLO_API_KEY?.trim())
+    connections.push(
+      {
+        id: APOLLO_COMPANY_CONNECTION,
+        label: 'Apollo company enrichment',
+        origin: 'https://api.apollo.io',
+        methods: ['GET'],
+        headers: { 'x-api-key': env.APOLLO_API_KEY.trim() },
+      },
+      {
+        id: APOLLO_PEOPLE_CONNECTION,
+        label: 'Apollo people enrichment',
+        origin: 'https://api.apollo.io',
+        methods: ['POST'],
+        headers: { 'x-api-key': env.APOLLO_API_KEY.trim() },
+      },
+    );
+  if (env.HUNTER_API_KEY?.trim())
+    connections.push({
+      id: HUNTER_CONNECTION,
+      label: 'Hunter',
+      origin: 'https://api.hunter.io',
+      methods: ['GET'],
+      headers: { 'X-API-KEY': env.HUNTER_API_KEY.trim() },
+    });
+  if (env.PDL_API_KEY?.trim())
+    connections.push({
+      id: PDL_COMPANY_CONNECTION,
+      label: 'People Data Labs company enrichment',
+      origin: 'https://api.peopledatalabs.com',
+      methods: ['GET'],
+      headers: { 'X-API-Key': env.PDL_API_KEY.trim() },
+    });
+  return connections;
 }

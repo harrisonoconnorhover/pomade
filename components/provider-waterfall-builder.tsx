@@ -8,7 +8,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { createProviderWaterfall } from '@/lib/provider-waterfall';
+import {
+  createProviderWaterfall,
+  verifiedAcceptance,
+} from '@/lib/provider-waterfall';
+import {
+  emailProviderStep,
+  HUNTER_CONNECTION,
+  APOLLO_PEOPLE_CONNECTION,
+} from '@/lib/provider-presets';
 import type { HttpConnectionSummary } from '@/lib/http-enrichment';
 import type {
   PomadeColumn,
@@ -115,6 +123,40 @@ export default function ProviderWaterfallBuilder({
         {steps.map((step, index) => (
           <fieldset key={index}>
             <legend>Attempt {index + 1}</legend>
+            <label>
+              Quick setup
+              <select
+                aria-label={`Provider preset ${index + 1}`}
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) {
+                    edit(
+                      index,
+                      emailProviderStep(e.target.value as 'hunter' | 'apollo'),
+                    );
+                    setAccept('verified-email');
+                  }
+                }}
+              >
+                <option value="">Custom request or choose a preset</option>
+                <option
+                  value="hunter"
+                  disabled={
+                    !connections.some((c) => c.id === HUNTER_CONNECTION)
+                  }
+                >
+                  Hunter verified email
+                </option>
+                <option
+                  value="apollo"
+                  disabled={
+                    !connections.some((c) => c.id === APOLLO_PEOPLE_CONNECTION)
+                  }
+                >
+                  Apollo verified email
+                </option>
+              </select>
+            </label>
             <div className="http-output-grid">
               <label>
                 Connection
@@ -163,6 +205,44 @@ export default function ProviderWaterfallBuilder({
                 />
               </label>
             </div>
+            {verifiedAcceptance(accept) ? (
+              <div className="http-output-grid">
+                <label>
+                  Verification status JSON path
+                  <input
+                    value={step.verification?.path ?? ''}
+                    placeholder="data.verification.status"
+                    onChange={(e) =>
+                      edit(index, {
+                        verification: {
+                          path: e.target.value,
+                          acceptedValues: step.verification?.acceptedValues ?? [
+                            'valid',
+                          ],
+                        },
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  Verified status values from this provider (comma separated)
+                  <input
+                    value={step.verification?.acceptedValues.join(', ') ?? ''}
+                    placeholder="valid"
+                    onChange={(e) =>
+                      edit(index, {
+                        verification: {
+                          path: step.verification?.path ?? '',
+                          acceptedValues: e.target.value
+                            .split(',')
+                            .map((v) => v.trim()),
+                        },
+                      })
+                    }
+                  />
+                </label>
+              </div>
+            ) : null}
             {step.method === 'POST' ? (
               <label>
                 JSON body
@@ -218,6 +298,13 @@ export default function ProviderWaterfallBuilder({
           >
             <option value="nonempty">Nonempty value</option>
             <option value="email">Email-shaped value (format only)</option>
+            <option value="phone">International phone (format only)</option>
+            <option value="verified-email">
+              Email with verified provider status
+            </option>
+            <option value="verified-phone">
+              Phone with verified provider status
+            </option>
           </select>
         </label>
         <label>
@@ -232,9 +319,13 @@ export default function ProviderWaterfallBuilder({
         <p>
           Blank or rejected values try the next provider. Each row can make up
           to {steps.length} requests; your run confirmation includes that
-          maximum. An email-shaped result is not proof of verification or
-          deliverability. Use row tokens such as {'{{domain}}'} in paths and
-          JSON string values.
+          maximum. Verified modes require both a valid format and an explicit
+          verification status returned by that provider. Missing, unknown and
+          catch-all statuses in the presets fall through. Phone numbers must
+          include a country code. A format-only result is not verification. Use
+          row tokens such as {'{{domain}}'} in paths and JSON string values.
+          Presets use the person and domain columns; change the tokens for other
+          inputs.
         </p>
         {error || validation ? <p role="alert">{error || validation}</p> : null}
         <Button

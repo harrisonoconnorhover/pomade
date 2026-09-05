@@ -4,6 +4,8 @@ declare namespace Cloudflare {
     POMADE_HTTP_CONNECTIONS?: string;
     POMADE_WEBHOOK_SOURCES?: string;
     APOLLO_API_KEY?: string;
+    HUNTER_API_KEY?: string;
+    PDL_API_KEY?: string;
     PARALLEL_API_KEY?: string;
     PARALLEL_MODEL?: string;
     GEMINI_API_KEY?: string;

@@ -749,3 +749,13 @@ including numeric comparisons. Old single-rule recipes remain compatible. Blank,
 range and nonnumeric values do not qualify for numeric rules. The pipeline
 evaluates conditions immediately before each step so upstream results can gate
 spending. Templates remap every condition input and deletion checks protect them.
+
+## Verified waterfall acceptance and company coverage (2026-09-05)
+
+Verified email and phone modes require a provider-reported accepted status and
+valid format. Hunter accepts only valid; Apollo accepts verified. Preserve format-
+only modes for backwards compatibility. HTTP 451 stops fallback even when
+technical-error continuation is enabled, because Hunter uses it for removal
+requests. Keep keys in reserved server connections. Existing basic Apollo recipes
+remain unchanged unless upgraded to the rich preset. Real technology lists needed
+a 20,000-character array limit; other text retains the existing smaller bound.

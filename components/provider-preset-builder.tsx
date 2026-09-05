@@ -11,6 +11,8 @@ import {
 import {
   createApolloCompanyColumns,
   APOLLO_COMPANY_CONNECTION,
+  createPdlCompanyColumns,
+  PDL_COMPANY_CONNECTION,
 } from '@/lib/provider-presets';
 import type { PomadeColumn, WorkspaceSnapshot } from '@/lib/pomade-types';
 export default function ProviderPresetBuilder({
@@ -22,9 +24,11 @@ export default function ProviderPresetBuilder({
   ready: boolean;
   onAdd: (columns: PomadeColumn[]) => void;
 }) {
+  const [provider, setProvider] = useState('apollo');
+  const [detailed, setDetailed] = useState(true);
   const [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false),
-    [configured, setConfigured] = useState(false),
+    [connectionIds, setConnectionIds] = useState<string[]>([]),
     [error, setError] = useState('');
   const [domain, setDomain] = useState(
     workspace.columns.some((c) => c.id === 'domain') ? 'domain' : '',
@@ -40,9 +44,7 @@ export default function ProviderPresetBuilder({
         error?: string;
       };
       if (!r.ok) throw new Error(d.error ?? 'Connections could not be loaded.');
-      setConfigured(
-        Boolean(d.connections?.some((c) => c.id === APOLLO_COMPANY_CONNECTION)),
-      );
+      setConnectionIds(d.connections?.map((c) => c.id) ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Load failed.');
     } finally {
@@ -52,10 +54,16 @@ export default function ProviderPresetBuilder({
   let columns: PomadeColumn[] | undefined;
   let issue = '';
   try {
-    columns = createApolloCompanyColumns(workspace, domain);
+    columns =
+      provider === 'apollo'
+        ? createApolloCompanyColumns(workspace, domain, detailed)
+        : createPdlCompanyColumns(workspace, domain);
   } catch (e) {
     issue = e instanceof Error ? e.message : 'Choose an input.';
   }
+  const configured = connectionIds.includes(
+    provider === 'apollo' ? APOLLO_COMPANY_CONNECTION : PDL_COMPANY_CONNECTION,
+  );
   return (
     <>
       <Button variant="outline" disabled={!ready} onClick={() => void load()}>
@@ -64,18 +72,37 @@ export default function ProviderPresetBuilder({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="template-dialog">
           <DialogHeader>
-            <DialogTitle>Apollo company enrichment</DialogTitle>
+            <DialogTitle>Company enrichment</DialogTitle>
             <DialogDescription>
-              Enrich company name, domain, industry and employee estimate from a
-              domain. Uses your existing Apollo key and ordinary
-              run/queue/schedule request controls. Adding columns makes no
-              provider requests.
+              Append company size, revenue, location and funding from a domain.
+              Apollo can also return technologies and funding history. Coverage
+              depends on the provider. Adding columns makes no requests.
             </DialogDescription>
           </DialogHeader>
+          <label>
+            Provider
+            <select
+              value={provider}
+              onChange={(e) => setProvider(e.target.value)}
+            >
+              <option value="apollo">Apollo</option>
+              <option value="pdl">People Data Labs</option>
+            </select>
+          </label>
+          {provider === 'apollo' ? (
+            <label>
+              <input
+                type="checkbox"
+                checked={detailed}
+                onChange={(e) => setDetailed(e.target.checked)}
+              />{' '}
+              Include revenue, location, funding and technologies
+            </label>
+          ) : null}
           <p>
             {configured
-              ? 'Apollo key configured. API access still depends on its scope and your account.'
-              : 'Set APOLLO_API_KEY in the local server environment and restart to enable this preset. The key stays on the server.'}
+              ? 'Provider key configured. API access still depends on its scope and your account.'
+              : `Set ${provider === 'apollo' ? 'APOLLO_API_KEY' : 'PDL_API_KEY'} in the local server environment and restart to enable this preset. The key stays on the server.`}
           </p>
           <label>
             Domain input
@@ -96,9 +123,10 @@ export default function ProviderPresetBuilder({
             remain blank and flagged.
           </p>
           <p>
-            Apollo currently lists one credit per organization. This preset
-            makes one request per eligible row; actual credits are not inferred
-            from a successful response.{' '}
+            Each provider charges according to its plan. Apollo currently lists
+            one credit per organization. This preset makes one request per
+            eligible row; actual credits are not inferred from a successful
+            response.{' '}
             <a
               href="https://docs.apollo.io/reference/organization-enrichment"
               target="_blank"
@@ -121,7 +149,7 @@ export default function ProviderPresetBuilder({
               }
             }}
           >
-            Add Apollo company columns
+            Add {provider === 'apollo' ? 'Apollo' : 'PDL'} company columns
           </Button>
           {error ? <output>{error}</output> : null}
         </DialogContent>

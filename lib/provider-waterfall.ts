@@ -11,6 +11,38 @@ import type {
   HttpProviderStep,
   ActionReceipt,
 } from './pomade-types';
+export const verifiedAcceptance = (accept: ProviderWaterfall['accept']) =>
+  accept === 'verified-email' || accept === 'verified-phone';
+function validateAcceptance(
+  config: Pick<ProviderWaterfall, 'accept' | 'steps'>,
+) {
+  if (
+    ![
+      'nonempty',
+      'email',
+      'phone',
+      'verified-email',
+      'verified-phone',
+    ].includes(config.accept)
+  )
+    throw new Error('Choose an acceptance rule.');
+  if (
+    verifiedAcceptance(config.accept) &&
+    config.steps.some(
+      (step) =>
+        !step.verification?.path?.trim() ||
+        !/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/.test(step.verification.path) ||
+        !step.verification.acceptedValues?.length ||
+        step.verification.acceptedValues.length > 8 ||
+        step.verification.acceptedValues.some(
+          (value) => typeof value !== 'string' || !value.trim(),
+        ),
+    )
+  )
+    throw new Error(
+      'Each provider needs a verification status path and its accepted verified statuses.',
+    );
+}
 export function providerInputFields(config: ProviderWaterfall) {
   return [
     ...new Set(
@@ -34,8 +66,7 @@ export function createProviderWaterfall(
     throw new Error('Choose a name containing letters or numbers.');
   if (options.steps.length < 2 || options.steps.length > 4)
     throw new Error('Choose two to four provider steps.');
-  if (!['nonempty', 'email'].includes(options.accept))
-    throw new Error('Choose an acceptance rule.');
+  validateAcceptance(options);
   for (const step of options.steps)
     createHttpColumns(workspace, {
       id: options.id,
@@ -87,6 +118,7 @@ export async function executeProviderWaterfall(
   const row = workspace.rows.find((r) => r.id === rowId);
   if (!config || !row || config.steps.length < 2 || config.steps.length > 4)
     throw new Error('Provider waterfall configuration is incomplete.');
+  validateAcceptance(config);
   const started = Date.now();
   const attempts: ActionReceipt[] = [];
   let value = '',
@@ -96,13 +128,24 @@ export async function executeProviderWaterfall(
     const label =
       connections.find((c) => c.id === step.connectionId)?.label ||
       step.connectionId;
+    const verificationId = `${column.id}__verification`;
     const virtual: PomadeColumn = {
       ...column,
       recipe: 'http-api',
       title: `${index + 1}. ${label}`,
       http: {
         ...step,
-        outputs: [{ path: step.responsePath, outputColumnId: column.id }],
+        outputs: [
+          { path: step.responsePath, outputColumnId: column.id },
+          ...(verifiedAcceptance(config.accept)
+            ? [
+                {
+                  path: step.verification!.path,
+                  outputColumnId: verificationId,
+                },
+              ]
+            : []),
+        ],
         statusColumnId: config.statusColumnId,
       },
     };
@@ -115,32 +158,48 @@ export async function executeProviderWaterfall(
     );
     const receipt = result.receipt;
     const candidate = receipt.after.trim();
-    const accepted =
-      !receipt.error &&
-      Boolean(candidate) &&
-      (config.accept === 'nonempty' ||
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate));
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate);
+    const phone = candidate.replace(/[\s().-]/g, '');
+    const isPhone = /^\+[1-9]\d{6,14}$/.test(phone);
+    const shapeMatches =
+      config.accept === 'nonempty'
+        ? Boolean(candidate)
+        : config.accept.includes('email')
+          ? isEmail
+          : isPhone;
+    const verification = receipt.outputValues?.[verificationId]?.trim() ?? '';
+    const verified =
+      !verifiedAcceptance(config.accept) ||
+      step.verification!.acceptedValues.some(
+        (value) => value.trim().toLowerCase() === verification.toLowerCase(),
+      );
+    const accepted = !receipt.error && shapeMatches && verified;
     receipt.status = accepted ? 'passed' : 'review';
     receipt.evidence = [
       ...(receipt.evidence ?? []),
+      ...(verifiedAcceptance(config.accept)
+        ? [
+            `Provider verification: ${verification || 'missing'} (${step.verification!.path}); observed ${new Date(started).toISOString()}`,
+          ]
+        : []),
       accepted
         ? 'Accepted; later providers skipped.'
         : receipt.error
           ? 'Technical error.'
-          : config.accept === 'email'
-            ? 'No email-shaped value.'
-            : 'No nonempty value.',
+          : !shapeMatches
+            ? 'Missing or invalid result format.'
+            : 'Verification was missing or did not meet the configured status rule.',
     ];
     attempts.push(receipt);
     if (accepted) {
-      value = candidate;
+      value = config.accept.includes('phone') ? phone : candidate;
       winner = label;
       error = undefined;
       break;
     }
     if (receipt.error) {
       error = receipt.error;
-      if (!config.continueOnError) break;
+      if (!config.continueOnError || receipt.error === 'HTTP 451') break;
     }
   }
   const values = {

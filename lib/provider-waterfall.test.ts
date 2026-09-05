@@ -173,3 +173,93 @@ describe('provider waterfall', () => {
     expect(f).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('verified provider results', () => {
+  it('rejects a catch-all email despite high confidence and accepts only the next verified result', async () => {
+    const { w, column } = fixture();
+    column.providerWaterfall!.accept = 'verified-email';
+    column.providerWaterfall!.steps.forEach((step) => {
+      step.verification = {
+        path: 'verification.status',
+        acceptedValues: ['valid'],
+      };
+    });
+    const f = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          email: 'guessed@example.com',
+          score: 99,
+          verification: { status: 'accept_all' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          email: 'ada@example.com',
+          verification: { status: 'valid' },
+        }),
+      );
+    const result = await executeProviderWaterfall(
+      w,
+      'a',
+      column,
+      connections,
+      f,
+    );
+    expect(result.receipt.after).toBe('ada@example.com');
+    expect(result.receipt.attempts?.map((a) => a.status)).toEqual([
+      'review',
+      'passed',
+    ]);
+    expect(result.receipt.attempts?.[0].evidence?.join(' ')).toContain(
+      'accept_all',
+    );
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+  it('requires verification and an international phone, while preserving stop-after-winner behavior', async () => {
+    const { w, column } = fixture();
+    column.providerWaterfall!.accept = 'verified-phone';
+    column.providerWaterfall!.steps.forEach((step) => {
+      step.responsePath = 'phone';
+      step.verification = { path: 'status', acceptedValues: ['verified'] };
+    });
+    const f = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ phone: '+1 (202) 555-0123', status: 'verified' }),
+      );
+    expect(
+      (await executeProviderWaterfall(w, 'a', column, connections, f)).receipt
+        .after,
+    ).toBe('+12025550123');
+    expect(f).toHaveBeenCalledTimes(1);
+    const missing = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => Response.json({ phone: '+12025550123' }));
+    expect(
+      (await executeProviderWaterfall(w, 'a', column, connections, missing))
+        .receipt.after,
+    ).toBe('');
+    column.providerWaterfall!.steps[0].verification = undefined;
+    await expect(
+      executeProviderWaterfall(w, 'a', column, connections, missing),
+    ).rejects.toThrow('verification status path');
+    expect(missing).toHaveBeenCalledTimes(2);
+  });
+  it('does not route around a provider removal restriction', async () => {
+    const { w, column } = fixture();
+    column.providerWaterfall!.continueOnError = true;
+    const f = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: 451 }));
+    const result = await executeProviderWaterfall(
+      w,
+      'a',
+      column,
+      connections,
+      f,
+    );
+    expect(result.receipt.error).toBe('HTTP 451');
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+});

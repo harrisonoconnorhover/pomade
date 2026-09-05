@@ -51,7 +51,7 @@ export type TableLookup = {
 };
 
 export type HttpRecipe = {
-  preset?: 'apollo-company';
+  preset?: 'apollo-company' | 'pdl-company';
   presetInputKey?: string;
   connectionId: string;
   method: 'GET' | 'POST';
@@ -67,10 +67,11 @@ export type HttpProviderStep = {
   pathTemplate: string;
   bodyTemplate?: string;
   responsePath: string;
+  verification?: { path: string; acceptedValues: string[] };
 };
 export type ProviderWaterfall = {
   steps: HttpProviderStep[];
-  accept: 'nonempty' | 'email';
+  accept: 'nonempty' | 'email' | 'phone' | 'verified-email' | 'verified-phone';
   continueOnError: boolean;
   winnerColumnId: string;
   statusColumnId: string;

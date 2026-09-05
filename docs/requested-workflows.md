@@ -6,8 +6,8 @@ CRMs pass live checks. Account/plan access is distinct from implemented code.
 
 | Requirement | Current evidence | Work remaining |
 |---|---|---|
-| Sequential verified email/phone fallback | Generic 2–4-provider HTTP fallback; only format/nonempty acceptance | Verification status, phone handling, real provider presets and live multi-provider checks |
-| Firmographics/technographics | Apollo company identity, industry, employee count live | Revenue, location, funding history, technologies and coverage evidence |
+| Sequential verified email/phone fallback | Verified email/phone status + format fallback tested; Hunter/Apollo email presets; Hunter test API contract passed | Real Hunter/phone-provider credentials and live multi-provider coverage |
+| Firmographics/technographics | Apollo size/revenue/location/technologies live for all 3 companies; funding for 2; PDL company adapter tested | PDL key, broader live coverage; Solera funding absent |
 | Hiring trends/open roles | Ad hoc cited Parallel research | Reusable job sources, scheduled comparisons and account feed |
 | Leadership changes | Ad hoc public people research | Repeated snapshots and first-observed hire/promotion events |
 | Technology additions/removals | Generic field-change feed | Technology source and set-difference events with observation dates |

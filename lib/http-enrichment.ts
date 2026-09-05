@@ -117,8 +117,8 @@ function interpolate(
     const field = column.inputBindings?.[key] ?? key;
     const raw = row.values[field] ?? '';
     const value =
-      column.http?.preset === 'apollo-company' &&
-      key === column.http.presetInputKey
+      ['apollo-company', 'pdl-company'].includes(column.http?.preset ?? '') &&
+      key === column.http?.presetInputKey
         ? normalizeLookupKey(raw, 'domain')
         : raw;
     if (!value.trim()) throw new Error(`Missing request input: ${key}`);
@@ -147,6 +147,16 @@ export function prepareHttpRequest(
   )
     throw new Error(
       'Apollo preset request settings changed. Recreate the preset or use a custom HTTP recipe.',
+    );
+  if (
+    config.preset === 'pdl-company' &&
+    (config.method !== 'GET' ||
+      !config.presetInputKey ||
+      config.pathTemplate !==
+        `/v5/company/enrich?website={{${config.presetInputKey}}}`)
+  )
+    throw new Error(
+      'PDL preset request settings changed. Recreate the preset or use a custom HTTP recipe.',
     );
   const path = interpolate(config.pathTemplate, row, column, true);
   const url = new URL(path, connection.origin);
@@ -225,12 +235,12 @@ export function createHttpColumns(
     throw new Error('Choose a name, connection and API path.');
   if (
     !options.outputs.length ||
-    options.outputs.length > 4 ||
+    options.outputs.length > 16 ||
     options.outputs.some(
       (output) => !output.title.trim() || !output.path.trim(),
     )
   )
-    throw new Error('Choose one to four named response fields.');
+    throw new Error('Choose one to sixteen named response fields.');
   if (options.method === 'POST') {
     try {
       JSON.parse(options.bodyTemplate || '{}');
@@ -361,15 +371,22 @@ export async function executeHttpRecipe(
       );
     }
     const data = await boundedJson(response);
-    if (config.preset === 'apollo-company') {
-      const expected = new URL(request.url).searchParams.get('domain');
-      const returned = jsonPath(data, 'organization.primary_domain');
+    if (config.preset === 'apollo-company' || config.preset === 'pdl-company') {
+      const expected = new URL(request.url).searchParams.get(
+        config.preset === 'apollo-company' ? 'domain' : 'website',
+      );
+      const returned = jsonPath(
+        data,
+        config.preset === 'apollo-company'
+          ? 'organization.primary_domain'
+          : 'website',
+      );
       if (
         typeof returned !== 'string' ||
         normalizeLookupKey(returned, 'domain') !== expected
       )
         throw new Error(
-          'Apollo returned no matching domain. Results withheld for review.',
+          `${config.preset === 'apollo-company' ? 'Apollo' : 'PDL'} returned no matching domain. Results withheld for review.`,
         );
     }
     const missing: string[] = [];
@@ -381,8 +398,11 @@ export async function executeHttpRecipe(
       }
       const text =
         typeof value === 'string' ? value : (JSON.stringify(value) ?? '');
-      if (text.length > 4_000) {
-        missing.push(`${output.path} (over 4,000 characters)`);
+      const maxCharacters = Array.isArray(value) ? 20_000 : 4_000;
+      if (text.length > maxCharacters) {
+        missing.push(
+          `${output.path} (over ${maxCharacters.toLocaleString('en-US')} characters)`,
+        );
         continue;
       }
       values[output.outputColumnId] = text;

@@ -3,6 +3,8 @@ import { createTable } from './workbook';
 import {
   createApolloCompanyColumns,
   APOLLO_COMPANY_CONNECTION,
+  createPdlCompanyColumns,
+  emailProviderStep,
 } from './provider-presets';
 import { configuredHttpConnections } from './provider-connections';
 import {
@@ -145,4 +147,112 @@ describe('Apollo company preset', () => {
       }),
     ).toThrow('reserved');
   });
+});
+
+describe('expanded company and verified email presets', () => {
+  it('maps rich Apollo fields in one call without filling missing fields with guesses', async () => {
+    const w = createTable({ id: 'w', name: 'Rich data', mode: 'empty' });
+    w.rows = [{ id: 'one', values: { domain: 'example.com' } }];
+    const columns = createApolloCompanyColumns(w, 'domain', true);
+    w.columns.push(...columns);
+    const f = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        organization: {
+          primary_domain: 'example.com',
+          name: 'Example',
+          estimated_num_employees: 100,
+          annual_revenue_printed: '10M-50M',
+          country: 'United States',
+          technology_names: ['HubSpot', 'React'],
+          funding_events: [{ date: '2025-01-01', type: 'Series A' }],
+        },
+      }),
+    );
+    const result = await executeHttpRecipe(
+      w,
+      'one',
+      columns[0],
+      connections,
+      f,
+    );
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(result.workspace.rows[0].values[columns[4].id]).toBe('10M-50M');
+    expect(result.workspace.rows[0].values[columns[11].id]).toBe(
+      '["HubSpot","React"]',
+    );
+    expect(result.receipt.status).toBe('review');
+    expect(result.workspace.rows[0].values[columns[8].id]).toBe('');
+  });
+  it('keeps Hunter verification mapping and all optional credentials server-side', () => {
+    expect(emailProviderStep('hunter')).toMatchObject({
+      responsePath: 'data.email',
+      verification: {
+        path: 'data.verification.status',
+        acceptedValues: ['valid'],
+      },
+    });
+    expect(emailProviderStep('apollo')).toMatchObject({
+      responsePath: 'person.email',
+      verification: {
+        path: 'person.email_status',
+        acceptedValues: ['verified'],
+      },
+    });
+    const configured = configuredHttpConnections({
+      HUNTER_API_KEY: 'hunter-secret',
+      PDL_API_KEY: 'pdl-secret',
+    });
+    expect(configured).toHaveLength(2);
+    expect(JSON.stringify(publicHttpConnections(configured))).not.toContain(
+      'secret',
+    );
+  });
+  it('checks the PDL domain and maps its own schema, including employee numbers', async () => {
+    const w = createTable({ id: 'w', name: 'PDL', mode: 'empty' });
+    w.rows = [{ id: 'one', values: { domain: 'https://www.example.com/' } }];
+    const columns = createPdlCompanyColumns(w, 'domain');
+    w.columns.push(...columns);
+    const configured = configuredHttpConnections({
+      PDL_API_KEY: 'fixture-secret',
+    });
+    const f = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      expect(
+        new URL(input instanceof Request ? input.url : input).searchParams.get(
+          'website',
+        ),
+      ).toBe('example.com');
+      return Response.json({
+        name: 'Example',
+        website: 'example.com',
+        employee_count: 70,
+        location: { name: 'boston' },
+      });
+    });
+    const result = await executeHttpRecipe(w, 'one', columns[0], configured, f);
+    expect(result.workspace.rows[0].values[columns[3].id]).toBe('70');
+  });
+});
+
+it('retains complete technology sets larger than a short text cell', async () => {
+  const w = createTable({ id: 't', name: 'Technologies', mode: 'empty' });
+  w.rows = [{ id: 'one', values: { domain: 'example.com' } }];
+  const columns = createApolloCompanyColumns(w, 'domain', true);
+  w.columns.push(...columns);
+  const technologies = Array.from({ length: 500 }, (_, i) => `Technology ${i}`);
+  const result = await executeHttpRecipe(
+    w,
+    'one',
+    columns[0],
+    connections,
+    async () =>
+      Response.json({
+        organization: {
+          primary_domain: 'example.com',
+          technology_names: technologies,
+        },
+      }),
+  );
+  expect(JSON.parse(result.workspace.rows[0].values[columns[11].id])).toEqual(
+    technologies,
+  );
 });
