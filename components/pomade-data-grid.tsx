@@ -49,7 +49,13 @@ export default function PomadeDataGrid({
             ? `ƒ  ${column.title}`
             : column.kind === 'enrichment'
               ? `✦  ${column.title}`
-              : column.title,
+              : column.valueType === 'number'
+                ? `#  ${column.title}`
+                : column.valueType === 'boolean'
+                  ? `✓  ${column.title}`
+                  : column.valueType === 'date'
+                    ? `◷  ${column.title}`
+                    : column.title,
         width: column.width,
       })),
     [columns],

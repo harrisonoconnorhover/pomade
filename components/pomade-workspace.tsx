@@ -30,6 +30,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Table2,
+  Trash2,
   Upload,
   WandSparkles,
 } from 'lucide-react';
@@ -65,6 +66,7 @@ import type {
   PomadeColumn,
   PomadeRow,
   RecipeRunCondition,
+  ResearchValueType,
   RunReceipt,
   RunConditionOperator,
   WorkspaceSnapshot,
@@ -78,6 +80,13 @@ const PomadeDataGrid = dynamic(() => import('@/components/pomade-data-grid'), {
 
 type FilterMode = 'All' | 'Ready' | 'Review';
 type SaveState = 'Loading' | 'Saving' | 'Saved' | 'Offline';
+type ResearchOutputMode = 'single' | 'structured';
+
+type ResearchFieldDraft = {
+  key: string;
+  title: string;
+  valueType: ResearchValueType;
+};
 
 type ApolloProviderStatus = {
   configured: boolean;
@@ -125,6 +134,15 @@ type RecipePreset = Pick<
 
 const DEFAULT_RESEARCH_PROMPT =
   'Find one recent, credible development about {{company}} ({{domain}}) that would be useful in a sales conversation. Include the date and why it matters.';
+
+function defaultResearchFields(): ResearchFieldDraft[] {
+  return [
+    { key: 'trigger', title: 'Recent trigger', valueType: 'text' },
+    { key: 'date', title: 'Trigger date', valueType: 'date' },
+    { key: 'why', title: 'Why it matters', valueType: 'text' },
+    { key: 'confidence', title: 'Confidence', valueType: 'number' },
+  ];
+}
 
 const conditionOperators: Array<{
   value: RunConditionOperator;
@@ -353,6 +371,11 @@ export default function PomadeWorkspace() {
     'Recent company trigger',
   );
   const [researchPrompt, setResearchPrompt] = useState(DEFAULT_RESEARCH_PROMPT);
+  const [researchOutputMode, setResearchOutputMode] =
+    useState<ResearchOutputMode>('single');
+  const [researchFields, setResearchFields] = useState<ResearchFieldDraft[]>(
+    defaultResearchFields,
+  );
   const [pendingRunRowIds, setPendingRunRowIds] = useState<string[]>([]);
 
   const [crmCatalog, setCrmCatalog] =
@@ -490,6 +513,11 @@ export default function PomadeWorkspace() {
   const automaticFormulaCount = recipeColumns.filter(
     (column) => column.kind === 'formula' && column.autoRun,
   ).length;
+  const researchOutputReady =
+    researchOutputMode === 'single'
+      ? Boolean(researchColumnName.trim())
+      : researchFields.length >= 2 &&
+        researchFields.every((field) => field.title.trim());
   const webResearchColumns = workspace.columns.filter(
     (column) => column.recipe === 'web-research',
   );
@@ -604,6 +632,8 @@ export default function PomadeWorkspace() {
     setAddColumnOpen(false);
     setResearchColumnName('Recent company trigger');
     setResearchPrompt(DEFAULT_RESEARCH_PROMPT);
+    setResearchOutputMode('single');
+    setResearchFields(defaultResearchFields());
     setResearchBuilderOpen(true);
   }
 
@@ -633,20 +663,70 @@ export default function PomadeWorkspace() {
   }
 
   function addWebResearchColumn() {
-    const title = researchColumnName.trim();
     const prompt = researchPrompt.trim();
-    if (!title || !prompt) return;
-    addRecipeColumn({
-      title,
+    if (!prompt) return;
+    if (researchOutputMode === 'single') {
+      const title = researchColumnName.trim();
+      if (!title) return;
+      addRecipeColumn({
+        title,
+        kind: 'enrichment',
+        recipe: 'web-research',
+        prompt,
+        width: 380,
+        group: 'Research',
+        description: 'Custom research grounded in the live public web.',
+        requires: 'Research provider key + public web',
+      });
+      setResearchBuilderOpen(false);
+      return;
+    }
+
+    const drafts = researchFields.filter((field) => field.title.trim());
+    if (drafts.length < 2) return;
+    const used = new Set(workspace.columns.map((column) => column.id));
+    const outputFields = drafts.map((field) => ({
+      id: uniqueId(slugify(field.title), used),
+      title: field.title.trim(),
+      valueType: field.valueType,
+    }));
+    const [primary, ...supporting] = outputFields;
+    const researchColumn: PomadeColumn = {
+      ...primary,
       kind: 'enrichment',
       recipe: 'web-research',
       prompt,
-      width: 380,
-      group: 'Research',
-      description: 'Custom research grounded in the live public web.',
-      requires: 'Research provider key + public web',
+      outputFields,
+      width: 320,
+    };
+    const supportingColumns: PomadeColumn[] = supporting.map((field) => ({
+      ...field,
+      kind: 'text',
+      width: field.valueType === 'text' ? 280 : 160,
+    }));
+    setWorkspace((current) => {
+      const addedColumns = [researchColumn, ...supportingColumns];
+      return {
+        ...current,
+        columns: [
+          ...current.columns.filter((column) => column.kind !== 'status'),
+          ...addedColumns,
+          ...current.columns.filter((column) => column.kind === 'status'),
+        ],
+        rows: current.rows.map((row) => ({
+          ...row,
+          values: {
+            ...row.values,
+            ...Object.fromEntries(outputFields.map((field) => [field.id, ''])),
+          },
+        })),
+        updatedAt: Date.now(),
+      };
     });
     setResearchBuilderOpen(false);
+    setNotice(
+      `${outputFields.length} structured research columns are ready to run.`,
+    );
   }
 
   function addBlankRow() {
@@ -1699,15 +1779,120 @@ export default function PomadeWorkspace() {
               {researchStatus?.configured ? 'Key ready' : 'Add key locally'}
             </span>
           </div>
-          <label className="research-field">
-            <span>Output column</span>
-            <input
-              value={researchColumnName}
-              maxLength={80}
-              onChange={(event) => setResearchColumnName(event.target.value)}
-              placeholder="Recent company trigger"
-            />
-          </label>
+          <div className="research-output-shape">
+            <span>Output shape</span>
+            <div role="group" aria-label="Research output shape">
+              <button
+                type="button"
+                className={researchOutputMode === 'single' ? 'active' : ''}
+                aria-pressed={researchOutputMode === 'single'}
+                onClick={() => setResearchOutputMode('single')}
+              >
+                <strong>One answer</strong>
+                <small>Write the response into one editable column</small>
+              </button>
+              <button
+                type="button"
+                className={researchOutputMode === 'structured' ? 'active' : ''}
+                aria-pressed={researchOutputMode === 'structured'}
+                onClick={() => setResearchOutputMode('structured')}
+              >
+                <strong>Structured fields</strong>
+                <small>Split one request across typed columns</small>
+              </button>
+            </div>
+          </div>
+          {researchOutputMode === 'single' ? (
+            <label className="research-field">
+              <span>Output column</span>
+              <input
+                value={researchColumnName}
+                maxLength={80}
+                onChange={(event) => setResearchColumnName(event.target.value)}
+                placeholder="Recent company trigger"
+              />
+            </label>
+          ) : (
+            <div className="structured-field-builder">
+              <div className="structured-field-heading">
+                <span>Output columns</span>
+                <small>{researchFields.length}/6 fields</small>
+              </div>
+              <div className="structured-field-list">
+                {researchFields.map((field, index) => (
+                  <div key={field.key}>
+                    <span>{index + 1}</span>
+                    <input
+                      value={field.title}
+                      maxLength={80}
+                      aria-label={`Output field ${index + 1} name`}
+                      placeholder="Field name"
+                      onChange={(event) =>
+                        setResearchFields((current) =>
+                          current.map((item) =>
+                            item.key === field.key
+                              ? { ...item, title: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                    <select
+                      value={field.valueType}
+                      aria-label={`Output field ${index + 1} type`}
+                      onChange={(event) =>
+                        setResearchFields((current) =>
+                          current.map((item) =>
+                            item.key === field.key
+                              ? {
+                                  ...item,
+                                  valueType: event.target
+                                    .value as ResearchValueType,
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                    >
+                      <option value="text">Text</option>
+                      <option value="date">Date</option>
+                      <option value="number">Number</option>
+                      <option value="boolean">Yes / no</option>
+                    </select>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${field.title || `field ${index + 1}`}`}
+                      disabled={researchFields.length <= 2}
+                      onClick={() =>
+                        setResearchFields((current) =>
+                          current.filter((item) => item.key !== field.key),
+                        )
+                      }
+                    >
+                      <Trash2 />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                className="add-structured-field"
+                type="button"
+                disabled={researchFields.length >= 6}
+                onClick={() =>
+                  setResearchFields((current) => [
+                    ...current,
+                    {
+                      key: crypto.randomUUID(),
+                      title: '',
+                      valueType: 'text',
+                    },
+                  ])
+                }
+              >
+                <Plus /> Add output field
+              </button>
+            </div>
+          )}
           <label className="research-field">
             <span>Research prompt</span>
             <textarea
@@ -1725,8 +1910,9 @@ export default function PomadeWorkspace() {
           </div>
           <div className="research-builder-actions">
             <p>
-              Your API key stays server-side. Results and citations are saved
-              with the workspace receipt.
+              {researchOutputMode === 'structured'
+                ? `One provider request fills ${researchFields.length} columns. Malformed results stay visible and require review.`
+                : 'Your API key stays server-side. Results and citations are saved with the workspace receipt.'}
             </p>
             <Button
               variant="outline"
@@ -1736,9 +1922,12 @@ export default function PomadeWorkspace() {
             </Button>
             <Button
               onClick={addWebResearchColumn}
-              disabled={!researchColumnName.trim() || !researchPrompt.trim()}
+              disabled={!researchOutputReady || !researchPrompt.trim()}
             >
-              <Plus /> Add research column
+              <Plus />
+              {researchOutputMode === 'structured'
+                ? 'Add structured research'
+                : 'Add research column'}
             </Button>
           </div>
         </DialogContent>
@@ -1875,6 +2064,23 @@ export default function PomadeWorkspace() {
                           {reference.title}
                         </a>
                       ))}
+                    </span>
+                  ) : null}
+                  {receipt.outputValues &&
+                  Object.keys(receipt.outputValues).length > 1 ? (
+                    <span className="receipt-output-values">
+                      {Object.entries(receipt.outputValues)
+                        .slice(0, 6)
+                        .map(([columnId, value]) => (
+                          <span key={columnId}>
+                            <em>
+                              {workspace.columns.find(
+                                (column) => column.id === columnId,
+                              )?.title ?? columnId.replaceAll('_', ' ')}
+                            </em>
+                            {value || 'Not found'}
+                          </span>
+                        ))}
                     </span>
                   ) : null}
                 </div>

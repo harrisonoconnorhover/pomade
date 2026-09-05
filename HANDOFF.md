@@ -2,40 +2,40 @@
 
 ## Finished
 
-- Crossed off row-level recipe conditions with six practical comparison operators.
-- Added one settings surface for every formula, deterministic enrichment, and web-research column.
-- Made safe formula columns auto-update in dependency order after an input cell changes.
-- Counted condition-skipped actions in run receipts and excluded them from research request totals.
-- Updated the living Bitscale/Clay capability checklist and product boundaries.
+- Added row-level conditions for every recipe and safe auto-update for local formulas.
+- Added single-answer versus structured-field modes to the web-research builder.
+- Made one research request populate two to six typed text, date, number, or yes/no columns.
+- Preserved malformed provider output for review and exposed structured values in receipts.
+- Crossed off both capabilities in the living Bitscale/Clay gap checklist.
 
 ## Try It
 
-Open **Recipe engine** or **Action → Recipe run settings**. Set **Personal opener** to run only if **Title contains founder**, then run the grid. Add a formula column and edit one of its source cells to see local auto-update.
+Open **Research with AI**, choose **Structured fields**, adjust the four starter outputs, and add the recipe. Open **Recipe engine** to gate it with a row condition, select a row, and run after reviewing the request count.
 
 ## Checks
 
-- `npm test`: 35 tests passed across 8 files.
+- `npm test`: 40 tests passed across 8 files.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `npm run build`: passed.
-- Local app and persistence APIs returned HTTP 200 after hot reload.
+- Local page, workspace, and research endpoints returned HTTP 200.
 
 ## Decisions
 
-- One clear condition per recipe is the first complete slice; nested rule groups remain unnecessary until real use demands them.
-- Conditions are evaluated before provider requests, so skipped research does not spend a request.
-- Auto-update is limited to deterministic local formulas; external enrichments remain explicit.
+- Structured research supports two to six scalar outputs; list expansion remains a separate slice.
+- Every declared key is required, and malformed output stays visible but requires review.
+- External research remains manual and credit-confirmed even when local formulas auto-update.
 
 ## Remaining
 
-- Produce structured AI output across multiple typed columns.
 - Save configured recipes as reusable templates/functions.
 - Add enrichment waterfalls with fallback lineage.
+- Support list outputs that can explode into rows.
 - Add delayed and scheduled recipe execution.
-- Continue down `docs/capability-gap.md` without claiming broad feature parity.
+- Publish the two locally committed slices after explicit direct-`main` approval.
 
 ## Review First
 
-- `components/pomade-workspace.tsx` for the recipe-settings flow.
-- `lib/local-recipe-engine.ts` for condition and auto-update semantics.
-- `app/api/runs/route.ts` for cost-aware research gating.
+- `lib/web-research.ts` for schema prompting, parsing, and review behavior.
+- `components/pomade-workspace.tsx` for the structured-output builder.
+- `app/api/runs/route.ts` for conditional request counting and application.

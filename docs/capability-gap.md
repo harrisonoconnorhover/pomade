@@ -17,6 +17,8 @@ Bitscale or Clay.
       skipped actions are counted in receipts. Crossed off 2026-09-04.
 - [x] Safe local formula auto-update after cell edits, with dependency-order
       recalculation and editable overrides. Crossed off 2026-09-04.
+- [x] Structured web-research output into two to six typed text, date, number,
+      or yes/no columns from one provider request. Crossed off 2026-09-04.
 - [x] Bring-your-own-key web research through Parallel or Gemini with citations,
       confirmation, caching, and bounded runs.
 - [x] Selected-person Apollo enrichment with identity checks and credit-aware
@@ -28,8 +30,8 @@ Bitscale or Clay.
 
 - [ ] Delayed and scheduled recipe execution, including deliberate recurring
       refreshes for external providers.
-- [ ] Structured AI output into several typed columns, including lists that can
-      become new rows.
+- [ ] List-valued AI output that can be exploded into new rows. Scalar typed
+      multi-column output is complete.
 - [ ] Ordered enrichment waterfalls with fallback rules and winning-provider
       lineage.
 - [ ] Save configured columns as reusable templates; compose reusable functions
@@ -67,12 +69,12 @@ Bitscale or Clay.
 
 ## Next three slices
 
-1. Structured AI output into multiple columns, because one research call should
-   populate facts, confidence, and evidence separately.
-2. Reusable recipe templates/functions, because repeatability is the bridge from
+1. Reusable recipe templates/functions, because repeatability is the bridge from
    a polished table to a real GTM system.
-3. Ordered enrichment waterfalls, because fallback providers and winning-source
+2. Ordered enrichment waterfalls, because fallback providers and winning-source
    lineage make enrichment coverage materially better.
+3. List outputs that can become rows, because company pages and search results
+   should be able to create prospect records without CSV glue.
 
 ## Official product references
 

@@ -14,6 +14,14 @@ export type RecipeRunCondition = {
   value?: string;
 };
 
+export type ResearchValueType = 'text' | 'number' | 'boolean' | 'date';
+
+export type ResearchOutputField = {
+  id: string;
+  title: string;
+  valueType: ResearchValueType;
+};
+
 export type PomadeColumn = {
   id: string;
   title: string;
@@ -21,8 +29,10 @@ export type PomadeColumn = {
   width: number;
   autoRun?: boolean;
   expression?: string;
+  outputFields?: ResearchOutputField[];
   prompt?: string;
   runCondition?: RecipeRunCondition;
+  valueType?: ResearchValueType;
   recipe?:
     | 'custom-formula'
     | 'normalize-domain'
@@ -69,6 +79,7 @@ export type ActionReceipt = {
   creditsConsumed?: number | null;
   cached?: boolean;
   evidence?: string[];
+  outputValues?: Record<string, string>;
   references?: WebResearchCitation[];
   queries?: string[];
 };

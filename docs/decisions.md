@@ -71,6 +71,21 @@ locally in visual column order, skip the cell being directly edited, and may
 feed later formulas. Provider-backed enrichments remain manual so editing a grid
 never creates an external request or surprise spend.
 
+## Structured research fails visibly
+
+A web-research recipe may declare two to six scalar output fields with text,
+date, number, or boolean types. Pomade adds those fields as adjacent grid
+columns, asks the provider for one complete JSON object, formats accepted values,
+and records the field map in the receipt. The raw response is retained as hidden
+lineage metadata.
+
+Missing keys, invalid JSON, or invalid typed values do not get silently treated
+as grounded output. Pomade preserves any valid fields, leaves invalid or missing
+fields empty, retains the raw response as lineage, and marks the action for
+review. If the response is not parseable JSON, the raw answer also stays visible
+in the primary field. List outputs and explode-to-rows remain a separate future
+slice.
+
 ## GTM Control Tower owns mutation
 
 Pomade can export a bounded preview plan containing only the rows and fields

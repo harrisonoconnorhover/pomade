@@ -164,7 +164,11 @@ export async function POST(request: Request) {
           (candidate) => candidate.id === row.id,
         );
         if (!currentRow) continue;
-        const prompt = renderWebResearchPrompt(column.prompt, currentRow);
+        const prompt = renderWebResearchPrompt(
+          column.prompt,
+          currentRow,
+          column.outputFields,
+        );
         const cacheKey = await webResearchCacheKey(model, prompt);
         const now = Date.now();
         const cached = await db
