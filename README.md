@@ -11,7 +11,8 @@ what changed. It is an original product built on the open-source
 
 - Import any CSV and edit cells in a fast, virtualized grid.
 - Preview and import contacts from HubSpot or leads from Salesforce without writing back.
-- Add grouped formula and enrichment recipe columns, then run selected or visible rows.
+- Add preset formulas or build custom merge formulas with safe transforms and a
+  five-row preview, then run selected or visible rows.
 - Create custom AI research columns that use Parallel Web Research—or Gemini as a fallback—with clickable citations.
 - Enrich one selected person through Apollo with exact-name/company-domain safeguards.
 - Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
@@ -38,6 +39,13 @@ npm run dev
 
 Then open the printed local URL. Load a CSV or use the included founder-target
 workspace, add a recipe column, and click **Run enrichment**.
+
+Custom formulas use column tokens such as `{{person}}` and may apply `trim`,
+`lower`, `upper`, `first`, or `domain` filters, for example
+`{{person | first}} at {{company | upper}}`. They are deterministic text
+templates, not executable JavaScript. See the living
+[Bitscale and Clay capability gap](docs/capability-gap.md) for what Pomade does
+and does not support yet.
 
 To enable grounded web research locally, set `PARALLEL_API_KEY` in the ignored
 `.env.local` file and restart Pomade. `PARALLEL_MODEL=speed` is the fast default;

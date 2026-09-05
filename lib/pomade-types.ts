@@ -5,8 +5,10 @@ export type PomadeColumn = {
   title: string;
   kind: ColumnKind;
   width: number;
+  expression?: string;
   prompt?: string;
   recipe?:
+    | 'custom-formula'
     | 'normalize-domain'
     | 'first-name'
     | 'email-domain'

@@ -50,6 +50,14 @@ Recipe runs target selected rows when the user has made a selection and the
 currently visible rows otherwise. Receipts report the exact processed row count,
 which keeps bulk work understandable after search and filtering.
 
+## Custom formulas are templates, not code
+
+Pomade's first custom formula slice interpolates visible column IDs and supports
+a small allowlist of text transforms. It never uses `eval` or executes user
+code. Formulas run in visual column order, so a later formula can intentionally
+reference an earlier result. The builder previews five rows before the column is
+added, while generated values remain editable afterward.
+
 ## GTM Control Tower owns mutation
 
 Pomade can export a bounded preview plan containing only the rows and fields

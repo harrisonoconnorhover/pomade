@@ -15,6 +15,36 @@ function normalizeDomain(input: string) {
     .split('/')[0];
 }
 
+const CUSTOM_FORMULA_MAX_LENGTH = 2_000;
+const CUSTOM_FORMULA_OUTPUT_MAX_LENGTH = 4_000;
+
+const customFormulaFilters: Record<string, (value: string) => string> = {
+  domain: normalizeDomain,
+  first: (value) => value.trim().split(/\s+/)[0] ?? '',
+  lower: (value) => value.toLowerCase(),
+  trim: (value) => value.trim(),
+  upper: (value) => value.toUpperCase(),
+};
+
+/**
+ * Render a deterministic, row-aware text formula without evaluating code.
+ * Example: "{{person | first}} at {{company | upper}}".
+ */
+export function renderCustomFormula(expression: string, row: PomadeRow) {
+  const template = expression.slice(0, CUSTOM_FORMULA_MAX_LENGTH);
+  return template
+    .replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_match, token: string) => {
+      const [rawField, ...rawFilters] = token.split('|');
+      const field = rawField.trim();
+      if (!/^[a-zA-Z0-9_-]+$/.test(field)) return '';
+      return rawFilters.reduce((value, rawFilter) => {
+        const filter = customFormulaFilters[rawFilter.trim().toLowerCase()];
+        return filter ? filter(value) : value;
+      }, row.values[field] ?? '');
+    })
+    .slice(0, CUSTOM_FORMULA_OUTPUT_MAX_LENGTH);
+}
+
 function stableScore(row: PomadeRow) {
   const source = `${row.values.company}|${row.values.person}|${row.values.title}|${row.values.domain}`;
   const hash = Array.from(source).reduce(
@@ -52,6 +82,8 @@ function runRecipe(column: PomadeColumn, row: PomadeRow) {
   const firstName = (row.values.person || '').split(' ')[0];
 
   switch (column.recipe) {
+    case 'custom-formula':
+      return renderCustomFormula(column.expression ?? '', row);
     case 'normalize-domain':
       return normalizeDomain(row.values.domain ?? '');
     case 'first-name':

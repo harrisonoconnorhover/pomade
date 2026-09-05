@@ -52,6 +52,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { applyCrmImport, type CrmImportMode } from '@/lib/crm-import';
 import { toControlTowerPreview } from '@/lib/control-tower-adapter';
+import { renderCustomFormula } from '@/lib/local-recipe-engine';
 import type {
   ApolloEnrichmentResult,
   CrmProvider,
@@ -101,7 +102,7 @@ type CrmCatalogStatus = {
 
 type RecipePreset = Pick<
   PomadeColumn,
-  'title' | 'kind' | 'prompt' | 'recipe' | 'width'
+  'title' | 'kind' | 'expression' | 'prompt' | 'recipe' | 'width'
 > & {
   group: 'Transform' | 'Research';
   description: string;
@@ -112,6 +113,16 @@ const DEFAULT_RESEARCH_PROMPT =
   'Find one recent, credible development about {{company}} ({{domain}}) that would be useful in a sales conversation. Include the date and why it matters.';
 
 const recipePresets: RecipePreset[] = [
+  {
+    title: 'Custom formula',
+    kind: 'formula',
+    recipe: 'custom-formula',
+    width: 280,
+    group: 'Transform',
+    description:
+      'Merge columns and transform their values with a live preview.',
+    requires: 'Any visible columns',
+  },
   {
     title: 'Normalized domain',
     kind: 'formula',
@@ -280,6 +291,7 @@ export default function PomadeWorkspace() {
   const [notice, setNotice] = useState('');
 
   const [addColumnOpen, setAddColumnOpen] = useState(false);
+  const [formulaBuilderOpen, setFormulaBuilderOpen] = useState(false);
   const [researchBuilderOpen, setResearchBuilderOpen] = useState(false);
   const [researchConfirmOpen, setResearchConfirmOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -288,6 +300,10 @@ export default function PomadeWorkspace() {
   const [renameOpen, setRenameOpen] = useState(false);
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [workspaceNameDraft, setWorkspaceNameDraft] = useState('');
+  const [formulaColumnName, setFormulaColumnName] = useState('Personal label');
+  const [formulaExpression, setFormulaExpression] = useState(
+    '{{person | first}} at {{company}}',
+  );
 
   const [apolloOpen, setApolloOpen] = useState(false);
   const [apolloRunning, setApolloRunning] = useState(false);
@@ -505,6 +521,30 @@ export default function PomadeWorkspace() {
     setResearchColumnName('Recent company trigger');
     setResearchPrompt(DEFAULT_RESEARCH_PROMPT);
     setResearchBuilderOpen(true);
+  }
+
+  function openFormulaBuilder() {
+    setAddColumnOpen(false);
+    setFormulaColumnName('Personal label');
+    setFormulaExpression('{{person | first}} at {{company}}');
+    setFormulaBuilderOpen(true);
+  }
+
+  function addCustomFormulaColumn() {
+    const title = formulaColumnName.trim();
+    const expression = formulaExpression.trim();
+    if (!title || !expression) return;
+    addRecipeColumn({
+      title,
+      kind: 'formula',
+      recipe: 'custom-formula',
+      expression,
+      width: 280,
+      group: 'Transform',
+      description: 'A custom row-aware merge formula.',
+      requires: 'Visible grid columns',
+    });
+    setFormulaBuilderOpen(false);
   }
 
   function addWebResearchColumn() {
@@ -1259,9 +1299,11 @@ export default function PomadeWorkspace() {
                       key={`${preset.recipe}-${preset.title}`}
                       type="button"
                       onClick={() =>
-                        preset.recipe === 'web-research'
-                          ? openResearchBuilder()
-                          : addRecipeColumn(preset)
+                        preset.recipe === 'custom-formula'
+                          ? openFormulaBuilder()
+                          : preset.recipe === 'web-research'
+                            ? openResearchBuilder()
+                            : addRecipeColumn(preset)
                       }
                     >
                       <span
@@ -1290,6 +1332,95 @@ export default function PomadeWorkspace() {
               </div>
             </section>
           ))}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={formulaBuilderOpen} onOpenChange={setFormulaBuilderOpen}>
+        <DialogContent className="formula-builder-dialog">
+          <DialogHeader>
+            <DialogTitle>Build a custom formula</DialogTitle>
+            <DialogDescription>
+              Merge row values into a new column and preview the first five
+              results before adding it.
+            </DialogDescription>
+          </DialogHeader>
+          <label className="research-field">
+            <span>Output column</span>
+            <input
+              value={formulaColumnName}
+              maxLength={80}
+              onChange={(event) => setFormulaColumnName(event.target.value)}
+              placeholder="Personal label"
+            />
+          </label>
+          <label className="research-field">
+            <span>Formula</span>
+            <textarea
+              value={formulaExpression}
+              maxLength={2_000}
+              onChange={(event) => setFormulaExpression(event.target.value)}
+              placeholder="{{person | first}} at {{company}}"
+            />
+          </label>
+          <div className="formula-help">
+            <div className="research-variables" aria-label="Available columns">
+              <span>Insert a column</span>
+              {workspace.columns
+                .filter((column) => column.kind !== 'status')
+                .map((column) => (
+                  <button
+                    type="button"
+                    key={column.id}
+                    onClick={() =>
+                      setFormulaExpression(
+                        (current) => `${current}{{${column.id}}}`,
+                      )
+                    }
+                  >
+                    {column.title}
+                  </button>
+                ))}
+            </div>
+            <p>
+              Optional filters: <code>| trim</code>, <code>| lower</code>,{' '}
+              <code>| upper</code>, <code>| first</code>, or{' '}
+              <code>| domain</code>. Formulas are text-only and never execute
+              code.
+            </p>
+          </div>
+          <section className="formula-preview" aria-label="Formula preview">
+            <div className="formula-preview-heading">
+              <span>Preview</span>
+              <small>First {Math.min(5, workspace.rows.length)} rows</small>
+            </div>
+            {workspace.rows.slice(0, 5).map((row, index) => (
+              <div key={row.id}>
+                <span>
+                  {row.values.company ||
+                    row.values.person ||
+                    `Row ${index + 1}`}
+                </span>
+                <strong>
+                  {renderCustomFormula(formulaExpression, row) || '—'}
+                </strong>
+              </div>
+            ))}
+          </section>
+          <div className="research-builder-actions">
+            <p>The new column stays editable and runs in column order.</p>
+            <Button
+              variant="outline"
+              onClick={() => setFormulaBuilderOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={addCustomFormulaColumn}
+              disabled={!formulaColumnName.trim() || !formulaExpression.trim()}
+            >
+              <Plus /> Add formula column
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

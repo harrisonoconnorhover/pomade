@@ -1389,6 +1389,7 @@ button {
   gap: 7px;
 }
 
+.formula-builder-dialog,
 .research-builder-dialog,
 .research-confirm-dialog {
   max-width: 620px !important;
@@ -1464,6 +1465,79 @@ button {
   color: #3a6255;
   background: #f5f6f2;
   font-size: 9px;
+}
+.research-variables button {
+  padding: 4px 7px;
+  border: 1px solid #d8ddd7;
+  border-radius: 999px;
+  color: #3e5d4d;
+  background: #f5f8f3;
+  font: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+.research-variables button:hover {
+  border-color: #9db6a7;
+  background: #edf7e8;
+}
+.formula-help {
+  display: grid;
+  gap: 8px;
+}
+.formula-help p {
+  margin: 0;
+  color: #6d7972;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.formula-help p code {
+  color: #315e48;
+  font-family: var(--font-geist-mono);
+}
+.formula-preview {
+  overflow: hidden;
+  border: 1px solid #dfe2dc;
+  border-radius: 10px;
+  background: #fff;
+}
+.formula-preview-heading,
+.formula-preview > div {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #ecece6;
+}
+.formula-preview > div:last-child {
+  border-bottom: 0;
+}
+.formula-preview-heading {
+  display: flex;
+  justify-content: space-between;
+  background: #f7f7f3;
+}
+.formula-preview-heading span {
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.formula-preview-heading small,
+.formula-preview > div > span {
+  overflow: hidden;
+  color: #829087;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.formula-preview > div > strong {
+  overflow: hidden;
+  color: #273a30;
+  font-size: 10px;
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .research-builder-actions,
 .research-confirm-actions {

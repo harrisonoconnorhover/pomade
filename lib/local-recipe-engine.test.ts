@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { toControlTowerPreview } from './control-tower-adapter';
-import { executeWorkspace } from './local-recipe-engine';
+import { executeWorkspace, renderCustomFormula } from './local-recipe-engine';
 import { createSampleWorkspace } from './sample-workspace';
 import { toScoutboundPipeline } from './scoutbound-adapter';
 
@@ -34,6 +34,57 @@ describe('Pomade recipe execution', () => {
     const result = executeWorkspace(workspace);
 
     expect(result.workspace.rows[0].values.clean_domain).toBe('mercury.com');
+  });
+
+  it('previews row-aware merge formulas without evaluating code', () => {
+    const row = createSampleWorkspace().rows[0];
+
+    expect(
+      renderCustomFormula(
+        '{{ person | first }}, {{ company | upper }} uses {{ domain | domain }}.',
+        {
+          ...row,
+          values: {
+            ...row.values,
+            domain: 'https://www.Mercury.com/about',
+          },
+        },
+      ),
+    ).toBe('Immad, MERCURY uses mercury.com.');
+    expect(renderCustomFormula('{{missing}}safe', row)).toBe('safe');
+    expect(renderCustomFormula('{{person | unknown}}', row)).toBe(
+      'Immad Akhund',
+    );
+  });
+
+  it('lets a later custom formula use an earlier recipe output', () => {
+    const workspace = createSampleWorkspace();
+    workspace.columns.splice(
+      -1,
+      0,
+      {
+        id: 'clean_domain',
+        title: 'Clean domain',
+        kind: 'formula',
+        recipe: 'normalize-domain',
+        width: 180,
+      },
+      {
+        id: 'account_key',
+        title: 'Account key',
+        kind: 'formula',
+        recipe: 'custom-formula',
+        expression: '{{company | lower}}::{{clean_domain}}',
+        width: 240,
+      },
+    );
+    workspace.rows[0].values.domain = 'HTTPS://WWW.MERCURY.COM/about';
+
+    const result = executeWorkspace(workspace, ['sample-1']);
+
+    expect(result.workspace.rows[0].values.account_key).toBe(
+      'mercury::mercury.com',
+    );
   });
 
   it('runs only selected rows when a row scope is supplied', () => {
