@@ -51,6 +51,7 @@ import { Button } from '@/components/ui/button';
 import ProviderWaterfallBuilder from '@/components/provider-waterfall-builder';
 import HttpRecipeBuilder from '@/components/http-recipe-builder';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
+import RecipeFunctionBuilder from '@/components/recipe-function-builder';
 import TableTransferBuilder from '@/components/table-transfer-builder';
 import ApiSourceBuilder from '@/components/api-source-builder';
 import WebhookInbox from '@/components/webhook-inbox';
@@ -2711,6 +2712,35 @@ export default function PomadeWorkspace({
               >
                 <Upload /> Load data
               </Button>
+              <RecipeFunctionBuilder
+                key={workspace.id}
+                workspace={workspace}
+                ready={canLeaveTable}
+                onSave={setWorkspace}
+                onAdd={(added) => {
+                  setWorkspace((current) => ({
+                    ...current,
+                    columns: [
+                      ...current.columns.filter((c) => c.kind !== 'status'),
+                      ...added,
+                      ...current.columns.filter((c) => c.kind === 'status'),
+                    ],
+                    schedule:
+                      added.some(isExternalRecipe) && current.schedule?.enabled
+                        ? pauseRecipeSchedule(current.schedule)
+                        : current.schedule,
+                    updatedAt: Date.now(),
+                  }));
+                  setNotice(
+                    'Function columns added. Review and run the function when ready.',
+                  );
+                }}
+                onRun={(ids, background) => {
+                  if (background)
+                    void queueBackgroundRun(undefined, false, ids);
+                  else void runEnrichment(undefined, false, ids);
+                }}
+              />
               <TableTransferBuilder
                 source={workspace}
                 saved={canLeaveTable}

@@ -94,6 +94,7 @@ function recipeInputSpecs(column: PomadeColumn): RecipeInputSpec[] {
 function cloneColumn(column: PomadeColumn): PomadeColumn {
   return {
     ...column,
+    functionInstance: undefined,
     providerWaterfall: column.providerWaterfall
       ? structuredClone(column.providerWaterfall)
       : undefined,

@@ -63,6 +63,13 @@ export type ProviderWaterfall = {
   statusColumnId: string;
 };
 export type PomadeColumn = {
+  functionInstance?: {
+    id: string;
+    definitionId: string;
+    name: string;
+    step: number;
+    total: number;
+  };
   id: string;
   title: string;
   kind: ColumnKind;
@@ -112,6 +119,14 @@ export type RecipeTemplate = {
   description: string;
   createdAt: number;
   column: PomadeColumn;
+  inputs: RecipeTemplateInput[];
+};
+
+export type RecipeFunction = {
+  id: string;
+  name: string;
+  createdAt: number;
+  steps: RecipeTemplate[];
   inputs: RecipeTemplateInput[];
 };
 
@@ -201,6 +216,7 @@ export type WorkspaceSnapshot = {
   rows: PomadeRow[];
   webhookMappings?: Record<string, Record<string, string>>;
   recipeTemplates?: RecipeTemplate[];
+  recipeFunctions?: RecipeFunction[];
   savedViews?: SavedView[];
   schedule?: RecipeSchedule;
   updatedAt: number;

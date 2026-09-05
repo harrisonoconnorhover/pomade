@@ -577,3 +577,17 @@ presenting truncated results as complete. Counts cover all matches. Receipts
 include source snapshot context, result mode and bounded row evidence. These
 settings remain copied in local recipe templates. They do not add provider calls,
 source mutations or numeric/grouped aggregation.
+
+
+## 2026-09-05 — Same-row recipe functions
+
+- Capture two to ten configured recipe templates in grid order and infer shared
+  external inputs from their actual bindings. Remap earlier structured outputs
+  automatically; reject forward dependencies and list-producing steps rather
+  than silently change row scope.
+- Reuse the existing ordered runner and background queue. Function membership
+  scopes the ordinary selected/visible-row action to its primary recipe columns;
+  adding external steps pauses enabled schedules for scope review.
+- Store definitions in table snapshots and copy them into new independent column
+  groups. No live version propagation, portable connection remapping, accounts or
+  publication in this slice. Continue local-only iteration.

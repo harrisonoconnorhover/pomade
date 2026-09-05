@@ -6,6 +6,10 @@ Bitscale or Clay.
 
 ## Already working
 
+- [x] Save two-to-ten-step same-row recipe functions, reuse across local tables
+      with mapped external inputs and connected internal outputs, and run or
+      queue just their steps. Independent copies; crossed off 2026-09-05.
+
 - [x] Fast editable grid with copy, paste, fill, row selection, search, sort,
       filters, persistent column resizing, safe drag reordering, guarded row
       deletion, stable-ID column renaming, dependency-aware column deletion,
@@ -130,8 +134,9 @@ Bitscale or Clay.
       per-attempt receipts and weighted request limits. Verified 2026-09-05.
 - [ ] Native provider waterfall presets, richer acceptance predicates and verified
       data-quality/cost comparison against the competitors.
-- [ ] Multi-step reusable functions with versioned changes and explicit rollout;
-      current templates are copied single-column configurations.
+- [ ] Versioned function changes and explicit rollout to existing instances;
+      current multi-step functions create independent copies. List-expanding
+      stages and portable function export remain gaps.
 - [ ] Complete standalone self-host packaging, persistence, and scheduled worker
       operation without a Pomade-hosted account or Sites service dependency.
 - [ ] Real provider-credit ledger, per-step cost estimates, budgets, and usage
@@ -151,10 +156,10 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Reusable multi-step recipe functions with mapped inputs and outputs.
-2. Workbook templates and scheduled table workflows.
+1. Scheduled table workflows connecting existing sources, recipes and transfers.
+2. Reusable workbook templates with explicit table/input remapping.
 3. Scheduled source refresh and update-existing-record rules with visible results.
-4. Saved-search sources, recurring signals and composable multi-step functions.
+4. Saved-search sources, recurring signals and versioned function updates.
 5. Governed CRM writeback through Control Tower and reusable workbook templates.
 
 Defer account isolation, Google sign-in, billing and public onboarding until our
@@ -172,7 +177,7 @@ Provider counts and coverage percentages on marketing pages are vendor claims.
 
 | Area | Current competitor evidence | Pomade's concrete target |
 | --- | --- | --- |
-| Reuse | Bitscale saves enrichment templates; Clay Functions bundle steps and propagate updates across tables. | Portable recipes now; versioned multi-step functions later, with preview before updating dependents. |
+| Reuse | Bitscale saves enrichment templates; Clay Functions bundle steps and propagate updates across tables. | Independent same-row multi-step functions now; versioned updates and preview before rollout remain gaps. |
 | Data coverage | Both advertise multi-provider waterfalls. | Configured HTTP fallback now stops on success and records attempts; next compare identical real inputs for accepted data and actual cost. |
 | Research | Claygent browses for dynamic context; Bitscale advertises live BitAgent research. | Preserve citations and typed outputs; measure grounded answer accuracy on the same questions. |
 | Automation | Clay documents Workflows and custom signals; Bitscale documents programmatic grid execution. | Add event-driven runs with visible progress and receipts; prove retries do not duplicate successful actions. |

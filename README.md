@@ -195,7 +195,7 @@ employee estimate, and headquarters outputs, while preserving every existing
 row. Only the new list recipe is included in the confirmation. Adding it pauses
 an active schedule until the expanded provider scope is deliberately approved.
 
-Reusable recipe functions live with the workspace. Open **Recipe engine**, save
+Single-column recipe templates live with the workspace. Open **Recipe engine**, save
 a configured formula or enrichment as a template, then choose it from **Recipe
 library**. Pomade declares the fields the recipe reads, asks you to map them to
 the current table, creates collision-safe output columns, and preserves output
@@ -430,3 +430,22 @@ multi-user collaboration, and direct CRM write-back are intentionally deferred.
 ## License
 
 MIT. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+
+### Reusable multi-step functions
+
+Open **Recipe functions → Save steps from this table** to save two to ten
+configured recipe columns in their current grid order. Choose the library table
+and saved function, map its external inputs, and review the new output columns
+before adding. References to earlier steps, structured outputs and run conditions
+are remapped automatically. Configuring a function sends no provider requests.
+
+Use **Run function** or **Queue function** for the current selected or visible
+rows. The existing external-request confirmation and limits apply. Adding
+external steps pauses an enabled schedule so its scope can be reviewed. Groups
+with missing or reordered steps cannot be run through these buttons.
+
+Definitions and added instances are independent copies. Editing the library does
+not update existing instances. Functions currently operate on the same rows;
+list-producing recipes need a separate table stage. Version rollout, cross-table
+orchestration and portable function export remain future work.

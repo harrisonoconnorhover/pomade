@@ -2,40 +2,39 @@
 
 ## Finished
 
-- Added directional contains comparison alongside equal normalized lookup keys.
-- Added matching-row counts and JSON value lists while preserving unique-match defaults.
-- Preserved source order, duplicate values and blanks across list output columns.
-- Added explicit empty-result behavior and review for oversized lists.
-- Retained modes in previews, local templates and manual/background/scheduled execution.
+- Added reusable groups of two to ten same-row recipe steps.
+- Added cross-table library selection, external input mapping and output preview.
+- Automatically remapped intermediate structured outputs and run conditions.
+- Added grouped immediate/background execution with existing request controls.
+- Preserved independent copies and detected missing/reordered group steps.
 
 ## Try It
 
-Run `npm run dev`, open **Recipe library → Lookup another table**, then choose a comparison and result mode. Count mode needs no output-field selection. List mode returns up to four aligned JSON arrays. Preview the first five rows before adding. Test server stopped after verification.
+Run `npm run dev`, open **Recipe functions**, and save two configured recipe columns. In another table choose the source library, map inputs and add the function. Use **Run function** or **Queue function** for selected/visible rows. Background execution needs the existing Worker tick/clock. Test server stopped after verification.
 
 ## Checks
 
-- 36 focused lookup, local-engine and template tests passed.
+- 16 focused function, template and ordered-pipeline tests passed, including mocked HTTP chaining.
 - Typecheck, lint and production build passed.
-- Isolated Worker + D1 passed contains/count/list persistence, ordered arrays, zero/empty results and unique-mode ambiguity review.
-- Fresh-source background and scheduled runs, unchanged source data and home HTTP 200 passed.
-- Final diff whitespace check passed. No browser interaction test, provider calls or public deployment.
+- Isolated Worker + D1 passed definition persistence, cross-table mapping, scoped manual and queued runs, unchanged source and home HTTP 200.
+- Final whitespace/diff review passed. No browser interaction test, real provider call or deployment.
 
 ## Decisions
 
-- Existing lookup configurations retain unique equal-key behavior.
-- Reject oversized lists rather than silently truncate accepted results.
-- Keep all iteration local and the full competitor goal active.
+- Same-row functions reuse existing execution; list-producing steps remain separate stages.
+- Saved definitions and added instances are independent copies.
+- Keep builds and commits local; full competitor goal remains active.
 
 ## Remaining
 
-- Reusable multi-step recipe functions and workbook templates.
-- Scheduled table workflows and automatic synchronization.
+- Versioned function updates and portable export.
+- Scheduled table workflows and workbook templates.
 - Numeric/grouped aggregations, native provider presets and signals.
 - Governed CRM writeback and retained-history controls.
-- Independent self-host packaging, accounts, Google sign-in and public release later.
+- Self-host packaging, hosted accounts and public release later.
 
 ## Review First
 
-- `lib/table-lookup.ts` and its tests for matching and result semantics.
-- `components/table-lookup-builder.tsx` for comparison/mode selection and preview.
+- `lib/recipe-functions.ts` and tests for dependency mapping and execution scope.
+- `components/recipe-function-builder.tsx` for capture, reuse and grouped runs.
 - `docs/capability-gap.md` for remaining competitor gaps.
