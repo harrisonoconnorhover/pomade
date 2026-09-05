@@ -7,7 +7,8 @@ Bitscale or Clay.
 ## Already working
 
 - [x] Fast editable grid with copy, paste, fill, row selection, search, sort,
-      filters, CSV import, and CSV export.
+      filters, persistent column resizing, safe drag reordering, CSV import,
+      and CSV export.
 - [x] Persistent named views with column rules, live row counts, sidebar
       switching, automatic value updates, and safe removal. Crossed off
       2026-09-05.

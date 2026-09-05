@@ -2,19 +2,19 @@
 
 ## Finished
 
-- Added a company-to-people finder with current-profile grounding and child-row lineage.
 - Added bounded Apollo enrichment for up to ten selected people with partial-success receipts.
 - Added durable background jobs with progress, workspace locking, pause/resume, and retry.
 - Added explicit HubSpot/Salesforce field mapping for preview-only Control Tower handoffs.
 - Added persistent named filtered views with live counts and sidebar switching.
+- Added persistent Glide column resizing and safe drag reordering without recipe-order drift.
 
 ## Try It
 
-Choose **Save a view** in the sidebar, select a column and rule, then save it. The view appears beside Ready/Review with a live count and continues updating as recipes change row values.
+Resize a grid header or drag an ordinary column to a new position, then reload. Pomade preserves the layout while keeping recipe execution order and the final status column fixed.
 
 ## Checks
 
-- `npm test`: 78 tests passed across 15 files.
+- `npm test`: 81 tests passed across 16 files.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `npm run build`: passed with `/api/jobs` in the route manifest.
@@ -22,8 +22,8 @@ Choose **Save a view** in the sidebar, select a column and rule, then save it. T
 
 ## Decisions
 
-- Saved views persist one explicit column rule and recompute from current rows.
-- Search and row selection remain temporary instead of silently changing a view.
+- Glide's native resize and move events persist directly in the workspace snapshot.
+- Recipe columns keep their relative execution order even when the visual layout changes.
 - Multi-table discovery remains deferred until an owner-auth boundary can protect table metadata.
 
 ## Remaining
@@ -36,6 +36,6 @@ Choose **Save a view** in the sidebar, select a column and rule, then save it. T
 
 ## Review First
 
-- `lib/saved-views.ts` for view validation and row matching.
-- `components/pomade-workspace.tsx` for view creation and sidebar navigation.
-- `lib/saved-views.test.ts` for matching and validation coverage.
+- `lib/grid-columns.ts` for bounded resizing and reorder guards.
+- `components/pomade-data-grid.tsx` for the Glide event wiring.
+- `lib/grid-columns.test.ts` for layout and execution-order coverage.

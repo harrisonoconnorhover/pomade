@@ -18,6 +18,8 @@ type Props = {
   columns: PomadeColumn[];
   rows: PomadeRow[];
   readOnly?: boolean;
+  onColumnResize: (columnId: string, width: number) => void;
+  onColumnsReorder: (startIndex: number, endIndex: number) => void;
   onRowsChange: (rows: PomadeRow[], editedColumnId?: string) => void;
   onActiveRowChange: (rowId: string) => void;
   onSelectedRowIdsChange: (rowIds: string[]) => void;
@@ -34,6 +36,8 @@ export default function PomadeDataGrid({
   columns,
   rows,
   readOnly = false,
+  onColumnResize,
+  onColumnsReorder,
   onRowsChange,
   onActiveRowChange,
   onSelectedRowIdsChange,
@@ -139,6 +143,15 @@ export default function PomadeDataGrid({
       onGridSelectionChange={onGridSelectionChange}
       getCellsForSelection
       onPaste={!readOnly}
+      onColumnResizeEnd={
+        readOnly
+          ? undefined
+          : (_column, width, columnIndex) => {
+              const resized = columns[columnIndex];
+              if (resized) onColumnResize(resized.id, width);
+            }
+      }
+      onColumnMoved={readOnly ? undefined : onColumnsReorder}
       rowMarkers={{ kind: 'both', width: 52 }}
       rowSelect="multi"
       rowSelectionMode="multi"

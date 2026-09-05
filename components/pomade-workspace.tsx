@@ -74,6 +74,7 @@ import {
   recalculateAutomaticFormulas,
   renderCustomFormula,
 } from '@/lib/local-recipe-engine';
+import { moveWorkspaceColumn, resizeWorkspaceColumn } from '@/lib/grid-columns';
 import { createPeopleListWorkspace } from '@/lib/people-list-builder';
 import type {
   ApolloEnrichmentResult,
@@ -920,6 +921,20 @@ export default function PomadeWorkspace() {
   const updateSelectedRows = useCallback((rowIds: string[]) => {
     setSelectedRowIds(rowIds);
   }, []);
+
+  function resizeColumn(columnId: string, width: number) {
+    setWorkspace((current) => resizeWorkspaceColumn(current, columnId, width));
+  }
+
+  function reorderColumns(startIndex: number, endIndex: number) {
+    try {
+      setWorkspace(moveWorkspaceColumn(workspace, startIndex, endIndex));
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : 'That column cannot move.',
+      );
+    }
+  }
 
   function addRecipeColumn(preset: RecipePreset) {
     const used = new Set(workspace.columns.map((column) => column.id));
@@ -2435,6 +2450,8 @@ export default function PomadeWorkspace() {
               columns={workspace.columns}
               rows={visibleRows}
               readOnly={jobLocksWorkspace}
+              onColumnResize={resizeColumn}
+              onColumnsReorder={reorderColumns}
               onRowsChange={updateVisibleRows}
               onActiveRowChange={setActiveRowId}
               onSelectedRowIdsChange={updateSelectedRows}

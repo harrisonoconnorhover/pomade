@@ -214,6 +214,15 @@ Free-text search and row selection remain temporary UI state. Saving those
 implicitly would make a view hard to explain and easy to create accidentally;
 they can still narrow an active saved view without changing its definition.
 
+## Visual column layout cannot change recipe execution
+
+Glide Data Grid emits native resize and move events, and Pomade persists those
+layout changes in the workspace snapshot. Widths are bounded from 80 to 500
+pixels. Dragging can move ordinary columns and move recipe columns around text
+inputs, but the relative order of recipe columns cannot change because that
+order is also their deterministic execution order. The run-status column stays
+anchored at the end.
+
 ## Waterfalls compose upstream results
 
 A data waterfall is a local auto-updating recipe with two to six ordered input
