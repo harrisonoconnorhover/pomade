@@ -52,6 +52,7 @@ import ProviderWaterfallBuilder from '@/components/provider-waterfall-builder';
 import HttpRecipeBuilder from '@/components/http-recipe-builder';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { functionStepIds } from '@/lib/recipe-functions';
+import ChangeSignals from '@/components/change-signals';
 import RecipeFunctionBuilder from '@/components/recipe-function-builder';
 import TableTransferBuilder from '@/components/table-transfer-builder';
 import ApiSourceBuilder from '@/components/api-source-builder';
@@ -2770,6 +2771,13 @@ export default function PomadeWorkspace({
               >
                 <Upload /> Load data
               </Button>
+              <ChangeSignals
+                key={`signals-${workspace.id}`}
+                workspace={workspace}
+                ready={canLeaveTable}
+                onSave={setWorkspace}
+                onOpenRow={(id) => onOpenTable(workspace.id, id)}
+              />
               <RecipeFunctionBuilder
                 key={workspace.id}
                 workspace={workspace}

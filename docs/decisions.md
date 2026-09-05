@@ -661,3 +661,16 @@ source mutations or numeric/grouped aggregation.
 - Require unchanged step/output counts and output types. Structural migrations
   and bulk rollout remain separate work. Include history lookups in workbook
   reference capture/remapping so copied rollback definitions stay connected.
+
+
+## 2026-09-05 — Observed field-change signals
+
+- Watch up to ten data fields per table. Existing stable rows provide the prior
+  value; new rows establish a baseline. Record exact value changes with optional
+  blank suppression, limited to each operation's affected fields and rows.
+- Commit signal batches with recipe, scheduled source or transfer updates. Store
+  the first 200 event details and exact omitted count, shorten values to 500
+  characters explicitly, and paginate batches in the inbox. Review is batch-level.
+- Do not claim independent external-event detection or notifications. Watch
+  coverage follows configured data sources and recipe outputs. Retain watch
+  configuration in templates; history stays with its original table.

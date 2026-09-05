@@ -226,6 +226,7 @@ export type TableTransferRule = {
   mapping: Record<string, string>;
 };
 export type WorkspaceSnapshot = {
+  signalWatches?: import('./change-signals').SignalWatch[];
   apiSourceRefresh?: import('./api-source').ApiSourceRefresh;
   tableTransfers?: TableTransferRule[];
   revision?: number;

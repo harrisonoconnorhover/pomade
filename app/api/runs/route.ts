@@ -1,3 +1,4 @@
+import { signalStatements } from '@/db/signal-store';
 import { executeProviderWaterfall } from '@/lib/provider-waterfall';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { env } from 'cloudflare:workers';
@@ -361,8 +362,32 @@ export async function POST(request: Request) {
       'Recipe run',
       finishedAt,
     );
+    const signalColumns = workspace.columns.filter((c) =>
+      run.receipts.some((r) => r.columnId === c.id),
+    );
+    const signalParents = new Set(originalTargetRows.map((r) => r.id));
+    const signalRows = [
+      ...signalParents,
+      ...updated.rows
+        .filter(
+          (r) =>
+            r.parentRowId &&
+            signalParents.has(r.parentRowId) &&
+            signalColumns.some((c) => c.id === r.generatedByColumnId),
+        )
+        .map((r) => r.id),
+    ];
     await db.batch([
       ...workspaceStatements,
+      ...signalStatements(db, executionBase, updated, {
+        id: run.id,
+        origin: 'Recipe run',
+        rowIds: signalRows,
+        columnIds: signalColumns.flatMap((c) => [
+          ...(c.outputFields?.map((f) => f.id) ?? [c.id]),
+          ...Object.values(c.listDestinationBindings ?? {}),
+        ]),
+      }),
       db
         .prepare(`INSERT INTO runs
         (id, workspace_id, status, row_count, action_count, receipt, created_at)

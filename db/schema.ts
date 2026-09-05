@@ -146,3 +146,20 @@ export const workbookTemplates = sqliteTable('workbook_templates', {
   template: text('template').notNull(),
   createdAt: integer('created_at').notNull(),
 });
+
+export const signalBatches = sqliteTable(
+  'signal_batches',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    batch: text('batch').notNull(),
+    createdAt: integer('created_at').notNull(),
+    reviewedAt: integer('reviewed_at'),
+  },
+  (table) => [
+    index('idx_signal_batches_workspace').on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+  ],
+);

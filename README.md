@@ -553,3 +553,25 @@ In-place updates require unchanged step count and per-step output count/types.
 Structural changes require a new copy; bulk rollout is not implemented. Copied
 functions from before version tracking can be updated after explicitly reviewing
 input mappings. Workbook templates remap retained version-history lookups too.
+
+
+### Change signals
+
+Open **Change signals → Watched fields** and add up to ten named field watches.
+By default, changes to/from blank values are ignored; disable that option to
+include them. Future recipe runs, scheduled API refreshes and table transfers
+record observed changes for existing stable row IDs. New rows establish baselines,
+and unchanged reruns produce no signals. Manual grid edits are not tracked.
+
+The inbox shows before/after values, row links, watch names and the workflow stage
+that observed the change. Mark batches reviewed or unreviewed and load older
+batches as needed. Each operation retains its first 200 changes and counts any
+additional changes explicitly; values are limited to 500 characters with a visible
+truncation marker. Signals commit in the same database batch as their data update.
+
+Recipe signals cover executed output fields, including mapped generated-child
+outputs. API refresh and transfer signals cover their mapped input fields. This
+is observed field-change tracking, not an independent job-change/news monitor or
+an outbound notification service. Provider coverage and refresh cadence determine
+what changes Pomade can observe. Workbook templates preserve watch configurations
+but do not copy signal history.

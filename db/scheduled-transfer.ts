@@ -1,3 +1,4 @@
+import { signalStatements } from './signal-store';
 import { scheduledTransfers } from '../lib/recipe-schedule';
 import { versionedWorkspaceStatements } from './workspace-store';
 import { planTableTransfer } from '../lib/table-transfer';
@@ -78,7 +79,14 @@ export async function scheduledTransferStatements(
         )
         .bind(id, source.id, target.id, JSON.stringify(receipt), now),
     );
-    allStatements.push(...statements);
+    allStatements.push(
+      ...statements,
+      ...signalStatements(db, target, updatedTarget, {
+        id,
+        origin: 'Scheduled transfer',
+        columnIds: [rule.targetKey, ...Object.keys(rule.mapping)],
+      }),
+    );
     receiptIds.push(id);
   }
   return { statements: allStatements, receiptId: receiptIds[0], receiptIds };

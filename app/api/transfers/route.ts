@@ -1,3 +1,4 @@
+import { signalStatements } from '@/db/signal-store';
 import { ensureDatabase } from '@/db/ensure';
 import { versionedWorkspaceStatements } from '@/db/workspace-store';
 import { planTableTransfer } from '@/lib/table-transfer';
@@ -83,6 +84,11 @@ export async function POST(request: Request) {
         : [];
     await db.batch([
       ...statements,
+      ...signalStatements(db, target, updatedTarget, {
+        id,
+        origin: 'Table transfer',
+        columnIds: [rule.targetKey, ...Object.keys(rule.mapping)],
+      }),
       db
         .prepare(
           'INSERT INTO table_transfer_runs (id,source_id,target_id,receipt,created_at) VALUES (?,?,?,?,?)',

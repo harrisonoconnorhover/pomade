@@ -6,6 +6,10 @@ Bitscale or Clay.
 
 ## Already working
 
+- [x] Watched-field change signals from recipe runs, scheduled API refreshes and
+      transfers, with stable-row baselines, old/new values, review state and
+      paginated history. Bounded event details; crossed off 2026-09-05.
+
 - [x] Saved function version history with per-copy update/rollback preview,
       stable output IDs, retained values and paused schedules. Compatible step/
       output shapes only; crossed off 2026-09-05.
@@ -176,10 +180,10 @@ Bitscale or Clay.
 User priority, 2026-09-05: make this a useful daily Clay/Bitscale competitor for
 our own work before spending time on other users, signup, or public hosting.
 
-1. Native provider presets and recurring signals.
+1. Native provider presets and dedicated external-event signals.
 2. Numeric/grouped aggregations and richer formula logic.
 3. Richer source pagination and native provider presets.
-4. Saved-search sources, recurring signals and bulk function rollout.
+4. Saved-search sources, external-event monitors and bulk function rollout.
 5. Governed CRM writeback through Control Tower and portable workbook templates.
 
 Defer account isolation, Google sign-in, billing and public onboarding until our

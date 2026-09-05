@@ -1,3 +1,4 @@
+import { signalStatements } from './db/signal-store';
 import app from 'vinext/server/fetch-handler';
 import {
   refreshApiSource,
@@ -144,7 +145,18 @@ export async function runDueSchedules(
           source.mapping,
         ).workspace;
         refreshed.schedule!.lastSourceBatchId = result.batch.id;
-        await saveWorkspace(env, refreshed);
+        await env.DB.batch([
+          ...(await versionedWorkspaceStatements(
+            env.DB,
+            refreshed,
+            'Grid edit',
+          )),
+          ...signalStatements(env.DB, claimed, refreshed, {
+            id: result.batch.id,
+            origin: 'API refresh',
+            columnIds: Object.keys(source.mapping),
+          }),
+        ]);
         claimed = refreshed;
         latestWorkspace = refreshed;
       }
