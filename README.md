@@ -36,6 +36,8 @@ what changed. It is an original product built on the open-source
 - Map selected columns to portable HubSpot Contact or Salesforce Lead fields
   and download a preview-only GTM Control Tower handoff.
 - Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
+- Keep the latest 20 structural workspace versions and restore any one while
+  preserving the current table as another recoverable snapshot.
 - Summarize recent total, local, provider, cached, observed-credit, and
   unknown-cost actions without presenting partial receipt data as billing.
 - Search, filter, sort, add or deliberately delete rows, save reusable filtered
@@ -113,6 +115,11 @@ Run history summarizes the latest ten receipts into total and provider work,
 cache hits, explicitly reported credits, and provider actions whose cost was not
 reported. It is intentionally an operational snapshot rather than a billing
 ledger; Pomade does not infer credit prices that a provider did not return.
+
+Version history captures the table before saved grid changes, recipe runs,
+Apollo enrichment, and background-job setup. Restore is blocked while a
+background job can still write, saves the current table first, and pauses a
+restored schedule so historical automation cannot restart unexpectedly.
 
 AI web research can return one answer or populate two to six typed output
 columns from one request. Structured outputs support text, date, number, and

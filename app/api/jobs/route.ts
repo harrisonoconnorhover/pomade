@@ -1,4 +1,5 @@
 import { ensureDatabase } from '@/db/ensure';
+import { versionedWorkspaceStatements } from '@/db/workspace-store';
 import { countEligibleRecipeActions } from '@/lib/local-recipe-engine';
 import type {
   RunJob,
@@ -219,23 +220,14 @@ export async function POST(request: Request) {
     }
     const now = Date.now();
     const storedWorkspace = { ...workspace, updatedAt: now };
+    const workspaceStatements = await versionedWorkspaceStatements(
+      db,
+      storedWorkspace,
+      'Background run queued',
+      now,
+    );
     await db.batch([
-      db
-        .prepare(
-          `INSERT INTO workspaces (id, name, snapshot, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             name = excluded.name,
-             snapshot = excluded.snapshot,
-             updated_at = excluded.updated_at`,
-        )
-        .bind(
-          storedWorkspace.id,
-          storedWorkspace.name,
-          JSON.stringify(storedWorkspace),
-          now,
-          now,
-        ),
+      ...workspaceStatements,
       db
         .prepare(
           `INSERT INTO run_jobs

@@ -1,4 +1,5 @@
 import { ensureDatabase } from '@/db/ensure';
+import { versionedWorkspaceStatements } from '@/db/workspace-store';
 import { createSampleWorkspace } from '@/lib/sample-workspace';
 import type { WorkspaceSnapshot } from '@/lib/pomade-types';
 
@@ -21,15 +22,9 @@ function isWorkspaceSnapshot(value: unknown): value is WorkspaceSnapshot {
 async function saveWorkspace(workspace: WorkspaceSnapshot) {
   const db = await ensureDatabase();
   const now = Date.now();
-  await db
-    .prepare(`INSERT INTO workspaces (id, name, snapshot, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name,
-        snapshot = excluded.snapshot,
-        updated_at = excluded.updated_at`)
-    .bind(workspace.id, workspace.name, JSON.stringify(workspace), now, now)
-    .run();
+  await db.batch(
+    await versionedWorkspaceStatements(db, workspace, 'Grid edit', now),
+  );
 }
 
 export async function GET() {
@@ -53,7 +48,10 @@ export async function PUT(request: Request) {
   const workspace = (body as { workspace?: unknown })?.workspace;
 
   if (!isWorkspaceSnapshot(workspace)) {
-    return Response.json({ error: 'Invalid workspace payload.' }, { status: 400 });
+    return Response.json(
+      { error: 'Invalid workspace payload.' },
+      { status: 400 },
+    );
   }
 
   const updated = { ...workspace, updatedAt: Date.now() };

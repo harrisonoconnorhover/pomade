@@ -271,6 +271,20 @@ spend, while an uncached provider action without explicit credit data remains
 unknown. A real ledger still requires provider billing data and a durable
 full-history model.
 
+## Restore is bounded and automation-safe
+
+Pomade stores the prior fixed-workspace snapshot before a changed grid save,
+recipe run, Apollo enrichment, or background-job setup. Timestamp-only saves do
+not create duplicates, and D1 retains the newest 20 versions. The history API
+returns counts and source labels rather than row contents until the user chooses
+a specific restore.
+
+Restore requires confirmation and first archives the current table, making the
+operation reversible. The server rejects restore while a background job can
+still write. Any schedule inside the restored snapshot is paused and has its
+old lease cleared so restoring data never silently restarts historical
+automation.
+
 ## Waterfalls compose upstream results
 
 A data waterfall is a local auto-updating recipe with two to six ordered input

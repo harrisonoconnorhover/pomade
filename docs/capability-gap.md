@@ -83,8 +83,10 @@ Bitscale or Clay.
       account events.
 - [ ] Public API to append rows and run selected output columns synchronously or
       asynchronously.
-- [ ] Team collaboration, access controls, structural version history, and
-      restore.
+- [x] Bounded structural version history and restore with latest-20 retention,
+      current-state preservation, background-job exclusion, and paused restored
+      schedules. Crossed off 2026-09-05.
+- [ ] Team collaboration and access controls.
 - [ ] Real provider-credit ledger, per-step cost estimates, budgets, and usage
       reporting beyond the recent receipt snapshot.
 - [ ] Reusable research agents with business context, documents, tools, model

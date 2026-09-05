@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 
 import { ensureDatabase } from '@/db/ensure';
+import { versionedWorkspaceStatements } from '@/db/workspace-store';
 import {
   ApolloClient,
   apolloCacheKey,
@@ -229,23 +230,14 @@ export async function POST(request: Request) {
       startedAt,
     );
     const finishedAt = Date.now();
+    const workspaceStatements = await versionedWorkspaceStatements(
+      db,
+      updated,
+      'Apollo enrichment',
+      finishedAt,
+    );
     await db.batch([
-      db
-        .prepare(
-          `INSERT INTO workspaces (id, name, snapshot, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-              name = excluded.name,
-              snapshot = excluded.snapshot,
-              updated_at = excluded.updated_at`,
-        )
-        .bind(
-          updated.id,
-          updated.name,
-          JSON.stringify(updated),
-          finishedAt,
-          finishedAt,
-        ),
+      ...workspaceStatements,
       db
         .prepare(
           `INSERT INTO runs

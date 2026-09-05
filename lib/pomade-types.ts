@@ -149,6 +149,15 @@ export type WorkspaceSnapshot = {
   source?: WorkspaceSource;
 };
 
+export type WorkspaceVersionSummary = {
+  id: string;
+  reason: string;
+  createdAt: number;
+  rowCount: number;
+  columnCount: number;
+  sourceLabel?: string;
+};
+
 export type WorkspaceSource = {
   provider: 'sample' | 'csv' | 'hubspot' | 'salesforce';
   label: string;

@@ -92,6 +92,7 @@ import type {
   RunConditionOperator,
   WaterfallStep,
   WorkspaceSnapshot,
+  WorkspaceVersionSummary,
 } from '@/lib/pomade-types';
 import {
   createRecipeTemplate,
@@ -465,6 +466,13 @@ export default function PomadeWorkspace() {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const [workspaceVersions, setWorkspaceVersions] = useState<
+    WorkspaceVersionSummary[]
+  >([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [versionsError, setVersionsError] = useState('');
+  const [restoringVersionId, setRestoringVersionId] = useState('');
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [handoffOpen, setHandoffOpen] = useState(false);
@@ -1713,6 +1721,77 @@ export default function PomadeWorkspace() {
     setNotice('Sample workspace restored.');
   }
 
+  async function openVersionHistory() {
+    setVersionsOpen(true);
+    setVersionsLoading(true);
+    setVersionsError('');
+    try {
+      const response = await fetch('/api/workspace/versions');
+      const result = (await response.json()) as {
+        versions?: WorkspaceVersionSummary[];
+        error?: string;
+      };
+      if (!response.ok || !result.versions) {
+        throw new Error(result.error || 'Version history failed to load.');
+      }
+      setWorkspaceVersions(result.versions);
+    } catch (error) {
+      setVersionsError(
+        error instanceof Error
+          ? error.message
+          : 'Version history failed to load.',
+      );
+    } finally {
+      setVersionsLoading(false);
+    }
+  }
+
+  async function restoreWorkspaceVersion(version: WorkspaceVersionSummary) {
+    if (restoringVersionId || jobLocksWorkspace) return;
+    if (
+      !window.confirm(
+        `Restore the ${runTime(version.createdAt)} version? Your current table will be kept as a recoverable version.`,
+      )
+    )
+      return;
+    setRestoringVersionId(version.id);
+    setVersionsError('');
+    try {
+      const response = await fetch('/api/workspace/versions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ versionId: version.id }),
+      });
+      const result = (await response.json()) as {
+        workspace?: WorkspaceSnapshot;
+        error?: string;
+      };
+      if (!response.ok || !result.workspace) {
+        throw new Error(result.error || 'The version could not be restored.');
+      }
+      suppressNextWorkspaceSave.current = true;
+      setWorkspace(result.workspace);
+      setActiveRowId(result.workspace.rows[0]?.id ?? '');
+      setSelectedRowIds([]);
+      setFilter('All');
+      setActiveSavedViewId('');
+      setQuery('');
+      setSaveState('Saved');
+      setVersionsOpen(false);
+      setNotice(
+        `Restored ${version.rowCount} rows and ${version.columnCount} columns. The previous table remains in version history.`,
+      );
+    } catch (error) {
+      setVersionsError(
+        error instanceof Error
+          ? error.message
+          : 'The version could not be restored.',
+      );
+    } finally {
+      setRestoringVersionId('');
+    }
+  }
+
   function openApollo() {
     setApolloError('');
     setApolloResult(undefined);
@@ -2501,6 +2580,12 @@ export default function PomadeWorkspace() {
                     disabled={!handoffPlan.records.length}
                   >
                     <ShieldCheck /> Prepare CRM handoff
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => void openVersionHistory()}
+                    disabled={jobLocksWorkspace}
+                  >
+                    <History /> Version history
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={resetSample}
@@ -4380,6 +4465,68 @@ export default function PomadeWorkspace() {
                 </span>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={versionsOpen} onOpenChange={setVersionsOpen}>
+        <DialogContent className="version-history-dialog">
+          <DialogHeader>
+            <DialogTitle>Version history</DialogTitle>
+            <DialogDescription>
+              Restore one of the latest 20 structural snapshots. The current
+              table is saved first, and any restored schedule stays paused.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="version-history-body">
+            {versionsError ? (
+              <p className="versions-error">{versionsError}</p>
+            ) : null}
+            <div className="version-history-list">
+              {versionsLoading ? (
+                <div className="history-empty">
+                  <LoaderCircle className="spin" />
+                  <strong>Loading versions…</strong>
+                </div>
+              ) : workspaceVersions.length ? (
+                workspaceVersions.map((version) => (
+                  <article key={version.id}>
+                    <span className="version-icon">
+                      <History />
+                    </span>
+                    <span>
+                      <strong>{runTime(version.createdAt)}</strong>
+                      <small>Saved before {version.reason.toLowerCase()}</small>
+                    </span>
+                    <span className="version-metrics">
+                      {version.rowCount} rows · {version.columnCount} columns
+                      {version.sourceLabel ? ` · ${version.sourceLabel}` : ''}
+                    </span>
+                    <Button
+                      variant="outline"
+                      onClick={() => void restoreWorkspaceVersion(version)}
+                      disabled={Boolean(restoringVersionId)}
+                    >
+                      {restoringVersionId === version.id ? (
+                        <LoaderCircle className="spin" />
+                      ) : (
+                        <RotateCcw />
+                      )}
+                      Restore
+                    </Button>
+                  </article>
+                ))
+              ) : (
+                <div className="history-empty">
+                  <History />
+                  <strong>No earlier versions yet</strong>
+                  <span>
+                    Pomade creates a recoverable snapshot before the next saved
+                    grid change or enrichment run.
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

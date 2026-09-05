@@ -11,6 +11,15 @@ export async function ensureDatabaseSchema(db: D1Database) {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS workspace_versions (
+      id TEXT PRIMARY KEY NOT NULL,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      reason TEXT NOT NULL,
+      snapshot TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_workspace_versions_workspace_created
+      ON workspace_versions(workspace_id, created_at)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS runs (
       id TEXT PRIMARY KEY NOT NULL,
       workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,

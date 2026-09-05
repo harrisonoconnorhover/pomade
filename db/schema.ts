@@ -8,6 +8,25 @@ export const workspaces = sqliteTable('workspaces', {
   updatedAt: integer('updated_at').notNull(),
 });
 
+export const workspaceVersions = sqliteTable(
+  'workspace_versions',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    reason: text('reason').notNull(),
+    snapshot: text('snapshot').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_workspace_versions_workspace_created').on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const runs = sqliteTable(
   'runs',
   {
