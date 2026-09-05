@@ -80,12 +80,13 @@ type ApolloProviderStatus = {
   };
 };
 
-type GeminiProviderStatus = {
+type ResearchProviderStatus = {
+  provider: 'parallel' | 'gemini' | null;
   configured: boolean;
+  label: string;
   model: string;
   capabilities: {
     webResearch: boolean;
-    googleSearch: boolean;
     citations: boolean;
     maximumActionsPerRun: number;
   };
@@ -155,8 +156,8 @@ const recipePresets: RecipePreset[] = [
     width: 380,
     group: 'Research',
     description:
-      'Ask a custom row-by-row question grounded in live Google Search.',
-    requires: 'Google AI key + company context',
+      'Ask a custom row-by-row question using live public web research.',
+    requires: 'Parallel or Google AI key + company context',
   },
   {
     title: 'ICP fit',
@@ -245,8 +246,12 @@ function runTime(timestamp: number) {
 
 function providerLabel(run?: RunReceipt) {
   if (run?.provider === 'apollo') return 'Apollo';
+  if (run?.provider === 'parallel') return 'Parallel research';
   if (run?.provider === 'gemini') return 'Gemini research';
-  if (run?.provider === 'mixed') return 'Pomade + Gemini';
+  if (run?.provider === 'mixed')
+    return run.researchProvider === 'parallel'
+      ? 'Pomade + Parallel'
+      : 'Pomade + Gemini';
   return 'Pomade runner';
 }
 
@@ -289,7 +294,8 @@ export default function PomadeWorkspace() {
   const [apolloError, setApolloError] = useState('');
   const [apolloResult, setApolloResult] = useState<ApolloEnrichmentResult>();
   const [apolloStatus, setApolloStatus] = useState<ApolloProviderStatus>();
-  const [geminiStatus, setGeminiStatus] = useState<GeminiProviderStatus>();
+  const [researchStatus, setResearchStatus] =
+    useState<ResearchProviderStatus>();
   const [researchColumnName, setResearchColumnName] = useState(
     'Recent company trigger',
   );
@@ -335,23 +341,24 @@ export default function PomadeWorkspace() {
           return response.json() as Promise<CrmCatalogStatus>;
         })
         .catch(() => emptyCrmCatalog),
-      fetch('/api/providers/gemini')
+      fetch('/api/providers/research')
         .then((response) => {
-          if (!response.ok) throw new Error('Gemini status failed to load');
-          return response.json() as Promise<GeminiProviderStatus>;
+          if (!response.ok) throw new Error('Research status failed to load');
+          return response.json() as Promise<ResearchProviderStatus>;
         })
         .catch(() => ({
+          provider: null,
           configured: false,
-          model: 'gemini-3.8-flash',
+          label: 'AI web research',
+          model: 'No provider configured',
           capabilities: {
             webResearch: true,
-            googleSearch: true,
             citations: true,
             maximumActionsPerRun: 10,
           },
         })),
     ])
-      .then(([workspaceResponse, runsResponse, apollo, crm, gemini]) => {
+      .then(([workspaceResponse, runsResponse, apollo, crm, research]) => {
         if (cancelled) return;
         setWorkspace(workspaceResponse.workspace);
         setActiveRowId(workspaceResponse.workspace.rows[0]?.id ?? '');
@@ -359,7 +366,7 @@ export default function PomadeWorkspace() {
         setLatestRun(runsResponse.runs[0]);
         setApolloStatus(apollo);
         setCrmCatalog(crm);
-        setGeminiStatus(gemini);
+        setResearchStatus(research);
         setSaveState('Saved');
         hydrated.current = true;
       })
@@ -428,14 +435,14 @@ export default function PomadeWorkspace() {
   );
   const connectedCount = [
     apolloStatus?.configured,
-    geminiStatus?.configured,
+    researchStatus?.configured,
     crmCatalog.providers.hubspot.configured,
     crmCatalog.providers.salesforce.configured,
   ].filter(Boolean).length;
   const pendingResearchActionCount =
     pendingRunRowIds.length * webResearchColumns.length;
   const maximumResearchActions =
-    geminiStatus?.capabilities.maximumActionsPerRun ?? 10;
+    researchStatus?.capabilities.maximumActionsPerRun ?? 10;
   const selectedReceipts = runHistory
     .flatMap((run) => run.receipts)
     .filter((receipt) => receipt.rowId === selected?.id)
@@ -511,8 +518,8 @@ export default function PomadeWorkspace() {
       prompt,
       width: 380,
       group: 'Research',
-      description: 'Custom research grounded in live Google Search.',
-      requires: 'Google AI key + public web',
+      description: 'Custom research grounded in the live public web.',
+      requires: 'Research provider key + public web',
     });
     setResearchBuilderOpen(false);
   }
@@ -1152,7 +1159,7 @@ export default function PomadeWorkspace() {
             </span>
             <div>
               <strong>Research with AI</strong>
-              <small>Custom prompt + cited Google Search</small>
+              <small>Custom prompt + cited web research</small>
             </div>
             <Sparkles />
           </button>
@@ -1291,8 +1298,8 @@ export default function PomadeWorkspace() {
           <DialogHeader>
             <DialogTitle>Add AI web research</DialogTitle>
             <DialogDescription>
-              Create a Claygent-style column that asks Gemini a row-specific
-              question, searches the live web, and keeps its source links.
+              Create a Claygent-style column that asks a row-specific question,
+              searches the live web, and keeps its source links.
             </DialogDescription>
           </DialogHeader>
           <div className="research-provider-state">
@@ -1300,13 +1307,13 @@ export default function PomadeWorkspace() {
               <Globe2 />
             </span>
             <div>
-              <strong>Gemini + Google Search</strong>
-              <small>{geminiStatus?.model ?? 'gemini-3.8-flash'}</small>
+              <strong>{researchStatus?.label ?? 'AI web research'}</strong>
+              <small>{researchStatus?.model ?? 'Checking provider…'}</small>
             </div>
             <span
-              className={`connection-badge ${geminiStatus?.configured ? 'connection-ready' : ''}`}
+              className={`connection-badge ${researchStatus?.configured ? 'connection-ready' : ''}`}
             >
-              {geminiStatus?.configured ? 'Key ready' : 'Add key locally'}
+              {researchStatus?.configured ? 'Key ready' : 'Add key locally'}
             </span>
           </div>
           <label className="research-field">
@@ -1359,8 +1366,9 @@ export default function PomadeWorkspace() {
           <DialogHeader>
             <DialogTitle>Run grounded web research?</DialogTitle>
             <DialogDescription>
-              Gemini will use Google Search for each row and research column.
-              Google may bill more than one search query for a request.
+              {researchStatus?.label ?? 'Your configured provider'} will search
+              the live web for each row and research column. Each request may
+              consume provider credits.
             </DialogDescription>
           </DialogHeader>
           <div className="research-run-summary">
@@ -1377,10 +1385,10 @@ export default function PomadeWorkspace() {
               <strong>{pendingResearchActionCount}</strong>
             </div>
           </div>
-          {!geminiStatus?.configured ? (
+          {!researchStatus?.configured ? (
             <p className="research-warning" role="alert">
-              Add GEMINI_API_KEY to .env.local and restart Pomade before this
-              run.
+              Add PARALLEL_API_KEY or GEMINI_API_KEY to .env.local and restart
+              Pomade before this run.
             </p>
           ) : pendingResearchActionCount > maximumResearchActions ? (
             <p className="research-warning" role="alert">
@@ -1408,7 +1416,7 @@ export default function PomadeWorkspace() {
                 void runEnrichment(rowIds, true);
               }}
               disabled={
-                !geminiStatus?.configured ||
+                !researchStatus?.configured ||
                 pendingResearchActionCount === 0 ||
                 pendingResearchActionCount > maximumResearchActions
               }
@@ -1512,6 +1520,7 @@ export default function PomadeWorkspace() {
                     {run.provider === 'apollo' ? (
                       <MailCheck />
                     ) : run.provider === 'gemini' ||
+                      run.provider === 'parallel' ||
                       run.provider === 'mixed' ? (
                       <Globe2 />
                     ) : (
@@ -1632,12 +1641,16 @@ export default function PomadeWorkspace() {
             </span>
             <div>
               <strong>AI web research</strong>
-              <small>Gemini + live Google Search + source citations</small>
+              <small>
+                {researchStatus?.configured
+                  ? `${researchStatus.label} + source citations`
+                  : 'Parallel or Gemini + source citations'}
+              </small>
             </div>
             <span
-              className={`connection-badge ${geminiStatus?.configured ? 'connection-ready' : ''}`}
+              className={`connection-badge ${researchStatus?.configured ? 'connection-ready' : ''}`}
             >
-              {geminiStatus?.configured ? 'Connected' : 'Not configured'}
+              {researchStatus?.configured ? 'Connected' : 'Not configured'}
             </span>
           </div>
 

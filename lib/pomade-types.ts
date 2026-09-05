@@ -47,7 +47,7 @@ export type ActionReceipt = {
   durationMs: number;
   before: string;
   after: string;
-  provider?: 'apollo' | 'gemini' | 'local';
+  provider?: 'apollo' | 'gemini' | 'parallel' | 'local';
   creditsConsumed?: number | null;
   cached?: boolean;
   evidence?: string[];
@@ -66,7 +66,8 @@ export type RunReceipt = {
   passedCount: number;
   reviewCount: number;
   externalWrites: 0;
-  provider?: 'apollo' | 'gemini' | 'local' | 'mixed';
+  provider?: 'apollo' | 'gemini' | 'parallel' | 'local' | 'mixed';
+  researchProvider?: 'gemini' | 'parallel';
   creditsConsumed?: number | null;
   receipts: ActionReceipt[];
 };

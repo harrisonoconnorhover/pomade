@@ -49,13 +49,14 @@ describe('web research recipe', () => {
         cached: false,
       },
       Date.now() - 20,
+      'parallel',
     );
 
     expect(result.workspace.rows[0].values.recent_trigger).toBe(
       'Mercury announced a new product.',
     );
     expect(result.receipt).toMatchObject({
-      provider: 'gemini',
+      provider: 'parallel',
       status: 'passed',
       references: [
         { title: 'Mercury newsroom', url: 'https://mercury.com/news' },

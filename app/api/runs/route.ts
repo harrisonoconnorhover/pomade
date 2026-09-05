@@ -3,6 +3,7 @@ import { env } from 'cloudflare:workers';
 import { ensureDatabase } from '@/db/ensure';
 import { GeminiWebResearchClient } from '@/lib/gemini-client';
 import { executeWorkspace } from '@/lib/local-recipe-engine';
+import { ParallelWebResearchClient } from '@/lib/parallel-client';
 import type {
   PomadeColumn,
   RunReceipt,
@@ -109,17 +110,18 @@ export async function POST(request: Request) {
     if (researchActionCount > 0 && !confirmedResearch) {
       return Response.json(
         {
-          error:
-            'Confirm the external Gemini web research requests before running.',
+          error: 'Confirm the external web research requests before running.',
         },
         { status: 400 },
       );
     }
-    if (researchActionCount > 0 && !env.GEMINI_API_KEY?.trim()) {
+    const parallelConfigured = Boolean(env.PARALLEL_API_KEY?.trim());
+    const geminiConfigured = Boolean(env.GEMINI_API_KEY?.trim());
+    if (researchActionCount > 0 && !parallelConfigured && !geminiConfigured) {
       return Response.json(
         {
           error:
-            'Gemini is not configured. Add GEMINI_API_KEY to .env.local and restart Pomade.',
+            'Web research is not configured. Add PARALLEL_API_KEY or GEMINI_API_KEY to .env.local and restart Pomade.',
         },
         { status: 503 },
       );
@@ -128,11 +130,19 @@ export async function POST(request: Request) {
     const localResult = executeWorkspace(workspace, rowIds);
     let updated = localResult.workspace;
     const receipts = [...localResult.run.receipts];
-    const model = env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
-    const gemini = new GeminiWebResearchClient({
-      apiKey: env.GEMINI_API_KEY ?? '',
-      model,
-    });
+    const researchProvider = parallelConfigured ? 'parallel' : 'gemini';
+    const model = parallelConfigured
+      ? env.PARALLEL_MODEL?.trim() || 'speed'
+      : env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
+    const researchClient = parallelConfigured
+      ? new ParallelWebResearchClient({
+          apiKey: env.PARALLEL_API_KEY ?? '',
+          model,
+        })
+      : new GeminiWebResearchClient({
+          apiKey: env.GEMINI_API_KEY ?? '',
+          model,
+        });
 
     for (const row of targetRows) {
       for (const column of researchColumns) {
@@ -148,7 +158,7 @@ export async function POST(request: Request) {
           .prepare(
             'SELECT payload FROM provider_cache WHERE cache_key = ? AND provider = ? AND expires_at > ?',
           )
-          .bind(cacheKey, 'gemini', now)
+          .bind(cacheKey, researchProvider, now)
           .first<{ payload: string }>();
 
         let result: WebResearchResult;
@@ -158,7 +168,7 @@ export async function POST(request: Request) {
             cached: true,
           };
         } else {
-          result = await gemini.research(prompt);
+          result = await researchClient.research(prompt);
           await db
             .prepare(
               `INSERT INTO provider_cache (cache_key, provider, payload, created_at, expires_at)
@@ -170,7 +180,7 @@ export async function POST(request: Request) {
             )
             .bind(
               cacheKey,
-              'gemini',
+              researchProvider,
               JSON.stringify(result),
               now,
               now + RESEARCH_CACHE_TTL_MS,
@@ -184,6 +194,7 @@ export async function POST(request: Request) {
           column,
           result,
           actionStartedAt,
+          researchProvider,
         );
         updated = applied.workspace;
         receipts.push(applied.receipt);
@@ -210,8 +221,9 @@ export async function POST(request: Request) {
         hasResearchActions && hasLocalActions
           ? 'mixed'
           : hasResearchActions
-            ? 'gemini'
+            ? researchProvider
             : 'local',
+      researchProvider: hasResearchActions ? researchProvider : undefined,
       receipts,
     };
 

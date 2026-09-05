@@ -45,6 +45,7 @@ export function applyWebResearchResult(
   column: PomadeColumn,
   result: WebResearchResult,
   startedAt: number,
+  provider: 'gemini' | 'parallel' = 'gemini',
 ): { workspace: WorkspaceSnapshot; receipt: ActionReceipt } {
   const rowIndex = workspace.rows.findIndex((row) => row.id === rowId);
   if (rowIndex === -1) throw new Error('The selected row no longer exists.');
@@ -73,7 +74,7 @@ export function applyWebResearchResult(
     durationMs: Math.max(1, finishedAt - startedAt),
     before,
     after: result.answer,
-    provider: 'gemini',
+    provider,
     cached: result.cached,
     evidence: result.citations.map(
       (citation) => `${citation.title}: ${citation.url}`,

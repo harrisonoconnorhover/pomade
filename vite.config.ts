@@ -13,6 +13,8 @@ const { d1, r2 } = hostingConfig;
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
 const localVariableNames = [
   'APOLLO_API_KEY',
+  'PARALLEL_API_KEY',
+  'PARALLEL_MODEL',
   'GEMINI_API_KEY',
   'GEMINI_MODEL',
   'HUBSPOT_ACCESS_TOKEN',

@@ -65,13 +65,14 @@ Pomade does not claim a single cause unless the provider says so.
 
 ## Web research is BYOK, grounded, and bounded
 
-The first Claygent-style slice uses the Gemini Interactions API with its native
-Google Search tool. The API key stays in ignored local environment configuration
-or a hosted secret; it is never sent to the browser or stored in a workspace.
-Each result keeps the answer, search queries, and clickable source citations.
+Parallel Chat is the preferred Claygent-style research provider because it
+combines live web research and concise synthesis behind one API key. Gemini
+Interactions with native Google Search remains an automatic fallback when a
+Parallel key is absent. Provider keys stay in ignored local configuration or
+hosted secrets; they are never sent to the browser or stored in a workspace.
 
-Research runs require an explicit confirmation because Gemini can issue multiple
-billable searches for one prompt. Pomade caps a run at ten row-column requests
-and caches identical model-and-prompt results for 24 hours. External page text
-is treated as evidence rather than instructions, and ungrounded answers are held
-for review.
+Research runs require explicit confirmation because each row-column request can
+consume provider credits. Pomade caps a run at ten requests and caches identical
+provider, model, and prompt results for 24 hours. Each receipt records the actual
+provider and source URLs. External page text is evidence rather than instruction,
+and answers without usable citations are held for review.
