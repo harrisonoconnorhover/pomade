@@ -1,11 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
+  refreshApiSource,
+  validateApiSourceRefresh,
   fetchApiSource,
   importApiSource,
   validateApiSource,
   type ApiSourceConfig,
 } from './api-source';
 import { createTable } from './workbook';
+import type { WorkspaceSnapshot } from './pomade-types';
 const connection = {
   id: 'fixture',
   label: 'Fixture',
@@ -187,5 +190,96 @@ describe('API list source', () => {
     expect(() =>
       importApiSource({ ...w, id: 'other' }, b, { company: 'company' }),
     ).toThrow();
+  });
+});
+
+describe('scheduled API refresh', () => {
+  it('updates mapped fields by stable ID while keeping other fields and absent records', async () => {
+    const w = createTable({ id: 't', name: 'Refresh', mode: 'empty' });
+    const batch = await fetchApiSource(
+      't',
+      { ...config, pagination: 'none' },
+      connection,
+      async () => Response.json({ data: [row(1)] }),
+    );
+    const current: WorkspaceSnapshot = importApiSource(w, batch, {
+      company: 'company',
+      domain: 'domain',
+    }).workspace;
+    current.rows[0].values.person = 'Keep owner';
+    current.rows.push({ id: 'manual', values: { company: 'Manual row' } });
+    current.schedule = {
+      id: 's',
+      cadence: 'every_day',
+      enabled: true,
+      target: 'all',
+      confirmExternalResearch: true,
+      state: 'running',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const next = await fetchApiSource(
+      't',
+      { ...config, pagination: 'none' },
+      connection,
+      async () =>
+        Response.json({
+          data: [{ ...row(1), company: 'Changed', domain: '' }, row(2)],
+        }),
+    );
+    const result = refreshApiSource(current, next, {
+      company: 'company',
+      domain: 'domain',
+    });
+    expect(result).toMatchObject({ added: 1, updated: 1 });
+    expect(result.workspace.rows).toHaveLength(3);
+    expect(result.workspace.rows[0].values).toMatchObject({
+      company: 'Changed',
+      domain: '',
+      person: 'Keep owner',
+    });
+    expect(result.workspace.rows[0].apiSource?.batchId).toBe(next.id);
+    expect(result.workspace.rows[1]).toEqual(current.rows[1]);
+    expect(result.workspace.schedule).toEqual(current.schedule);
+    const repeated = refreshApiSource(result.workspace, next, {
+      company: 'company',
+      domain: 'domain',
+    });
+    expect(repeated).toMatchObject({ added: 0, updated: 0 });
+    expect(current.rows[0].values.company).toBe('Company 1');
+  });
+  it('refuses incomplete fetches, unstable identity and invalid maps before changing rows', async () => {
+    const w = createTable({ id: 't', name: 'Refresh', mode: 'empty' });
+    const batch = await fetchApiSource(
+      't',
+      { ...config, pagination: 'none' },
+      connection,
+      async () => Response.json({ data: [row(1)] }),
+    );
+    for (const status of ['limited', 'partial', 'failed'] as const)
+      expect(() =>
+        refreshApiSource(w, { ...batch, status }, { company: 'company' }),
+      ).toThrow('Source refresh stopped');
+    expect(() =>
+      validateApiSourceRefresh(w, {
+        config: { ...config, identityPath: '' },
+        mapping: { company: 'company' },
+      }),
+    ).toThrow('stable record ID');
+    expect(() => refreshApiSource(w, batch, { status: 'company' })).toThrow();
+    expect(w.rows).toEqual([]);
+  });
+  it('accepts a complete empty result without deleting rows', async () => {
+    const w = createTable({ id: 't', name: 'Refresh', mode: 'empty' });
+    w.rows = [{ id: 'manual', values: { company: 'Keep' } }];
+    const batch = await fetchApiSource(
+      't',
+      { ...config, pagination: 'none' },
+      connection,
+      async () => Response.json({ data: [] }),
+    );
+    expect(
+      refreshApiSource(w, batch, { company: 'company' }).workspace.rows,
+    ).toEqual(w.rows);
   });
 });

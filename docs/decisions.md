@@ -605,3 +605,17 @@ source mutations or numeric/grouped aggregation.
 - Keep one source-to-destination flow in this slice. Scheduled API-source refresh,
   child-row routing and arbitrary branching remain future work. Preserve current
   destination schedule pause behavior and local-only iteration.
+
+
+## 2026-09-05 — Scheduled API refresh before recipes
+
+- Capture a previously fetched complete API configuration and field mapping in
+  the schedule. Require stable IDs; update mapped fields including blanks, add
+  unseen IDs, preserve other values and retain absent records.
+- Keep each batch before import. Failed, partial and bounded/truncated fetches
+  stop the workflow before changing inputs. Successful input updates persist
+  before downstream execution, and empty tables/results support zero-action runs.
+- Source-refresh schedules run all table rows after ingestion and retain existing
+  recipe scope and post-run transfer behavior. Bound source requests separately
+  and estimate recipe scope using maximum potential new rows. No deletion sync,
+  arbitrary branching or exactly-once provider guarantee.

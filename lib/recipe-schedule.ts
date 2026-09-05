@@ -24,6 +24,7 @@ export function createRecipeSchedule(input: {
   rowIds?: string[];
   functionInstanceId?: string;
   afterRunTransfer?: TableTransferRule;
+  beforeRunSource?: import('./api-source').ApiSourceRefresh;
   now?: number;
 }): RecipeSchedule {
   const now = input.now ?? Date.now();
@@ -38,6 +39,10 @@ export function createRecipeSchedule(input: {
       ? structuredClone(input.afterRunTransfer)
       : undefined,
     lastTransferRunId: undefined,
+    beforeRunSource: input.beforeRunSource
+      ? structuredClone(input.beforeRunSource)
+      : undefined,
+    lastSourceBatchId: undefined,
     cadence: input.cadence,
     enabled: true,
     nextRunAt: input.nextRunAt,

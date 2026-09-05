@@ -35,7 +35,6 @@ function hasRunnableWorkspace(value: unknown): value is WorkspaceSnapshot {
     workspace.columns.length > 0 &&
     workspace.columns.length <= 100 &&
     Array.isArray(workspace.rows) &&
-    workspace.rows.length > 0 &&
     workspace.rows.length <= 5_000
   );
 }
@@ -70,7 +69,7 @@ export async function POST(request: Request) {
 
     if (!hasRunnableWorkspace(workspace)) {
       return Response.json(
-        { error: 'A non-empty workspace is required.' },
+        { error: 'A valid workspace is required.' },
         { status: 400 },
       );
     }

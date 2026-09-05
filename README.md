@@ -467,7 +467,29 @@ Successful destination changes, the transfer receipt and schedule completion are
 committed together. Read receipts under **Transfer rows**. Existing schedules
 without these options keep running all recipes with no transfer.
 
-The Worker and local clock must remain running. This is a recipe-then-transfer
-workflow, not automatic API-source refresh or a branching multi-table executor.
+The Worker and local clock must remain running. This supports an optional API refresh followed by recipes and a transfer;
+arbitrary branching across multiple tables remains future work.
 Destination schedules still pause when transferred data changes. Recovering an
 expired schedule lease can rerun recipes; provider execution is not exactly-once.
+
+
+### Scheduled API-source refresh
+
+In **Import from API**, fetch a complete batch with a stable record ID path,
+map its input fields, and choose **Save this batch configuration for scheduled
+refresh**. In **Schedule recipe runs**, enable the saved source and approve its
+maximum requests per run. The schedule captures that configuration. It fetches
+first, updates/adds stable-ID records, runs all table rows using the selected
+recipe scope, then performs the optional transfer.
+
+Mapped fields overwrite existing values, including blanks. Unmapped fields and
+records absent from the response remain. Each fetch retains its batch, request
+count and completion status. Failed, partial or limit-truncated batches stop
+before input changes; complete empty results are valid. Empty tables can start
+with this source, and an empty refresh/empty table produces a zero-action run.
+
+Source input updates are saved before recipes run, so they remain available if a
+later recipe or transfer fails. Completed stages can repeat after an expired
+lease; there is no exactly-once provider guarantee. Source and recipe request
+limits are separate; recipe estimates conservatively allow for the source's
+maximum new rows. Keep the local Worker and clock running.

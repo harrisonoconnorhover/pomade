@@ -133,6 +133,8 @@ export type RecipeFunction = {
 export type RecipeScheduleCadence = 'once' | 'every_day' | 'every_week';
 
 export type RecipeSchedule = {
+  beforeRunSource?: import('./api-source').ApiSourceRefresh;
+  lastSourceBatchId?: string;
   functionInstanceId?: string;
   afterRunTransfer?: TableTransferRule;
   lastTransferRunId?: string;
@@ -209,6 +211,7 @@ export type TableTransferRule = {
   mapping: Record<string, string>;
 };
 export type WorkspaceSnapshot = {
+  apiSourceRefresh?: import('./api-source').ApiSourceRefresh;
   tableTransfers?: TableTransferRule[];
   revision?: number;
   webhookAutoImport?: Record<string, boolean>;

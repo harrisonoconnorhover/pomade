@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/dialog';
 import {
   importApiSource,
+  refreshApiSource,
+  validateApiSourceRefresh,
   validateApiSource,
   type ApiSourceConfig,
   type ApiSourceBatch,
@@ -35,20 +37,26 @@ export default function ApiSourceBuilder({
   workspace,
   disabled,
   onImport,
+  onSave,
 }: {
   workspace: WorkspaceSnapshot;
   disabled: boolean;
+  onSave: (workspace: WorkspaceSnapshot) => void;
   onImport: (workspace: WorkspaceSnapshot, count: number) => void;
 }) {
   const [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false),
     [confirmed, setConfirmed] = useState(false);
-  const [config, setConfig] = useState<ApiSourceConfig>(initial);
+  const [config, setConfig] = useState<ApiSourceConfig>(
+    workspace.apiSourceRefresh?.config ?? initial,
+  );
   const [connections, setConnections] = useState<HttpConnectionSummary[]>([]);
   const [history, setHistory] = useState<ApiSourceBatch[]>([]);
   const [batch, setBatch] = useState<ApiSourceBatch>();
   const [error, setError] = useState('');
-  const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [mapping, setMapping] = useState<Record<string, string>>(
+    workspace.apiSourceRefresh?.mapping ?? {},
+  );
   function change(patch: Partial<ApiSourceConfig>) {
     setConfig((c) => ({ ...c, ...patch }));
     setConfirmed(false);
@@ -430,6 +438,49 @@ export default function ApiSourceBuilder({
               >
                 Import {preview?.added ?? 0} new rows
               </Button>
+              <Button
+                variant="outline"
+                disabled={
+                  disabled ||
+                  busy ||
+                  batch.status !== 'complete' ||
+                  !batch.config.identityPath ||
+                  Boolean(previewError)
+                }
+                onClick={() => {
+                  try {
+                    const refresh = {
+                      config: structuredClone(batch.config),
+                      mapping: { ...mapping },
+                    };
+                    validateApiSourceRefresh(workspace, refresh);
+                    const checked = refreshApiSource(workspace, batch, mapping);
+                    onSave({
+                      ...workspace,
+                      apiSourceRefresh: refresh,
+                      updatedAt: Date.now(),
+                    });
+                    setError(
+                      `Refresh configuration saved: ${checked.added} new and ${checked.updated} changed records in this batch. Enable it in Schedule recipe runs.`,
+                    );
+                  } catch (e) {
+                    setError(
+                      e instanceof Error
+                        ? e.message
+                        : 'Refresh could not be saved.',
+                    );
+                  }
+                }}
+              >
+                Save this batch configuration for scheduled refresh
+              </Button>
+              <p>
+                Scheduled refresh requires a complete fetch and stable IDs. It
+                adds new rows and overwrites mapped input fields, including
+                blanks, for existing IDs. Other fields and absent records
+                remain. Saving here makes no requests and does not enable a
+                schedule.
+              </p>
               <Button
                 variant="outline"
                 onClick={() => {

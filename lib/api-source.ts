@@ -5,6 +5,7 @@ import {
   type HttpConnection,
 } from './http-enrichment';
 import { validateWebhookMapping, webhookValue } from './webhook-inbox';
+import { recalculateAutomaticFormulas } from './local-recipe-engine';
 import { pauseRecipeSchedule } from './recipe-schedule';
 import type { WorkspaceSnapshot } from './pomade-types';
 export type ApiSourceConfig = {
@@ -292,5 +293,80 @@ export function importApiSource(
     },
     added: rows.length,
     skipped,
+  };
+}
+
+export type ApiSourceRefresh = {
+  config: ApiSourceConfig;
+  mapping: Record<string, string>;
+};
+export function validateApiSourceRefresh(
+  workspace: WorkspaceSnapshot,
+  refresh: ApiSourceRefresh,
+) {
+  validateApiSource(refresh.config);
+  if (!refresh.config.identityPath)
+    throw new Error('Scheduled refresh requires a stable record ID path.');
+  validateWebhookMapping(workspace, refresh.mapping);
+}
+export function refreshApiSource(
+  workspace: WorkspaceSnapshot,
+  batch: ApiSourceBatch,
+  mapping: Record<string, string>,
+) {
+  validateApiSourceRefresh(workspace, { config: batch.config, mapping });
+  if (batch.workspaceId !== workspace.id)
+    throw new Error('This batch belongs to another table.');
+  if (batch.status !== 'complete')
+    throw new Error(`Source refresh stopped: ${batch.status}. ${batch.reason}`);
+  const fields = Object.entries(validateWebhookMapping(workspace, mapping));
+  const rows = [...workspace.rows];
+  const indices = new Map(rows.map((row, index) => [row.id, index]));
+  let added = 0,
+    updated = 0;
+  for (const record of batch.records) {
+    const index = indices.get(record.id);
+    const previous = index === undefined ? undefined : rows[index];
+    const values = Object.fromEntries(
+      fields.map(([id, path]) => [id, webhookValue(record.value, path)]),
+    );
+    if (!Object.values(values).some(Boolean))
+      throw new Error('A record has no values at the mapped paths.');
+    const changed =
+      !previous ||
+      Object.entries(values).some(
+        ([id, value]) => previous.values[id] !== value,
+      );
+    const row = {
+      ...previous,
+      id: record.id,
+      values: {
+        ...previous?.values,
+        ...values,
+        ...(changed ? { status: 'Review' } : {}),
+      },
+      apiSource: {
+        batchId: batch.id,
+        connectionId: batch.config.connectionId,
+        fetchedAt: batch.createdAt,
+      },
+    };
+    if (changed)
+      row.values = recalculateAutomaticFormulas(row, workspace.columns).values;
+    if (index === undefined) {
+      indices.set(row.id, rows.length);
+      rows.push(row);
+      added++;
+    } else {
+      rows[index] = row;
+      if (changed) updated++;
+    }
+  }
+  if (rows.length > 5000)
+    throw new Error('Refresh exceeds the 5,000-row table limit.');
+  return {
+    workspace: { ...workspace, rows, updatedAt: Date.now() },
+    added,
+    updated,
   };
 }

@@ -1,4 +1,9 @@
 import app from 'vinext/server/fetch-handler';
+import {
+  refreshApiSource,
+  validateApiSourceRefresh,
+  type ApiSourceBatch,
+} from './lib/api-source';
 import { scheduledTransferStatements } from './db/scheduled-transfer';
 
 import { versionedWorkspaceStatements } from './db/workspace-store';
@@ -107,6 +112,42 @@ export async function runDueSchedules(
       if (!claimed) continue;
       latestWorkspace = claimed;
       claimedCount += 1;
+      // Resolve recipe membership before making any scheduled source requests.
+      const columnIds = scheduledColumnIds(claimed);
+      const source = claimed.schedule?.beforeRunSource;
+      if (source) {
+        validateApiSourceRefresh(claimed, source);
+        if (claimed.schedule?.target !== 'all')
+          throw new Error('Source refresh requires whole-table recipe scope.');
+        const fetched = await app.fetch(
+          new Request('https://pomade.internal/api/sources/http', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              workspaceId: claimed.id,
+              config: source.config,
+              confirmRequests: true,
+            }),
+          }),
+          env,
+          ctx,
+        );
+        const result = (await fetched.json()) as {
+          batch?: ApiSourceBatch;
+          error?: string;
+        };
+        if (!fetched.ok || result.error || !result.batch)
+          throw new Error(result.error ?? 'Scheduled source fetch failed.');
+        const refreshed = refreshApiSource(
+          claimed,
+          result.batch,
+          source.mapping,
+        ).workspace;
+        refreshed.schedule!.lastSourceBatchId = result.batch.id;
+        await saveWorkspace(env, refreshed);
+        claimed = refreshed;
+        latestWorkspace = refreshed;
+      }
       const rowIds = await scheduledRowIds(claimed);
       const response = await app.fetch(
         new Request('https://pomade.internal/api/runs', {
@@ -115,7 +156,7 @@ export async function runDueSchedules(
           body: JSON.stringify({
             workspace: claimed,
             rowIds,
-            columnIds: scheduledColumnIds(claimed),
+            columnIds,
             confirmExternalResearch:
               claimed.schedule?.confirmExternalResearch === true,
           }),
@@ -141,7 +182,8 @@ export async function runDueSchedules(
       const transfer = await scheduledTransferStatements(
         env.DB,
         result.workspace,
-        rowIds ?? claimed.rows.map((row) => row.id),
+        rowIds ??
+          (claimed.rows.length ? claimed.rows.map((row) => row.id) : undefined),
       );
       const completed = completeClaimedSchedule(
         result.workspace,

@@ -595,6 +595,8 @@ export default function PomadeWorkspace({
   const [scheduleRowIds, setScheduleRowIds] = useState<string[]>([]);
   const [scheduleConfirmsResearch, setScheduleConfirmsResearch] =
     useState(false);
+  const [scheduleSourceEnabled, setScheduleSourceEnabled] = useState(false);
+  const [scheduleSourceConfirmed, setScheduleSourceConfirmed] = useState(false);
   const [scheduleFunctionId, setScheduleFunctionId] = useState('');
   const [scheduleTransferId, setScheduleTransferId] = useState('');
   const [scheduleError, setScheduleError] = useState('');
@@ -1033,16 +1035,26 @@ export default function PomadeWorkspace({
     ? webResearchColumns.filter((c) => scheduleColumnIds.includes(c.id))
     : webResearchColumns;
   const scheduledResearchActionCount = countMaximumExternalActions(
-    scheduledTargetRows,
+    scheduleSourceEnabled && workspace.apiSourceRefresh
+      ? [
+          ...scheduledTargetRows,
+          ...Array.from(
+            { length: workspace.apiSourceRefresh.config.maxRows },
+            (_, i) => ({ id: `future_${i}`, values: {} }),
+          ),
+        ]
+      : scheduledTargetRows,
     scheduledExternalColumns,
   );
   const scheduleTimestamp = new Date(scheduleRunAt).getTime();
   const scheduleReady =
     !scheduleScopeError &&
+    (!scheduleSourceEnabled ||
+      (Boolean(workspace.apiSourceRefresh) && scheduleSourceConfirmed)) &&
     recipeCount > 0 &&
     Number.isFinite(scheduleTimestamp) &&
     scheduleTimestamp > scheduleNow &&
-    scheduledTargetRows.length > 0 &&
+    (scheduledTargetRows.length > 0 || scheduleSourceEnabled) &&
     scheduledResearchActionCount <= maximumResearchActions &&
     (scheduledExternalColumns.length === 0 || scheduleConfirmsResearch);
   const icpListReady = Boolean(icpBrief.trim()) && icpListLimit >= 1;
@@ -2434,6 +2446,8 @@ export default function PomadeWorkspace({
       existing?.nextRunAt && existing.nextRunAt > now
         ? existing.nextRunAt
         : new Date(defaultScheduleTime()).getTime();
+    setScheduleSourceEnabled(Boolean(existing?.beforeRunSource));
+    setScheduleSourceConfirmed(false);
     setScheduleFunctionId(existing?.functionInstanceId ?? '');
     setScheduleTransferId(existing?.afterRunTransfer?.id ?? '');
     setScheduleNow(now);
@@ -2462,6 +2476,9 @@ export default function PomadeWorkspace({
         throw new Error('Choose an existing saved transfer rule.');
       const schedule = createRecipeSchedule({
         id: workspace.schedule?.id ?? crypto.randomUUID(),
+        beforeRunSource: scheduleSourceEnabled
+          ? workspace.apiSourceRefresh
+          : undefined,
         functionInstanceId: scheduleFunctionId,
         afterRunTransfer,
         cadence: scheduleCadence,
@@ -2784,6 +2801,8 @@ export default function PomadeWorkspace({
                 onSave={setWorkspace}
               />
               <ApiSourceBuilder
+                key={workspace.id}
+                onSave={setWorkspace}
                 workspace={workspace}
                 disabled={jobLocksWorkspace}
                 onImport={(next, count) => {
@@ -4759,6 +4778,45 @@ export default function PomadeWorkspace({
               </div>
             </div>
           ) : null}
+          <label>
+            <input
+              type="checkbox"
+              checked={scheduleSourceEnabled}
+              disabled={!workspace.apiSourceRefresh}
+              onChange={(e) => {
+                setScheduleSourceEnabled(e.target.checked);
+                setScheduleSourceConfirmed(false);
+                setScheduleConfirmsResearch(false);
+                if (e.target.checked) setScheduleTarget('all');
+              }}
+            />
+            Refresh saved API source before recipes
+          </label>
+          {scheduleSourceEnabled && workspace.apiSourceRefresh ? (
+            <label>
+              <input
+                type="checkbox"
+                checked={scheduleSourceConfirmed}
+                onChange={(e) => setScheduleSourceConfirmed(e.target.checked)}
+              />
+              Allow up to{' '}
+              {workspace.apiSourceRefresh.config.pagination === 'none'
+                ? 1
+                : workspace.apiSourceRefresh.config.maxPages}{' '}
+              source requests per run to{' '}
+              {workspace.apiSourceRefresh.config.connectionId}
+              {workspace.apiSourceRefresh.config.path}, importing at most{' '}
+              {workspace.apiSourceRefresh.config.maxRows} records. Mapped
+              values, including blanks, replace existing inputs. All table rows
+              then run. Incomplete fetches stop the workflow. API costs and
+              remote effects depend on this connection.
+            </label>
+          ) : (
+            <p>
+              Save a complete API fetch and mapping in Import from API to
+              configure a source refresh.
+            </p>
+          )}
           <div className="schedule-fields">
             <label>
               <span>Cadence</span>
@@ -4855,7 +4913,7 @@ export default function PomadeWorkspace({
                 type="button"
                 className={scheduleTarget === 'selected' ? 'active' : ''}
                 aria-pressed={scheduleTarget === 'selected'}
-                disabled={!scheduleRowIds.length}
+                disabled={scheduleSourceEnabled || !scheduleRowIds.length}
                 onClick={() => setScheduleTarget('selected')}
               >
                 <strong>Captured selection</strong>
