@@ -83,8 +83,21 @@ Missing keys, invalid JSON, or invalid typed values do not get silently treated
 as grounded output. Pomade preserves any valid fields, leaves invalid or missing
 fields empty, retains the raw response as lineage, and marks the action for
 review. If the response is not parseable JSON, the raw answer also stays visible
-in the primary field. List outputs and explode-to-rows remain a separate future
-slice.
+in the primary field.
+
+## List research preserves its source row
+
+A list-valued research recipe asks for one bounded JSON array of typed objects
+and creates one child row per valid item. The source row remains in place as the
+refreshable query/context record, while each child inherits that context and
+records its parent row, generating column, and generation time. Generated rows
+never recursively run the recipe that created them.
+
+The builder caps each response at 25 items. A valid rerun replaces only children
+from the same source row and recipe, preventing duplicate accumulation without
+touching imported or manually added records. Invalid output creates no new rows,
+preserves earlier valid children, retains raw provider evidence, and marks the
+source action for review.
 
 ## Recipe templates use explicit contracts
 

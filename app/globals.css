@@ -1998,7 +1998,7 @@ button {
 }
 .research-output-shape > div {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 7px;
 }
 .research-output-shape button {
@@ -2125,6 +2125,44 @@ button {
 .add-structured-field:disabled {
   color: #a4aca7;
   cursor: default;
+}
+.list-result-limit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid #dce3d8;
+  border-radius: 9px;
+  background: #f7faf4;
+}
+.list-result-limit > span {
+  display: grid;
+  gap: 2px;
+  color: #40574b;
+  font-size: 10px;
+  font-weight: 700;
+}
+.list-result-limit small {
+  color: #7a877f;
+  font-size: 8px;
+  font-weight: 500;
+}
+.list-result-limit input {
+  width: 64px;
+  height: 32px;
+  padding: 0 7px;
+  border: 1px solid #cfd7ce;
+  border-radius: 7px;
+  outline: 0;
+  color: #2d4036;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.list-result-limit input:focus {
+  border-color: #779783;
+  box-shadow: 0 0 0 3px rgba(49, 94, 72, 0.08);
 }
 .research-field {
   display: grid;
@@ -2265,7 +2303,7 @@ button {
 }
 .research-run-summary {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
 }
 .research-run-summary > div {

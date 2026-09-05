@@ -19,6 +19,9 @@ Bitscale or Clay.
       recalculation and editable overrides. Crossed off 2026-09-04.
 - [x] Structured web-research output into two to six typed text, date, number,
       or yes/no columns from one provider request. Crossed off 2026-09-04.
+- [x] List-valued AI research with typed fields, configurable one-to-25-result
+      limits, child-row provenance, and duplicate-free reruns. Crossed off
+      2026-09-04.
 - [x] Save configured columns as reusable recipe functions with declared input
       mapping, collision-safe typed outputs, conditions, and auto-update
       behavior. Crossed off 2026-09-04.
@@ -36,8 +39,6 @@ Bitscale or Clay.
 
 - [ ] Delayed and scheduled recipe execution, including deliberate recurring
       refreshes for external providers.
-- [ ] List-valued AI output that can be exploded into new rows. Scalar typed
-      multi-column output is complete.
 - [ ] First-party company and people list builders from an ICP description,
       search query, Maps, or job-board source.
 - [ ] Generic HTTP API enrichment plus inbound and outbound webhooks.
@@ -71,12 +72,12 @@ Bitscale or Clay.
 
 ## Next three slices
 
-1. List outputs that can become rows, because company pages and search results
-   should be able to create prospect records without CSV glue.
-2. Delayed and scheduled recipe execution, because recurring refreshes turn a
+1. Delayed and scheduled recipe execution, because recurring refreshes turn a
    one-time table into an operating system.
-3. Generic HTTP enrichment and webhooks, because one well-governed escape hatch
+2. Generic HTTP enrichment and webhooks, because one well-governed escape hatch
    covers long-tail providers without hundreds of bespoke integrations.
+3. A first-party ICP company-list builder on top of list-to-row research, so a
+   user can start from a brief instead of first creating a source row manually.
 
 ## Official product references
 

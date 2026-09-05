@@ -2,6 +2,7 @@ import type {
   ActionReceipt,
   PomadeColumn,
   PomadeRow,
+  ResearchOutputCardinality,
   ResearchOutputField,
   WebResearchResult,
   WorkspaceSnapshot,
@@ -29,14 +30,23 @@ export function normalizeResearchOutputFields(
     .slice(0, 6);
 }
 
-function structuredOutputInstruction(fields: ResearchOutputField[]) {
+function structuredOutputInstruction(
+  fields: ResearchOutputField[],
+  cardinality: ResearchOutputCardinality = 'record',
+  listLimit = 10,
+) {
   const schema = fields
     .map(
       (field) =>
         `- "${field.id}" (${field.valueType}): ${compact(field.title, 100)}`,
     )
     .join('\n');
-  return `Return only one valid JSON object with every key below. Do not use markdown fences or add commentary. Use null when reliable evidence is unavailable. Dates must use YYYY-MM-DD, numbers must be JSON numbers, and booleans must be true or false.\n\nOutput fields:\n${schema}`;
+  const valueRules =
+    'Do not use markdown fences or add commentary. Use null when reliable evidence is unavailable. Dates must use YYYY-MM-DD, numbers must be JSON numbers, and booleans must be true or false.';
+  if (cardinality === 'list') {
+    return `Return only one valid JSON array containing at most ${Math.min(25, Math.max(1, listLimit))} objects. Every object must include every key below. ${valueRules}\n\nFields for each result:\n${schema}`;
+  }
+  return `Return only one valid JSON object with every key below. ${valueRules}\n\nOutput fields:\n${schema}`;
 }
 
 export function renderWebResearchPrompt(
@@ -44,6 +54,8 @@ export function renderWebResearchPrompt(
   row: PomadeRow,
   outputFields?: ResearchOutputField[],
   inputBindings?: Record<string, string>,
+  outputCardinality: ResearchOutputCardinality = 'record',
+  listLimit = 10,
 ) {
   const fieldValue = (field: string) => {
     const sourceField =
@@ -67,7 +79,7 @@ export function renderWebResearchPrompt(
 
   const fields = normalizeResearchOutputFields(outputFields);
   const outputInstruction = fields.length
-    ? structuredOutputInstruction(fields)
+    ? structuredOutputInstruction(fields, outputCardinality, listLimit)
     : 'Return a direct answer in 90 words or fewer. If reliable evidence is unavailable, say "Not found" and explain what is missing.';
 
   return `${compact(rendered, 4_000)}\n\nResearch target:\n${context || 'Use the task text as the complete target.'}\n\nUse current public web sources. ${outputInstruction}`;
@@ -80,6 +92,16 @@ function extractJsonObject(answer: string) {
     .replace(/\s*```$/, '');
   const start = withoutFence.indexOf('{');
   const end = withoutFence.lastIndexOf('}');
+  return start >= 0 && end > start ? withoutFence.slice(start, end + 1) : '';
+}
+
+function extractJsonArray(answer: string) {
+  const withoutFence = answer
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '');
+  const start = withoutFence.indexOf('[');
+  const end = withoutFence.lastIndexOf(']');
   return start >= 0 && end > start ? withoutFence.slice(start, end + 1) : '';
 }
 
@@ -201,6 +223,54 @@ export function parseStructuredResearchAnswer(
   }
 }
 
+export function parseListResearchAnswer(
+  answer: string,
+  outputFields: ResearchOutputField[] | undefined,
+  listLimit = 10,
+) {
+  const fields = normalizeResearchOutputFields(outputFields);
+  if (!fields.length) return null;
+  try {
+    const parsed = JSON.parse(extractJsonArray(answer)) as unknown;
+    if (!Array.isArray(parsed)) {
+      throw new Error('List research output is not an array.');
+    }
+    const limited = parsed.slice(0, Math.min(25, Math.max(1, listLimit)));
+    const valid = limited.every(
+      (item) =>
+        item &&
+        typeof item === 'object' &&
+        !Array.isArray(item) &&
+        fields.every(
+          (field) =>
+            Object.prototype.hasOwnProperty.call(item, field.id) &&
+            validStructuredValue(
+              (item as Record<string, unknown>)[field.id],
+              field,
+            ),
+        ),
+    );
+    return {
+      valid,
+      items: valid
+        ? limited.map((item) =>
+            Object.fromEntries(
+              fields.map((field) => [
+                field.id,
+                formatStructuredValue(
+                  (item as Record<string, unknown>)[field.id],
+                  field,
+                ),
+              ]),
+            ),
+          )
+        : [],
+    };
+  } catch {
+    return { valid: false, items: [] };
+  }
+}
+
 function summarizeOutputs(
   fields: ResearchOutputField[],
   values: Record<string, string>,
@@ -234,6 +304,98 @@ export function applyWebResearchResult(
   const finishedAt = Date.now();
   const row = workspace.rows[rowIndex];
   const outputFields = normalizeResearchOutputFields(column.outputFields);
+  if (column.outputCardinality === 'list') {
+    const parsed = parseListResearchAnswer(
+      result.answer,
+      outputFields,
+      column.listLimit,
+    );
+    const items = parsed?.items ?? [];
+    const existingChildren = workspace.rows.filter(
+      (candidate) =>
+        candidate.parentRowId === rowId &&
+        candidate.generatedByColumnId === column.id,
+    );
+    const replaceChildren = Boolean(parsed?.valid);
+    const projectedRowCount =
+      workspace.rows.length -
+      (replaceChildren ? existingChildren.length : 0) +
+      items.length;
+    if (projectedRowCount > 5_000) {
+      throw new Error(
+        'List research would exceed the 5,000-row workspace limit.',
+      );
+    }
+    const grounded = result.citations.length > 0 && Boolean(parsed?.valid);
+    const parentValues = {
+      ...row.values,
+      ...Object.fromEntries(outputFields.map((field) => [field.id, ''])),
+      [`__research_${column.id}_raw`]: result.answer,
+      [`__research_${column.id}_sources`]: JSON.stringify(result.citations),
+      [`__research_${column.id}_queries`]: JSON.stringify(result.queries),
+      status: grounded ? 'Ready' : 'Review',
+    };
+    const createdRows = items.map<PomadeRow>((values, index) => ({
+      id: `${rowId}__${column.id}__${index + 1}`,
+      parentRowId: rowId,
+      generatedByColumnId: column.id,
+      generatedAt: finishedAt,
+      values: {
+        ...parentValues,
+        ...values,
+        [`__research_${column.id}_raw`]: result.answer,
+        status: grounded ? 'Ready' : 'Review',
+      },
+    }));
+    const rowsWithoutChildren = replaceChildren
+      ? workspace.rows.filter(
+          (candidate) =>
+            !(
+              candidate.parentRowId === rowId &&
+              candidate.generatedByColumnId === column.id
+            ),
+        )
+      : [...workspace.rows];
+    const parentIndex = rowsWithoutChildren.findIndex(
+      (candidate) => candidate.id === rowId,
+    );
+    const rows = [...rowsWithoutChildren];
+    rows[parentIndex] = { ...row, values: parentValues };
+    rows.splice(parentIndex + 1, 0, ...createdRows);
+    const receipt: ActionReceipt = {
+      id: `${rowId}-${column.id}-${startedAt}`,
+      rowId,
+      rowLabel:
+        parentValues.company ||
+        parentValues.person ||
+        `Row ${Math.max(1, rowIndex + 1)}`,
+      columnId: column.id,
+      action: column.title,
+      status: grounded ? 'passed' : 'review',
+      durationMs: Math.max(1, finishedAt - startedAt),
+      before: existingChildren.length
+        ? `${existingChildren.length} generated rows`
+        : 'No generated rows',
+      after: parsed?.valid
+        ? `${createdRows.length} rows created`
+        : existingChildren.length
+          ? 'Output needs review · existing rows preserved'
+          : 'No rows created · output needs review',
+      provider,
+      cached: result.cached,
+      evidence: result.citations.map(
+        (citation) => `${citation.title}: ${citation.url}`,
+      ),
+      createdRowCount: createdRows.length,
+      createdRowIds: createdRows.map((created) => created.id),
+      references: result.citations,
+      queries: result.queries,
+    };
+    return {
+      workspace: { ...workspace, rows, updatedAt: finishedAt },
+      receipt,
+    };
+  }
   const parsed = parseStructuredResearchAnswer(result.answer, outputFields);
   const outputValues = parsed?.values ?? { [column.id]: result.answer };
   const before = outputFields.length

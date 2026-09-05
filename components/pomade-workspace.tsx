@@ -92,7 +92,7 @@ const PomadeDataGrid = dynamic(() => import('@/components/pomade-data-grid'), {
 
 type FilterMode = 'All' | 'Ready' | 'Review';
 type SaveState = 'Loading' | 'Saving' | 'Saved' | 'Offline';
-type ResearchOutputMode = 'single' | 'structured';
+type ResearchOutputMode = 'single' | 'structured' | 'list';
 
 type ResearchFieldDraft = {
   key: string;
@@ -152,12 +152,23 @@ type RecipePreset = Pick<
 const DEFAULT_RESEARCH_PROMPT =
   'Find one recent, credible development about {{company}} ({{domain}}) that would be useful in a sales conversation. Include the date and why it matters.';
 
+const DEFAULT_LIST_RESEARCH_PROMPT =
+  'Find relevant companies matching the target described in this row. Return the strongest matches with a canonical domain and a concise reason each company fits.';
+
 function defaultResearchFields(): ResearchFieldDraft[] {
   return [
     { key: 'trigger', title: 'Recent trigger', valueType: 'text' },
     { key: 'date', title: 'Trigger date', valueType: 'date' },
     { key: 'why', title: 'Why it matters', valueType: 'text' },
     { key: 'confidence', title: 'Confidence', valueType: 'number' },
+  ];
+}
+
+function defaultListResearchFields(): ResearchFieldDraft[] {
+  return [
+    { key: 'company', title: 'Company name', valueType: 'text' },
+    { key: 'domain', title: 'Domain', valueType: 'text' },
+    { key: 'fit_reason', title: 'Why it fits', valueType: 'text' },
   ];
 }
 
@@ -328,6 +339,14 @@ function uniqueId(base: string, used: Set<string>) {
   return candidate;
 }
 
+function uniqueTitle(title: string, used: Set<string>) {
+  let candidate = title;
+  let suffix = 2;
+  while (used.has(candidate.toLowerCase())) candidate = `${title} ${suffix++}`;
+  used.add(candidate.toLowerCase());
+  return candidate;
+}
+
 function runTime(timestamp: number) {
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
@@ -421,6 +440,7 @@ export default function PomadeWorkspace() {
   const [researchFields, setResearchFields] = useState<ResearchFieldDraft[]>(
     defaultResearchFields,
   );
+  const [researchListLimit, setResearchListLimit] = useState(10);
   const [pendingRunRowIds, setPendingRunRowIds] = useState<string[]>([]);
 
   const [crmCatalog, setCrmCatalog] =
@@ -573,7 +593,7 @@ export default function PomadeWorkspace() {
   const researchOutputReady =
     researchOutputMode === 'single'
       ? Boolean(researchColumnName.trim())
-      : researchFields.length >= 2 &&
+      : researchFields.length >= (researchOutputMode === 'list' ? 1 : 2) &&
         researchFields.every((field) => field.title.trim());
   const waterfallReady =
     Boolean(waterfallColumnName.trim()) &&
@@ -596,6 +616,19 @@ export default function PomadeWorkspace() {
       workspace.rows.filter((row) => pending.has(row.id)),
       webResearchColumns,
     );
+  }, [pendingRunRowIds, webResearchColumns, workspace.rows]);
+  const pendingListRowLimit = useMemo(() => {
+    const pending = new Set(pendingRunRowIds);
+    const pendingRows = workspace.rows.filter((row) => pending.has(row.id));
+    return webResearchColumns
+      .filter((column) => column.outputCardinality === 'list')
+      .reduce(
+        (total, column) =>
+          total +
+          countEligibleRecipeActions(pendingRows, [column]) *
+            Math.min(25, Math.max(1, column.listLimit ?? 10)),
+        0,
+      );
   }, [pendingRunRowIds, webResearchColumns, workspace.rows]);
   const maximumResearchActions =
     researchStatus?.capabilities.maximumActionsPerRun ?? 10;
@@ -790,7 +823,20 @@ export default function PomadeWorkspace() {
     setResearchPrompt(DEFAULT_RESEARCH_PROMPT);
     setResearchOutputMode('single');
     setResearchFields(defaultResearchFields());
+    setResearchListLimit(10);
     setResearchBuilderOpen(true);
+  }
+
+  function chooseResearchOutputMode(mode: ResearchOutputMode) {
+    if (mode === researchOutputMode) return;
+    if (mode === 'list' && researchOutputMode === 'single') {
+      setResearchPrompt(DEFAULT_LIST_RESEARCH_PROMPT);
+      setResearchFields(defaultListResearchFields());
+    } else if (researchOutputMode === 'list' && mode === 'single') {
+      setResearchPrompt(DEFAULT_RESEARCH_PROMPT);
+      setResearchFields(defaultResearchFields());
+    }
+    setResearchOutputMode(mode);
   }
 
   function openFormulaBuilder() {
@@ -936,13 +982,19 @@ export default function PomadeWorkspace() {
     }
 
     const drafts = researchFields.filter((field) => field.title.trim());
-    if (drafts.length < 2) return;
+    if (drafts.length < (researchOutputMode === 'list' ? 1 : 2)) return;
     const used = new Set(workspace.columns.map((column) => column.id));
-    const outputFields = drafts.map((field) => ({
-      id: uniqueId(slugify(field.title), used),
-      title: field.title.trim(),
-      valueType: field.valueType,
-    }));
+    const usedTitles = new Set(
+      workspace.columns.map((column) => column.title.trim().toLowerCase()),
+    );
+    const outputFields = drafts.map((field) => {
+      const title = uniqueTitle(field.title.trim(), usedTitles);
+      return {
+        id: uniqueId(slugify(title), used),
+        title,
+        valueType: field.valueType,
+      };
+    });
     const [primary, ...supporting] = outputFields;
     const researchColumn: PomadeColumn = {
       ...primary,
@@ -950,6 +1002,11 @@ export default function PomadeWorkspace() {
       recipe: 'web-research',
       prompt,
       outputFields,
+      outputCardinality: researchOutputMode === 'list' ? 'list' : undefined,
+      listLimit:
+        researchOutputMode === 'list'
+          ? Math.min(25, Math.max(1, researchListLimit))
+          : undefined,
       width: 320,
     };
     const supportingColumns: PomadeColumn[] = supporting.map((field) => ({
@@ -978,7 +1035,9 @@ export default function PomadeWorkspace() {
     });
     setResearchBuilderOpen(false);
     setNotice(
-      `${outputFields.length} structured research columns are ready to run.`,
+      researchOutputMode === 'list'
+        ? `${outputFields.length} fields are ready to create up to ${Math.min(25, Math.max(1, researchListLimit))} rows per source row.`
+        : `${outputFields.length} structured research columns are ready to run.`,
     );
   }
 
@@ -1228,8 +1287,12 @@ export default function PomadeWorkspace() {
       rememberRun(result.run);
       setSaveState('Saved');
       const skipped = result.run.skippedCount ?? 0;
+      const createdRows = result.run.receipts.reduce(
+        (total, receipt) => total + (receipt.createdRowCount ?? 0),
+        0,
+      );
       setNotice(
-        `${result.run.actionCount} actions finished across ${result.run.rowCount} rows${skipped ? ` · ${skipped} skipped by rules` : ''}.`,
+        `${result.run.actionCount} actions finished across ${result.run.rowCount} rows${createdRows ? ` · ${createdRows} new rows created` : ''}${skipped ? ` · ${skipped} skipped by rules` : ''}.`,
       );
     } catch (error) {
       setWorkspace((current) => ({
@@ -1745,6 +1808,9 @@ export default function PomadeWorkspace() {
                           {template.inputs.length} input
                           {template.inputs.length === 1 ? '' : 's'} →{' '}
                           {outputCount} output{outputCount === 1 ? '' : 's'}
+                          {template.column.outputCardinality === 'list'
+                            ? ` · up to ${template.column.listLimit ?? 10} rows`
+                            : ''}
                         </em>
                       </div>
                       <button
@@ -1884,7 +1950,9 @@ export default function PomadeWorkspace() {
                           : column.kind === 'formula'
                             ? 'Deterministic formula'
                             : column.recipe === 'web-research'
-                              ? 'Credit-gated web research'
+                              ? column.outputCardinality === 'list'
+                                ? `Credit-gated list research · up to ${column.listLimit ?? 10} rows`
+                                : 'Credit-gated web research'
                               : 'Manual enrichment'}
                       </small>
                     </div>
@@ -2028,6 +2096,9 @@ export default function PomadeWorkspace() {
                 <small>
                   {templateColumn.outputFields?.length ?? 1} declared output
                   {(templateColumn.outputFields?.length ?? 1) === 1 ? '' : 's'}
+                  {templateColumn.outputCardinality === 'list'
+                    ? ` · up to ${templateColumn.listLimit ?? 10} rows per source row`
+                    : ''}
                   {templateColumn.runCondition ? ' · condition included' : ''}
                 </small>
               </div>
@@ -2102,7 +2173,9 @@ export default function PomadeWorkspace() {
                 <div>
                   <span>Outputs</span>
                   <strong>
-                    {activeTemplate.column.outputFields?.length ?? 1}
+                    {activeTemplate.column.outputCardinality === 'list'
+                      ? `Up to ${activeTemplate.column.listLimit ?? 10} rows`
+                      : (activeTemplate.column.outputFields?.length ?? 1)}
                   </strong>
                 </div>
                 <div>
@@ -2450,7 +2523,7 @@ export default function PomadeWorkspace() {
                 type="button"
                 className={researchOutputMode === 'single' ? 'active' : ''}
                 aria-pressed={researchOutputMode === 'single'}
-                onClick={() => setResearchOutputMode('single')}
+                onClick={() => chooseResearchOutputMode('single')}
               >
                 <strong>One answer</strong>
                 <small>Write the response into one editable column</small>
@@ -2459,10 +2532,19 @@ export default function PomadeWorkspace() {
                 type="button"
                 className={researchOutputMode === 'structured' ? 'active' : ''}
                 aria-pressed={researchOutputMode === 'structured'}
-                onClick={() => setResearchOutputMode('structured')}
+                onClick={() => chooseResearchOutputMode('structured')}
               >
                 <strong>Structured fields</strong>
                 <small>Split one request across typed columns</small>
+              </button>
+              <button
+                type="button"
+                className={researchOutputMode === 'list' ? 'active' : ''}
+                aria-pressed={researchOutputMode === 'list'}
+                onClick={() => chooseResearchOutputMode('list')}
+              >
+                <strong>List into rows</strong>
+                <small>Create one child row for every found item</small>
               </button>
             </div>
           </div>
@@ -2479,7 +2561,11 @@ export default function PomadeWorkspace() {
           ) : (
             <div className="structured-field-builder">
               <div className="structured-field-heading">
-                <span>Output columns</span>
+                <span>
+                  {researchOutputMode === 'list'
+                    ? 'Fields per result'
+                    : 'Output columns'}
+                </span>
                 <small>{researchFields.length}/6 fields</small>
               </div>
               <div className="structured-field-list">
@@ -2526,7 +2612,10 @@ export default function PomadeWorkspace() {
                     <button
                       type="button"
                       aria-label={`Remove ${field.title || `field ${index + 1}`}`}
-                      disabled={researchFields.length <= 2}
+                      disabled={
+                        researchFields.length <=
+                        (researchOutputMode === 'list' ? 1 : 2)
+                      }
                       onClick={() =>
                         setResearchFields((current) =>
                           current.filter((item) => item.key !== field.key),
@@ -2555,6 +2644,27 @@ export default function PomadeWorkspace() {
               >
                 <Plus /> Add output field
               </button>
+              {researchOutputMode === 'list' ? (
+                <label className="list-result-limit">
+                  <span>
+                    Maximum results <small>1–25 rows per source row</small>
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={25}
+                    value={researchListLimit}
+                    onChange={(event) =>
+                      setResearchListLimit(
+                        Math.min(
+                          25,
+                          Math.max(1, Number(event.target.value) || 1),
+                        ),
+                      )
+                    }
+                  />
+                </label>
+              ) : null}
             </div>
           )}
           <label className="research-field">
@@ -2576,7 +2686,9 @@ export default function PomadeWorkspace() {
             <p>
               {researchOutputMode === 'structured'
                 ? `One provider request fills ${researchFields.length} columns. Malformed results stay visible and require review.`
-                : 'Your API key stays server-side. Results and citations are saved with the workspace receipt.'}
+                : researchOutputMode === 'list'
+                  ? `One request may create up to ${researchListLimit} child rows. Rerunning replaces this recipe's earlier children instead of duplicating them.`
+                  : 'Your API key stays server-side. Results and citations are saved with the workspace receipt.'}
             </p>
             <Button
               variant="outline"
@@ -2591,7 +2703,9 @@ export default function PomadeWorkspace() {
               <Plus />
               {researchOutputMode === 'structured'
                 ? 'Add structured research'
-                : 'Add research column'}
+                : researchOutputMode === 'list'
+                  ? 'Add list research'
+                  : 'Add research column'}
             </Button>
           </div>
         </DialogContent>
@@ -2620,6 +2734,10 @@ export default function PomadeWorkspace() {
               <span>Maximum requests</span>
               <strong>{pendingResearchActionCount}</strong>
             </div>
+            <div>
+              <span>Possible new rows</span>
+              <strong>{pendingListRowLimit}</strong>
+            </div>
           </div>
           {!researchStatus?.configured ? (
             <p className="research-warning" role="alert">
@@ -2635,6 +2753,7 @@ export default function PomadeWorkspace() {
             <p className="research-safety">
               Pomade sends the rendered prompt and visible row context. It
               stores the answer, search queries, source URLs, and a receipt.
+              List recipes replace only the child rows they created earlier.
             </p>
           )}
           <div className="research-confirm-actions">

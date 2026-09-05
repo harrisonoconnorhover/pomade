@@ -16,6 +16,8 @@ export type RecipeRunCondition = {
 
 export type ResearchValueType = 'text' | 'number' | 'boolean' | 'date';
 
+export type ResearchOutputCardinality = 'record' | 'list';
+
 export type ResearchOutputField = {
   id: string;
   title: string;
@@ -36,6 +38,8 @@ export type PomadeColumn = {
   expression?: string;
   inputBindings?: Record<string, string>;
   lineageColumnId?: string;
+  listLimit?: number;
+  outputCardinality?: ResearchOutputCardinality;
   outputFields?: ResearchOutputField[];
   prompt?: string;
   runCondition?: RecipeRunCondition;
@@ -73,6 +77,9 @@ export type RecipeTemplate = {
 
 export type PomadeRow = {
   id: string;
+  generatedByColumnId?: string;
+  generatedAt?: number;
+  parentRowId?: string;
   values: Record<string, string>;
 };
 
@@ -106,6 +113,8 @@ export type ActionReceipt = {
   creditsConsumed?: number | null;
   cached?: boolean;
   evidence?: string[];
+  createdRowCount?: number;
+  createdRowIds?: string[];
   outputValues?: Record<string, string>;
   references?: WebResearchCitation[];
   queries?: string[];

@@ -19,8 +19,8 @@ what changed. It is an original product built on the open-source
   inputs to another table and recreate its outputs.
 - Build ordered data waterfalls across two to six enrichment columns, with the
   first available value and its winning source kept side by side.
-- Create single-answer or structured AI research recipes that use Parallel Web
-  Research—or Gemini as a fallback—with clickable citations.
+- Create single-answer, structured, or list-to-row AI research recipes that use
+  Parallel Web Research—or Gemini as a fallback—with clickable citations.
 - Enrich one selected person through Apollo with exact-name/company-domain safeguards.
 - Persist the workspace, provider cache, and recent immutable run receipts in Cloudflare D1.
 - Search, filter, sort, add rows, and export the resulting CSV.
@@ -65,6 +65,12 @@ columns from one request. Structured outputs support text, date, number, and
 yes/no fields. Pomade keeps the raw provider response, validates every declared
 key, formats typed values for the grid, and holds malformed responses for
 review instead of silently accepting them.
+
+List research uses the same typed field builder but returns an array and creates
+one child row per result, up to a configurable 25-row limit for each source
+row. Children inherit their source-row context and retain the recipe that made
+them. A valid rerun replaces that recipe's earlier children; malformed output
+keeps existing rows intact and goes to review.
 
 Reusable recipe functions live with the workspace. Open **Recipe engine**, save
 a configured formula or enrichment as a template, then choose it from **Recipe

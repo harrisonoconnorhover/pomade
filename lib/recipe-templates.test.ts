@@ -161,6 +161,40 @@ describe('recipe templates', () => {
     });
   });
 
+  it('preserves list-to-row behavior in a reusable research template', () => {
+    const columns = [textColumn('account', 'Account')];
+    const research: PomadeColumn = {
+      id: 'found_company',
+      title: 'Company name',
+      kind: 'enrichment',
+      recipe: 'web-research',
+      prompt: 'Find companies like {{company}}.',
+      outputCardinality: 'list',
+      listLimit: 12,
+      width: 260,
+      outputFields: [
+        { id: 'found_company', title: 'Company name', valueType: 'text' },
+        { id: 'found_domain', title: 'Domain', valueType: 'text' },
+      ],
+    };
+    const template = createRecipeTemplate(research, [...columns, research], {
+      id: 'template-list',
+      name: 'Similar companies',
+    });
+    const [instantiated] = instantiateRecipeTemplate(template, columns, {
+      company: 'account',
+      domain: '',
+      person: '',
+      title: '',
+    });
+
+    expect(instantiated).toMatchObject({
+      outputCardinality: 'list',
+      listLimit: 12,
+      inputBindings: { company: 'account', domain: '', person: '', title: '' },
+    });
+  });
+
   it('requires every declared required input before instantiation', () => {
     const column: PomadeColumn = {
       id: 'first',

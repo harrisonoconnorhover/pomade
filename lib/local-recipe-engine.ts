@@ -187,6 +187,13 @@ export function matchesRunCondition(
 }
 
 export function shouldRunRecipe(column: PomadeColumn, row: PomadeRow) {
+  if (
+    column.recipe === 'web-research' &&
+    column.outputCardinality === 'list' &&
+    row.generatedByColumnId === column.id
+  ) {
+    return false;
+  }
   return matchesRunCondition(column.runCondition, row);
 }
 

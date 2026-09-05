@@ -7,11 +7,33 @@ import {
   matchesRunCondition,
   recalculateAutomaticFormulas,
   renderCustomFormula,
+  shouldRunRecipe,
 } from './local-recipe-engine';
 import { createSampleWorkspace } from './sample-workspace';
 import { toScoutboundPipeline } from './scoutbound-adapter';
 
 describe('Pomade recipe execution', () => {
+  it('does not recursively rerun a list recipe on its own child rows', () => {
+    expect(
+      shouldRunRecipe(
+        {
+          id: 'found_company',
+          title: 'Company name',
+          kind: 'enrichment',
+          recipe: 'web-research',
+          outputCardinality: 'list',
+          width: 240,
+        },
+        {
+          id: 'child-1',
+          parentRowId: 'source-1',
+          generatedByColumnId: 'found_company',
+          values: {},
+        },
+      ),
+    ).toBe(false);
+  });
+
   it('runs every configured recipe and produces a non-writing receipt', () => {
     const workspace = createSampleWorkspace();
     const result = executeWorkspace(workspace);
