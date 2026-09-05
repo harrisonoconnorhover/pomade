@@ -76,6 +76,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import CrmSyncBuilder from './crm-sync-builder';
 import { applyCrmImport, type CrmImportMode } from '@/lib/crm-import';
 import {
   deleteWorkspaceColumn,
@@ -606,6 +607,10 @@ export default function PomadeWorkspace({
 
   const [crmCatalog, setCrmCatalog] =
     useState<CrmCatalogStatus>(emptyCrmCatalog);
+  const [sourceObjects, setSourceObjects] = useState({
+    hubspot: 'contact',
+    salesforce: 'lead',
+  });
   const [sourceLoading, setSourceLoading] = useState<CrmProvider>();
   const [sourceError, setSourceError] = useState('');
   const [sourcePreview, setSourcePreview] = useState<CrmSourcePreview>();
@@ -2374,7 +2379,11 @@ export default function PomadeWorkspace({
       const response = await fetch('/api/providers/crm', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ provider, limit: 50 }),
+        body: JSON.stringify({
+          provider,
+          objectType: sourceObjects[provider],
+          limit: 50,
+        }),
       });
       const result = (await response.json()) as {
         preview?: CrmSourcePreview;
@@ -2829,6 +2838,11 @@ export default function PomadeWorkspace({
                     void queueBackgroundRun(undefined, false, ids);
                   else void runEnrichment(undefined, false, ids);
                 }}
+              />
+              <CrmSyncBuilder
+                workspace={workspace}
+                rowIds={handoffRowIds}
+                ready={canLeaveTable && !jobLocksWorkspace}
               />
               <TableTransferBuilder
                 source={workspace}
@@ -5306,8 +5320,8 @@ export default function PomadeWorkspace({
           <DialogHeader>
             <DialogTitle>Load data</DialogTitle>
             <DialogDescription>
-              Preview a source before it changes the grid. CRM connections are
-              read-only.
+              Preview contacts, companies, accounts or leads before importing
+              them. This action only reads the CRM.
             </DialogDescription>
           </DialogHeader>
           <div className="source-grid">
@@ -5340,7 +5354,27 @@ export default function PomadeWorkspace({
                     <strong>
                       {provider === 'hubspot' ? 'HubSpot' : 'Salesforce'}
                     </strong>
-                    <small>{status.label}</small>
+                    <select
+                      aria-label={`${provider} object to import`}
+                      value={sourceObjects[provider]}
+                      disabled={Boolean(sourceLoading)}
+                      onChange={(e) => {
+                        setSourceObjects({
+                          ...sourceObjects,
+                          [provider]: e.target.value,
+                        });
+                        setSourcePreview(undefined);
+                      }}
+                    >
+                      {(provider === 'hubspot'
+                        ? ['contact', 'company']
+                        : ['lead', 'contact', 'account']
+                      ).map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <span
                     className={`connection-badge ${status.configured ? 'connection-ready' : ''}`}
@@ -5427,7 +5461,9 @@ export default function PomadeWorkspace({
                 </div>
                 {sourcePreview.contacts.slice(0, 5).map((contact) => (
                   <div className="source-preview-row" key={contact.nativeId}>
-                    <span>{contact.fullName || 'Unnamed record'}</span>
+                    <span>
+                      {contact.fullName || contact.company || 'Unnamed record'}
+                    </span>
                     <span>{contact.company || '—'}</span>
                     <span>{contact.email || '—'}</span>
                   </div>

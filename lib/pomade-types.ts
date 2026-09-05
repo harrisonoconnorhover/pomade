@@ -335,10 +335,13 @@ export type WebResearchResult = {
 };
 
 export type CrmProvider = 'hubspot' | 'salesforce';
+export type CrmObjectType = 'contact' | 'company' | 'lead' | 'account';
 
 export type CrmSourceContact = {
   nativeId: string;
-  objectType: 'contact' | 'lead';
+  objectType: CrmObjectType;
+  description?: string;
+  accountId?: string;
   fullName: string;
   firstName: string;
   lastName: string;

@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
-    "start": "wrangler dev --config dist/server/wrangler.json --local --test-scheduled",
+    "start": "wrangler dev --config dist/server/wrangler.json --local --test-scheduled --persist-to .wrangler/state",
     "lint": "oxlint app components db lib vite.config.ts worker.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",

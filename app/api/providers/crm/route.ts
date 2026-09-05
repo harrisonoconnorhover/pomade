@@ -1,13 +1,13 @@
 import { env } from 'cloudflare:workers';
 
 import { readCrmSource } from '@/lib/crm-sources';
-import type { CrmProvider } from '@/lib/pomade-types';
+import type { CrmProvider, CrmObjectType } from '@/lib/pomade-types';
 
 function configuredProviders() {
   return {
     hubspot: {
       configured: Boolean(env.HUBSPOT_ACCESS_TOKEN?.trim()),
-      label: 'HubSpot contacts',
+      label: 'HubSpot',
       mode: 'read_only' as const,
     },
     salesforce: {
@@ -15,7 +15,7 @@ function configuredProviders() {
         env.SALESFORCE_INSTANCE_URL?.trim() &&
         env.SALESFORCE_ACCESS_TOKEN?.trim(),
       ),
-      label: 'Salesforce leads',
+      label: 'Salesforce',
       mode: 'read_only' as const,
     },
   };
@@ -53,6 +53,8 @@ export async function POST(request: Request) {
     }
 
     const preview = await readCrmSource(provider, limit, {
+      objectType: (body as { objectType?: CrmObjectType }).objectType,
+      recordIds: (body as { recordIds?: string[] }).recordIds,
       hubSpotAccessToken: env.HUBSPOT_ACCESS_TOKEN,
       salesforceInstanceUrl: env.SALESFORCE_INSTANCE_URL,
       salesforceAccessToken: env.SALESFORCE_ACCESS_TOKEN,

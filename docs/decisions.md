@@ -21,8 +21,8 @@ external writes. A selected-row Apollo action may read a business profile after
 an explicit credit confirmation; exact name and company-domain checks decide
 whether a verified work email can be accepted. Scoutbound's richer HTTP,
 waterfall, AI, script, and command execution belongs behind a self-hosted worker
-adapter. Future CRM mutation must go through GTM Control Tower's preview,
-approval, receipt, and rollback boundary.
+adapter. The original CRM-only-through-Control-Tower decision is superseded
+for local dev accounts by the 2026-09-05 direct CRM round-trip decision below.
 
 ## Apollo email before phone reveal
 
@@ -50,7 +50,7 @@ different row fails; failed rows remain unchanged and are reported in the batch
 summary. Every completed row retains the same identity evidence and receipt as
 the original single-row flow.
 
-## CRM sources are read-only
+## Initial CRM sources were read-only
 
 HubSpot contacts and Salesforce leads enter Pomade through preview-first,
 read-only endpoints. Imports can replace the grid or append only unseen records;
@@ -177,7 +177,7 @@ error, while an expired 15-minute lease makes an interrupted row claimable
 again. Research jobs require explicit consent and are capped at 50 requests in
 total and ten on any single row.
 
-## CRM mappings terminate at a Control Tower preview
+## Initial CRM mappings terminated at a Control Tower preview
 
 Pomade suggests a small portable contact schema from column IDs and titles, but
 the operator chooses the final mapping and whether the destination is a HubSpot
@@ -185,7 +185,7 @@ Contact or Salesforce Lead. The downloaded plan contains only mapped columns,
 records both the portable Control Tower field and provider-native destination
 names, caps the preview at 100 rows, and explicitly disallows creates.
 
-Pomade still performs no CRM write. GTM Control Tower remains responsible for
+In that initial slice, Pomade performed no CRM write. GTM Control Tower handled
 fresh reads, duplicate and clean-record gates, explicit approval, native
 receipts, and rollback. This adds useful preparation without bypassing the
 governed execution workflow that already exists.
@@ -699,3 +699,29 @@ source mutations or numeric/grouped aggregation.
 - Use finite JavaScript arithmetic with compensated summation and 15 significant
   digit presentation. Require cleanup of currency/percentage formatting; this is
   a workflow summary, not an arbitrary-precision accounting engine.
+
+
+## 2026-09-05 — Direct local CRM round trips
+
+The user explicitly authorized writes to the existing HubSpot and Salesforce dev
+accounts. Add direct field-mapped company/contact creates and updates in Pomade,
+plus Salesforce Leads, instead of requiring a separate Control Tower application
+for this local workflow. The existing preview export stays available. Use
+existing server-side credentials and HubSpot object read/write scopes; durable
+OAuth, continuous sync, custom objects and native HubSpot associations can follow.
+
+Use a small preview/confirm flow with read-back receipts, native IDs, nonblank
+field writes and fresh conflict checks. Prefer native IDs, then domain/website
+for companies or email for people. A contact without email may match by full
+name plus company website/AccountId; the provider must return at most one match.
+Record actual returned values and accept URL scheme/trailing-slash normalization,
+which HubSpot applies in practice. Stop uncertain writes and reconcile their
+native record before retrying. Serialize local batches to avoid overlapping
+creates; no automatic rollback or interrupted-batch recovery is claimed.
+
+Keep `npm run start` persistence at project-root `.wrangler/state`. Wrangler's
+previous default nested state below `dist/server` disappeared on a rebuild.
+Live source snapshots and private CRM receipts belong in ignored `outputs`,
+not a future open-source release. The assignment retains raw AI results and
+reviewed scores separately; buyer titles are candidate signals, not proof of
+code ownership or purchase authority.

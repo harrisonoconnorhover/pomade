@@ -85,25 +85,29 @@ export function renderWebResearchPrompt(
   return `${compact(rendered, 4_000)}\n\nResearch target:\n${context || 'Use the task text as the complete target.'}\n\nUse current public web sources. ${outputInstruction}`;
 }
 
-function extractJsonObject(answer: string) {
-  const withoutFence = answer
-    .trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/, '');
-  const start = withoutFence.indexOf('{');
-  const end = withoutFence.lastIndexOf('}');
-  return start >= 0 && end > start ? withoutFence.slice(start, end + 1) : '';
+// Providers can append a Sources section even when JSON-only output is requested.
+// Stop at the matching delimiter; citation brackets are outside the JSON value.
+function extractJsonContainer(answer: string, opening: '{' | '[') {
+  const closing = opening === '{' ? '}' : ']';
+  const start = answer.indexOf(opening);
+  if (start < 0) return '';
+  let depth = 0,
+    quoted = false,
+    escaped = false;
+  for (let i = start; i < answer.length; i++) {
+    const ch = answer[i];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') quoted = false;
+    } else if (ch === '"') quoted = true;
+    else if (ch === opening) depth++;
+    else if (ch === closing && --depth === 0) return answer.slice(start, i + 1);
+  }
+  return '';
 }
-
-function extractJsonArray(answer: string) {
-  const withoutFence = answer
-    .trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/, '');
-  const start = withoutFence.indexOf('[');
-  const end = withoutFence.lastIndexOf(']');
-  return start >= 0 && end > start ? withoutFence.slice(start, end + 1) : '';
-}
+const extractJsonObject = (answer: string) => extractJsonContainer(answer, '{');
+const extractJsonArray = (answer: string) => extractJsonContainer(answer, '[');
 
 function validStructuredValue(value: unknown, field: ResearchOutputField) {
   if (value === null || value === undefined) return true;

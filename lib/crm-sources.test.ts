@@ -108,3 +108,83 @@ describe('CRM source readers', () => {
     ).rejects.toThrow('HTTP 403. Missing contacts read scope');
   });
 });
+
+describe('company and contact round-trip reads', () => {
+  it('reads HubSpot companies by native IDs', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        Response.json({
+          results: [
+            {
+              id: '7',
+              properties: {
+                name: 'Example',
+                domain: 'example.com',
+                description: 'Research',
+              },
+            },
+          ],
+        }),
+      );
+    const p = await readCrmSource('hubspot', 10, {
+      hubSpotAccessToken: 'test',
+      objectType: 'company',
+      recordIds: ['7'],
+      fetchImpl: fetchImpl as typeof fetch,
+    });
+    expect(p.contacts[0]).toMatchObject({
+      objectType: 'company',
+      nativeId: '7',
+      company: 'Example',
+      description: 'Research',
+    });
+    expect(fetchImpl.mock.calls[0][1].method).toBe('POST');
+    expect(String(fetchImpl.mock.calls[0][0])).toContain(
+      '/companies/batch/read',
+    );
+  });
+  it('reads Salesforce contacts with their associated account', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        Response.json({
+          records: [
+            {
+              Id: '0031',
+              FirstName: 'Ada',
+              LastName: 'Lovelace',
+              Email: 'ada@example.com',
+              AccountId: '0011',
+              Account: { Name: 'Example', Website: 'example.com' },
+            },
+          ],
+        }),
+      );
+    const p = await readCrmSource('salesforce', 10, {
+      salesforceAccessToken: 'test',
+      salesforceInstanceUrl: 'https://dev.my.salesforce.com',
+      objectType: 'contact',
+      fetchImpl: fetchImpl as typeof fetch,
+    });
+    expect(p.contacts[0]).toMatchObject({
+      objectType: 'contact',
+      company: 'Example',
+      accountId: '0011',
+      website: 'example.com',
+    });
+    expect(
+      new URL(String(fetchImpl.mock.calls[0][0])).searchParams.get('q'),
+    ).toContain('FROM Contact');
+  });
+  it('rejects invalid object/record filters before any API request', async () => {
+    const fetchImpl = vi.fn();
+    await expect(
+      readCrmSource('salesforce', 10, {
+        recordIds: ["x' OR Id != ''"],
+        fetchImpl: fetchImpl as typeof fetch,
+      }),
+    ).rejects.toThrow('Invalid CRM record IDs');
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});

@@ -17,6 +17,10 @@ const sourceColumns: PomadeColumn[] = [
   { id: 'domain', title: 'Company domain', kind: 'text', width: 180 },
   { id: 'crm_source', title: 'CRM source', kind: 'text', width: 145 },
   { id: 'crm_id', title: 'CRM record ID', kind: 'text', width: 190 },
+  { id: 'crm_account_id', title: 'CRM account ID', kind: 'text', width: 190 },
+  { id: 'description', title: 'Description', kind: 'text', width: 240 },
+  { id: 'firstname', title: 'First name', kind: 'text', width: 150 },
+  { id: 'lastname', title: 'Last name', kind: 'text', width: 150 },
 ];
 
 const statusColumn: PomadeColumn = {
@@ -57,12 +61,21 @@ function contactValues(
     email: contact.email,
     phone: contact.phone,
     domain: companyDomain(contact.website),
-    crm_source: provider === 'hubspot' ? 'HubSpot contact' : 'Salesforce lead',
+    crm_source: `${provider === 'hubspot' ? 'HubSpot' : 'Salesforce'} ${contact.objectType}`,
+    crm_account_id: contact.accountId ?? '',
+    description: contact.description ?? '',
+    firstname: contact.firstName,
+    lastname: contact.lastName,
     crm_id: contact.nativeId,
-    status:
-      contact.fullName && contact.company && (contact.email || contact.website)
-        ? 'Ready'
-        : 'Review',
+    status: (
+      contact.objectType === 'company' || contact.objectType === 'account'
+        ? contact.company && contact.website
+        : contact.fullName &&
+          contact.company &&
+          (contact.email || contact.website)
+    )
+      ? 'Ready'
+      : 'Review',
   };
 }
 

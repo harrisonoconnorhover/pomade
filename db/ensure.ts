@@ -5,6 +5,12 @@ let schemaReady = false;
 export async function ensureDatabaseSchema(db: D1Database) {
   await db.batch([
     db.prepare(
+      `CREATE TABLE IF NOT EXISTS crm_sync_runs (id TEXT PRIMARY KEY NOT NULL, workspace_id TEXT NOT NULL, provider TEXT NOT NULL, status TEXT NOT NULL, plan TEXT NOT NULL, created_at INTEGER NOT NULL)`,
+    ),
+    db.prepare(
+      `CREATE INDEX IF NOT EXISTS idx_crm_sync_workspace ON crm_sync_runs(workspace_id,created_at)`,
+    ),
+    db.prepare(
       `CREATE TABLE IF NOT EXISTS signal_batches (id TEXT PRIMARY KEY NOT NULL,workspace_id TEXT NOT NULL,batch TEXT NOT NULL,created_at INTEGER NOT NULL,reviewed_at INTEGER)`,
     ),
     db.prepare(

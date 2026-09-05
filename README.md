@@ -12,7 +12,9 @@ what changed. It is an original product built on the open-source
 - Import any CSV and edit cells in a fast, virtualized grid with persistent
   column widths, safe drag reordering, stable-ID header renaming, and
   dependency-aware column deletion.
-- Preview and import contacts from HubSpot or leads from Salesforce without writing back.
+- Preview and import HubSpot companies/contacts and Salesforce accounts/contacts/leads.
+- Create or update up to 25 selected CRM records through field mapping, before/after
+  preview, explicit write confirmation and native read-back receipts.
 - Add preset formulas or build custom merge formulas with safe transforms and a
   five-row preview, then run selected or visible rows.
 - Gate any recipe by a row condition and auto-update safe formula columns when
@@ -46,7 +48,8 @@ what changed. It is an original product built on the open-source
 - Inspect row quality and field-level lineage, or download a bounded GTM Control Tower preview plan.
 
 The included formula runner is deterministic and credential-free. CRM
-connections are read-only sources. AI web research prefers a bring-your-own
+source previews only read; a separate **Write to CRM** flow performs confirmed
+creates and updates. AI web research prefers a bring-your-own
 Parallel key and falls back to Gemini when Parallel is not configured. It
 requires an explicit run confirmation, caps each run at ten research requests,
 caches results for 24 hours, and stores source links with the receipt.
@@ -54,8 +57,8 @@ Apollo enrichment remains an explicit selected-row action with a confirmed
 maximum of one credit per eligible row; it never requests personal emails or
 phone numbers. Batches run at bounded concurrency, reuse cached or duplicate
 identities, preserve partial successes, and attach a receipt to every completed
-row. Governed CRM writes remain behind GTM Control Tower's preview, approval,
-receipt, and rollback flow.
+row. The older GTM Control Tower download remains available; direct local CRM
+writes now have their own preview and receipts, without automatic rollback.
 
 ## Product direction
 
@@ -422,11 +425,11 @@ Glide Data Grid UI | Pomade workspace + recipe schema
                        |
           -------------------------------------------
           |                    |                    |
-safe recipe runner       read-only sources       provider reads
+safe recipe runner       CRM reads/writes        provider reads
           |             HubSpot / Salesforce    Apollo / Parallel / Gemini
           ------------- D1 workspace, schedules, cache, receipts ---
                                |
-         GTM Control Tower preview adapter (governed writes only)
+         Optional GTM Control Tower preview export
 ```
 
 ## Status
@@ -434,8 +437,11 @@ safe recipe runner       read-only sources       provider reads
 Pomade is a polished working vertical slice, not a complete Clay replacement.
 The grid, CSV and CRM source workflow, scoped recipe execution, grounded AI web
 research, bounded Apollo batch enrichment, persistence, cache, receipts, and
-Control Tower handoff are real. Apollo phone reveal, durable CRM OAuth,
-multi-user collaboration, and direct CRM write-back are intentionally deferred.
+Control Tower handoff and direct mapped CRM writes are real. Apollo phone reveal,
+durable CRM OAuth, multi-user collaboration and continuous CRM synchronization
+remain deferred. The 2026-09-05 three-company assignment completed live Parallel
+research, Apollo company enrichment and company/contact round trips through both
+dev CRMs. People Enrichment returned a Free-plan access restriction from Apollo.
 
 ## License
 
@@ -605,5 +611,44 @@ scope controls access; Pomade does not promise every field will be available.
 `pomade_apollo_company` is a reserved built-in connection ID using
 `https://api.apollo.io` and an `x-api-key` header. Public connection summaries and
 saved recipes do not contain that key. Generic custom connections remain
-available. This preset has been checked against Apollo's public contract and
-local/mocked responses; no paid live Apollo call was used for qualification.
+available. On 2026-09-05 the preset completed live enrichment for HealthEdge,
+Clearwater Security and Solera using the existing Free-tier account. All three
+returned matching domains. Actual credit usage was not supplied by the response.
+
+
+### Write to CRM and import the results
+
+Select up to 25 rows and open **Write to CRM**. Choose HubSpot companies/contacts
+or Salesforce accounts/contacts/leads, then map the fields you want to write.
+Existing-record ID columns take priority. Otherwise, companies match by
+domain/website and people by email. Contacts without email require first/last
+name and company website (HubSpot) or AccountId (Salesforce); a name alone is
+insufficient. Multiple matches require an explicit record ID.
+
+**Preview CRM changes** reads the destinations and shows create, update, unchanged
+or review for each row. **Confirm CRM write** writes only mapped nonblank values,
+checks for changes since preview, and reads each record back. Receipts include
+native IDs and actual returned values. Website scheme/trailing-slash normalization
+is accepted. A repeated completed batch returns its stored receipt. An uncertain
+write stops the batch so its native record can be reconciled before retrying.
+
+Use **Load data → HubSpot / Salesforce**, choose the object, preview, then append
+or replace table rows. Imports preserve CRM IDs; append updates the same native
+record without duplicating it and retains recipe columns. Each preview is bounded
+to 100 records. Salesforce Contacts retain their AccountId. HubSpot contact
+company/website fields are supported; creating native contact-to-company
+associations is not implemented.
+
+Credentials stay in ignored `.env.local`. HubSpot needs contact/company read and
+write scopes for the corresponding objects. Salesforce uses an existing session
+access token, which may need refreshing; this is not durable OAuth. Only one
+local CRM write batch runs at a time. If the server is interrupted during a write,
+inspect the native CRM and saved batch before clearing its running state; there
+is no automatic uncertain-write recovery.
+
+`npm run start` stores local D1 data in project-root `.wrangler/state`, outside
+`dist`, so rebuilding does not erase tables or receipts. Build first, then use
+`npm run start -- --port 8798` for the current local workspace.
+
+The private assignment, source snapshots and CRM receipts are under ignored
+`outputs/demanddrive/REPORT.md`. They are not included in a public source release.

@@ -163,3 +163,18 @@ export const signalBatches = sqliteTable(
     ),
   ],
 );
+
+export const crmSyncRuns = sqliteTable(
+  'crm_sync_runs',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    provider: text('provider').notNull(),
+    status: text('status').notNull(),
+    plan: text('plan').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_crm_sync_workspace').on(table.workspaceId, table.createdAt),
+  ],
+);

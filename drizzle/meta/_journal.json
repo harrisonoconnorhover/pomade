@@ -29,6 +29,13 @@
       "when": 1788582901816,
       "tag": "0003_abandoned_famine",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788622203375,
+      "tag": "0004_fancy_sandman",
+      "breakpoints": true
     }
   ]
 }

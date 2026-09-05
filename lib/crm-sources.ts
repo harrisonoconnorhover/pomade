@@ -1,10 +1,13 @@
 import type {
   CrmProvider,
+  CrmObjectType,
   CrmSourceContact,
   CrmSourcePreview,
 } from './pomade-types';
 
 export type CrmSourceOptions = {
+  objectType?: CrmObjectType;
+  recordIds?: string[];
   hubSpotAccessToken?: string;
   salesforceInstanceUrl?: string;
   salesforceAccessToken?: string;
@@ -116,13 +119,36 @@ async function readHubSpot(
 ): Promise<CrmSourceContact[]> {
   const token = options.hubSpotAccessToken?.trim();
   if (!token) throw new Error('HubSpot is not configured.');
-  const url = new URL('https://api.hubapi.com/crm/objects/2026-03/contacts');
+  const company = options.objectType === 'company';
+  const object = company ? 'companies' : 'contacts';
+  const url = new URL(`https://api.hubapi.com/crm/objects/2026-03/${object}`);
   url.searchParams.set('limit', String(limit));
-  url.searchParams.set('properties', HUBSPOT_PROPERTIES.join(','));
+  const properties = company
+    ? ['name', 'domain', 'website', 'phone', 'description']
+    : HUBSPOT_PROPERTIES;
+  url.searchParams.set('properties', properties.join(','));
   url.searchParams.set('archived', 'false');
 
+  const ids = options.recordIds;
+  if (ids?.length) {
+    url.pathname += '/batch/read';
+    url.search = '';
+  }
   const response = await (options.fetchImpl ?? fetch)(url, {
-    headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
+    ...(ids?.length
+      ? {
+          method: 'POST',
+          body: JSON.stringify({
+            properties,
+            inputs: ids.map((id) => ({ id })),
+          }),
+        }
+      : {}),
+    headers: {
+      authorization: `Bearer ${token}`,
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
     signal: AbortSignal.timeout(30_000),
     cache: 'no-store',
   });
@@ -130,11 +156,31 @@ async function readHubSpot(
   const body = record(payload);
   if (!response.ok || !Array.isArray(body?.results)) {
     throw new Error(
-      `HubSpot contacts read failed with HTTP ${response.status}.${safeDetail(payload)}`,
+      `HubSpot ${object} read failed with HTTP ${response.status}.${safeDetail(payload)}`,
     );
   }
   return body.results
-    .map(hubSpotContact)
+    .map((value: unknown) => {
+      if (!company) return hubSpotContact(value);
+      const item = record(value),
+        props = record(item?.properties),
+        nativeId = stringValue(item?.id);
+      return nativeId
+        ? {
+            nativeId,
+            objectType: 'company' as const,
+            company: stringValue(props?.name),
+            website: stringValue(props?.domain) || stringValue(props?.website),
+            description: stringValue(props?.description),
+            phone: stringValue(props?.phone),
+            fullName: '',
+            firstName: '',
+            lastName: '',
+            email: '',
+            jobTitle: '',
+          }
+        : null;
+    })
     .filter((contact): contact is CrmSourceContact => Boolean(contact));
 }
 
@@ -150,7 +196,24 @@ async function readSalesforce(
   if (!/^\d{2}\.\d$/.test(apiVersion)) {
     throw new Error('Salesforce is configured with an invalid API version.');
   }
-  const query = `SELECT Id, FirstName, LastName, Email, Company, Phone, MobilePhone, Title, Website FROM Lead WHERE IsConverted = FALSE ORDER BY LastModifiedDate DESC LIMIT ${limit}`;
+  const object =
+    options.objectType === 'account'
+      ? 'Account'
+      : options.objectType === 'contact'
+        ? 'Contact'
+        : 'Lead';
+  const fields =
+    object === 'Account'
+      ? 'Id, Name, Website, Phone, Description'
+      : object === 'Contact'
+        ? 'Id, FirstName, LastName, Email, Phone, MobilePhone, Title, AccountId, Account.Name, Account.Website'
+        : 'Id, FirstName, LastName, Email, Company, Phone, MobilePhone, Title, Website';
+  const where = options.recordIds?.length
+    ? ` WHERE Id IN (${options.recordIds.map((id) => "'" + id + "'").join(',')})`
+    : object === 'Lead'
+      ? ' WHERE IsConverted = FALSE'
+      : '';
+  const query = `SELECT ${fields} FROM ${object}${where} ORDER BY LastModifiedDate DESC LIMIT ${limit}`;
   const url = new URL(`${origin}/services/data/v${apiVersion}/query`);
   url.searchParams.set('q', query);
   const response = await (options.fetchImpl ?? fetch)(url, {
@@ -162,11 +225,44 @@ async function readSalesforce(
   const body = record(payload);
   if (!response.ok || !Array.isArray(body?.records)) {
     throw new Error(
-      `Salesforce Leads read failed with HTTP ${response.status}.${safeDetail(payload)}`,
+      `Salesforce ${object} read failed with HTTP ${response.status}.${safeDetail(payload)}`,
     );
   }
   return body.records
-    .map(salesforceLead)
+    .map((value: unknown) => {
+      const item = record(value);
+      if (!item) return null;
+      if (object === 'Lead') return salesforceLead(item);
+      if (object === 'Contact') {
+        const contact = salesforceLead(item);
+        const account = record(item.Account);
+        return contact
+          ? {
+              ...contact,
+              objectType: 'contact' as const,
+              accountId: stringValue(item.AccountId),
+              company: stringValue(account?.Name),
+              website: stringValue(account?.Website),
+            }
+          : null;
+      }
+      const nativeId = stringValue(item.Id);
+      return nativeId
+        ? {
+            nativeId,
+            objectType: 'account' as const,
+            company: stringValue(item.Name),
+            website: stringValue(item.Website),
+            description: stringValue(item.Description),
+            phone: stringValue(item.Phone),
+            fullName: '',
+            firstName: '',
+            lastName: '',
+            email: '',
+            jobTitle: '',
+          }
+        : null;
+    })
     .filter((contact): contact is CrmSourceContact => Boolean(contact));
 }
 
@@ -175,6 +271,25 @@ export async function readCrmSource(
   requestedLimit: number,
   options: CrmSourceOptions,
 ): Promise<CrmSourcePreview> {
+  const object =
+    options.objectType ?? (provider === 'hubspot' ? 'contact' : 'lead');
+  if (
+    !(
+      provider === 'hubspot'
+        ? ['contact', 'company']
+        : ['contact', 'account', 'lead']
+    ).includes(object)
+  )
+    throw new Error('Unsupported CRM object.');
+  if (
+    options.recordIds &&
+    (!Array.isArray(options.recordIds) ||
+      options.recordIds.length > 100 ||
+      options.recordIds.some(
+        (id) => typeof id !== 'string' || !/^[a-zA-Z0-9]{1,30}$/.test(id),
+      ))
+  )
+    throw new Error('Invalid CRM record IDs.');
   const limit = normalizeLimit(requestedLimit);
   const contacts =
     provider === 'hubspot'
@@ -182,8 +297,7 @@ export async function readCrmSource(
       : await readSalesforce(limit, options);
   return {
     provider,
-    sourceLabel:
-      provider === 'hubspot' ? 'HubSpot contacts' : 'Salesforce leads',
+    sourceLabel: `${provider === 'hubspot' ? 'HubSpot' : 'Salesforce'} ${object === 'company' ? 'companies' : object + 's'}`,
     contacts,
     truncated: contacts.length >= limit,
     readAt: (options.now ?? (() => new Date()))().toISOString(),

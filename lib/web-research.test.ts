@@ -10,6 +10,22 @@ import {
 } from './web-research';
 
 describe('web research recipe', () => {
+  it('parses a complete JSON list before appended citation brackets', () => {
+    const fields = [
+      { id: 'person', title: 'Person', valueType: 'text' as const },
+    ];
+    const answer =
+      JSON.stringify([{ person: 'Ada [platform] "Lead"' }]) +
+      '\nSources: [Company](https://example.com)';
+    expect(parseListResearchAnswer(answer, fields)).toEqual({
+      valid: true,
+      items: [{ person: 'Ada [platform] "Lead"' }],
+    });
+    expect(parseListResearchAnswer('[{"person":"Ada"}', fields)?.valid).toBe(
+      false,
+    );
+  });
+
   it('renders row variables and includes bounded research context', () => {
     const row = createSampleWorkspace().rows[0];
     const prompt = renderWebResearchPrompt(

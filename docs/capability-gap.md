@@ -8,7 +8,8 @@ Bitscale or Clay.
 
 - [x] Apollo company enrichment preset with server-side existing-key connection,
       domain normalization/match checking and four mapped outputs. Docs plus
-      local fixtures verified 2026-09-05; paid live qualification remains open.
+      live three-company Free-tier enrichment verified 2026-09-05; actual credit
+      usage was not returned by Apollo.
 
 - [x] Watched-field change signals from recipe runs, scheduled API refreshes and
       transfers, with stable-row baselines, old/new values, review state and
@@ -45,7 +46,11 @@ Bitscale or Clay.
 - [x] Persistent named views with column rules, live row counts, sidebar
       switching, automatic value updates, and safe removal. Crossed off
       2026-09-05.
-- [x] Read-only HubSpot contact and Salesforce lead preview/import.
+- [x] HubSpot company/contact and Salesforce account/contact/lead preview/import.
+- [x] Direct local mapped CRM creates/updates with before/after preview, native-ID
+      receipts, read-back checks and no-op/replay behavior. Three companies and
+      three contacts written and imported in each dev CRM on 2026-09-05.
+      Continuous synchronization, custom fields and HubSpot associations remain open.
 - [x] Deterministic formula and enrichment recipe columns with selected-row or
       visible-row execution, including immediate or background single-column
       runs from the grid header. Crossed off 2026-09-05.
@@ -188,7 +193,7 @@ our own work before spending time on other users, signup, or public hosting.
 2. Arbitrary group-by reports and richer formula logic.
 3. Richer source pagination and native provider presets.
 4. Saved-search sources, external-event monitors and bulk function rollout.
-5. Governed CRM writeback through Control Tower and portable workbook templates.
+5. Continuous CRM synchronization, native associations and portable workbook export.
 
 Defer account isolation, Google sign-in, billing and public onboarding until our
 own core workflows are working well. They remain required before a public
@@ -298,3 +303,21 @@ sum, average, minimum and maximum. Blanks are excluded; malformed values require
 review. Templates preserve the modes. Focused tests and isolated Worker/D1 checks
 cover manual and queued execution with fresh source data. This closes the keyed
 numeric rollup gap, not general reporting or complete Clay/Bitscale parity.
+
+
+## Live three-company assignment, 2026-09-05
+
+DemandDrive/HeroDevs homework was completed locally for three existing targets
+with three source-backed signals, reviewed 45/30/25 scoring, 15 buyer-role rows
+and three first-party-verified named candidates. Parallel research and Apollo
+company enrichment ran live. Apollo People Enrichment returned HTTP 403 because
+the existing Free plan excludes that endpoint; no email was invented.
+
+The workflow exposed two practical fixes: list JSON parsing now tolerates
+appended source citations, and CRM verification handles HubSpot URL normalization.
+Both CRM adapters created/read/imported three companies and three contacts,
+then verified a mapped update and unchanged repeat. Salesforce account links
+were read back. The initial research needed corrected targeting prompts, fresh
+source excerpts and human score review; this does not establish autonomous
+research accuracy or Clay-level integration breadth. Native receipts and the
+private assignment report remain in ignored `outputs/demanddrive`.
