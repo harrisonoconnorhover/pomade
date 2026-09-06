@@ -51,6 +51,13 @@ Choose typed output fields in the existing recipe editor, then run selected rows
 The same recipe can be called through Pomade's existing `run_recipe` MCP tool.
 Keep synchronous browser runs small, preferably one account per MCP call.
 
+The research editor, company/people finders, run confirmation and Sources
+(**Load data**) panel include **Check again**. Use it after starting the helper or repairing its
+setup; the saved table can load and remain editable while the connection is
+checked. Local-browser readiness, installation errors and login errors are shown
+separately. Run receipts link each source quotation to its page and expose the
+recorded error or rejection reason under result/provider details.
+
 ## What happens
 
 1. Pomade renders the question using the row's domain and other inputs.

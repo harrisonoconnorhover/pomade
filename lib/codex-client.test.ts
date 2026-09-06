@@ -80,15 +80,64 @@ describe('local ChatGPT research', () => {
     expect(args).toContain('features.apps=false');
     expect(args).toContain('agents.enabled=false');
   });
+  it('distinguishes missing browser, missing login and unavailable Codex instead of treating every 503 as a login problem', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ code: 'browser_unavailable' }, { status: 503 }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ code: 'chatgpt_login_required' }, { status: 503 }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ code: 'codex_unavailable' }, { status: 503 }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ error: 'private diagnostic content' }, { status: 503 }),
+      );
+    const client = new CodexWebResearchClient({
+      token: 'fixture',
+      browser: true,
+      fetchImpl: fetcher,
+    });
+    await expect(client.research('Research')).rejects.toThrow(
+      'Install local Chromium',
+    );
+    await expect(client.status()).rejects.toThrow('Sign in to Codex');
+    await expect(client.status()).rejects.toThrow('POMADE_CODEX_BIN');
+    await expect(client.status()).rejects.toThrow(
+      'The local research helper is not ready.',
+    );
+  });
+  it('rechecks readiness after setup is repaired and identifies an absent browser independently', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ configured: false }))
+      .mockResolvedValueOnce(
+        Response.json({ configured: true, browserAvailable: false }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ configured: true, browserAvailable: true }),
+      );
+    const client = new CodexWebResearchClient({
+      token: 'fixture',
+      browser: true,
+      fetchImpl: fetcher,
+    });
+    await expect(client.status()).rejects.toThrow('Sign in to Codex');
+    await expect(client.status()).rejects.toThrow('Install local Chromium');
+    await expect(client.status()).resolves.toEqual({ configured: true });
+  });
   it('authenticates helper requests, requires search evidence, and returns structured answers', async () => {
     let searched = true;
+    let signedIn = true;
     const run = vi
       .fn()
       .mockImplementation((_binary: string, args: string[]) => {
         if (args.includes('status'))
           return Promise.resolve({
             stdout: '',
-            stderr: 'Logged in using ChatGPT',
+            stderr: signedIn ? 'Logged in using ChatGPT' : 'Not logged in',
           });
         const answer = args[args.indexOf('--output-last-message') + 1];
         const result = writeFile(
@@ -129,6 +178,14 @@ describe('local ChatGPT research', () => {
         ).status,
       ).toBe(401);
       expect((await fetch(base + '/status', { headers })).status).toBe(200);
+      signedIn = false;
+      const notReady = await fetch(base + '/status', { headers });
+      expect(notReady.status).toBe(503);
+      expect(await notReady.json()).toMatchObject({
+        configured: false,
+        code: 'chatgpt_login_required',
+      });
+      signedIn = true;
       const result = await fetch(base + '/research', {
         method: 'POST',
         headers,

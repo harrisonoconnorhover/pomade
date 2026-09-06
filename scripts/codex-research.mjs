@@ -128,9 +128,10 @@ export function createCodexServer({
           configured,
           authentication: 'chatgpt',
           browserAvailable: browserAvailable(),
+          ...(!configured ? { code: 'chatgpt_login_required' } : {}),
         });
       } catch {
-        return reply(503, { configured: false });
+        return reply(503, { configured: false, code: 'codex_unavailable' });
       }
     }
     if (req.method !== 'POST' || req.url !== '/research')
@@ -166,7 +167,10 @@ export function createCodexServer({
       )
         return reply(400, { error: 'Invalid research question or model' });
       if (!(await account()))
-        return reply(503, { error: 'ChatGPT login required' });
+        return reply(503, {
+          error: 'ChatGPT login required',
+          code: 'chatgpt_login_required',
+        });
       directory = await mkdtemp(join(tmpdir(), 'pomade-research-'));
       const schemaPath = join(directory, 'schema.json'),
         answerPath = join(directory, 'answer.json');
@@ -177,6 +181,7 @@ export function createCodexServer({
       if (browserTrace) {
         if (!browserAvailable())
           return reply(503, {
+            code: 'browser_unavailable',
             error:
               'Install the local Chromium browser with npm run research:browser:install.',
           });

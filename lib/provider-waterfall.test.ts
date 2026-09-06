@@ -109,6 +109,7 @@ describe('provider waterfall', () => {
     const r = await executeProviderWaterfall(w, 'a', column, connections, f);
     expect(f).toHaveBeenCalledTimes(1);
     expect(r.receipt.error).toContain('429');
+    expect(r.workspace.rows[0].values.result_status).toBe('Stopped: HTTP 429');
     column.providerWaterfall!.continueOnError = true;
     const g = vi
       .fn<typeof fetch>()
@@ -124,6 +125,29 @@ describe('provider waterfall', () => {
     expect(g).toHaveBeenCalledTimes(2);
     expect(recovered.receipt.error).toBeUndefined();
     expect(recovered.receipt.attempts?.[0].error).toContain('429');
+  });
+  it('reports an exhausted chain accurately when a provider error is followed by a miss', async () => {
+    const { w, column } = fixture();
+    column.providerWaterfall!.continueOnError = true;
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 403 }))
+      .mockResolvedValueOnce(Response.json({ email: '' }));
+    const result = await executeProviderWaterfall(
+      w,
+      'a',
+      column,
+      connections,
+      fetcher,
+    );
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(result.receipt.status).toBe('review');
+    expect(result.receipt.error).toBe('HTTP 403');
+    expect(result.receipt.attempts?.[1].error).toBeUndefined();
+    expect(result.workspace.rows[0].values.result_status).toBe(
+      'All providers tried; no acceptable value. 1 provider error.',
+    );
+    expect(result.workspace.rows[0].values.result).toBe('');
   });
   it('bounds the maximum request scope and skips false conditions', async () => {
     const { w, column } = fixture();

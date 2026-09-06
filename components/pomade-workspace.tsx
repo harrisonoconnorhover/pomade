@@ -49,6 +49,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import ProviderWaterfallBuilder from '@/components/provider-waterfall-builder';
+import ResearchConnectionStatus, {
+  type ResearchProviderStatus,
+} from '@/components/research-connection-status';
 import HttpRecipeBuilder from '@/components/http-recipe-builder';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { functionStepIds } from '@/lib/recipe-functions';
@@ -178,19 +181,6 @@ type ApolloBatchSummary = {
   failed: number;
   skipped: number;
   creditsConsumed: number | null;
-};
-
-type ResearchProviderStatus = {
-  provider: 'parallel' | 'gemini' | 'codex' | null;
-  configured: boolean;
-  label: string;
-  model: string;
-  error?: string;
-  capabilities: {
-    webResearch: boolean;
-    citations: boolean;
-    maximumActionsPerRun: number;
-  };
 };
 
 type CrmCatalogStatus = {
@@ -539,8 +529,14 @@ export default function PomadeWorkspace({
   const [apolloBatchSummary, setApolloBatchSummary] =
     useState<ApolloBatchSummary>();
   const [apolloStatus, setApolloStatus] = useState<ApolloProviderStatus>();
-  const [researchStatus, setResearchStatus] =
-    useState<ResearchProviderStatus>();
+  const [researchStatusRevision, setResearchStatusRevision] = useState(0);
+  const [researchCheck, setResearchCheck] = useState<{
+    revision: number;
+    status?: ResearchProviderStatus;
+  }>({ revision: -1 });
+  const researchStatus = researchCheck.status;
+  const researchStatusLoading =
+    researchCheck.revision !== researchStatusRevision;
   const [researchColumnName, setResearchColumnName] = useState(
     'Recent company trigger',
   );
@@ -638,43 +634,8 @@ export default function PomadeWorkspace({
           return response.json() as Promise<{ runs: RunReceipt[] }>;
         },
       ),
-      fetch('/api/providers/apollo')
-        .then((response) => {
-          if (!response.ok) throw new Error('Apollo status failed to load');
-          return response.json() as Promise<ApolloProviderStatus>;
-        })
-        .catch(() => ({
-          configured: false,
-          capabilities: {
-            personMatch: true,
-            verifiedWorkEmail: true,
-            phoneReveal: false,
-          },
-        })),
-      fetch('/api/providers/crm')
-        .then((response) => {
-          if (!response.ok) throw new Error('CRM status failed to load');
-          return response.json() as Promise<CrmCatalogStatus>;
-        })
-        .catch(() => emptyCrmCatalog),
-      fetch('/api/providers/research')
-        .then((response) => {
-          if (!response.ok) throw new Error('Research status failed to load');
-          return response.json() as Promise<ResearchProviderStatus>;
-        })
-        .catch(() => ({
-          provider: null,
-          configured: false,
-          label: 'AI web research',
-          model: 'No provider configured',
-          capabilities: {
-            webResearch: true,
-            citations: true,
-            maximumActionsPerRun: 10,
-          },
-        })),
     ])
-      .then(([workspaceResponse, runsResponse, apollo, crm, research]) => {
+      .then(([workspaceResponse, runsResponse]) => {
         if (cancelled) return;
         setSavedWorkspace(workspaceResponse.workspace);
         setLoaded(true);
@@ -689,9 +650,6 @@ export default function PomadeWorkspace({
           setNotice('The linked source row no longer exists.');
         setRunHistory(runsResponse.runs);
         setLatestRun(runsResponse.runs[0]);
-        setApolloStatus(apollo);
-        setCrmCatalog(crm);
-        setResearchStatus(research);
         setSaveState('Saved');
         hydrated.current = true;
       })
@@ -704,6 +662,79 @@ export default function PomadeWorkspace({
       cancelled = true;
     };
   }, [workspaceUrl, workspaceId, initialRowId]);
+
+  // Provider readiness must not hold up loading or editing the saved table.
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/providers/apollo')
+      .then((response) => {
+        if (!response.ok) throw new Error('Apollo status failed to load');
+        return response.json() as Promise<ApolloProviderStatus>;
+      })
+      .then((status) => {
+        if (!cancelled) setApolloStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled)
+          setApolloStatus({
+            configured: false,
+            capabilities: {
+              personMatch: true,
+              verifiedWorkEmail: true,
+              phoneReveal: false,
+            },
+          });
+      });
+    void fetch('/api/providers/crm')
+      .then((response) => {
+        if (!response.ok) throw new Error('CRM status failed to load');
+        return response.json() as Promise<CrmCatalogStatus>;
+      })
+      .then((status) => {
+        if (!cancelled) setCrmCatalog(status);
+      })
+      .catch(() => {
+        if (!cancelled) setCrmCatalog(emptyCrmCatalog);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch('/api/providers/research', {
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)]),
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error('Research status failed to load');
+        return response.json() as Promise<ResearchProviderStatus>;
+      })
+      .then((status) => {
+        if (!controller.signal.aborted)
+          setResearchCheck({ revision: researchStatusRevision, status });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted)
+          setResearchCheck({
+            revision: researchStatusRevision,
+            status: {
+              provider: null,
+              configured: false,
+              label: 'AI web research',
+              model: 'Connection unavailable',
+              error:
+                'Could not check the research connection. Make sure Pomade is running, then check again.',
+              capabilities: {
+                webResearch: true,
+                citations: true,
+                maximumActionsPerRun: 10,
+              },
+            },
+          });
+      });
+    return () => controller.abort();
+  }, [researchStatusRevision]);
 
   useEffect(() => {
     let cancelled = false;
@@ -4153,24 +4184,15 @@ export default function PomadeWorkspace({
           <DialogHeader>
             <DialogTitle>Add AI web research</DialogTitle>
             <DialogDescription>
-              Create a Claygent-style column that asks a row-specific question,
-              searches the live web, and keeps its source links.
+              Ask a question for each row, research live websites and keep the
+              source links with your answers.
             </DialogDescription>
           </DialogHeader>
-          <div className="research-provider-state">
-            <span className="source-logo source-logo-gemini">
-              <Globe2 />
-            </span>
-            <div>
-              <strong>{researchStatus?.label ?? 'AI web research'}</strong>
-              <small>{researchStatus?.model ?? 'Checking provider…'}</small>
-            </div>
-            <span
-              className={`connection-badge ${researchStatus?.configured ? 'connection-ready' : ''}`}
-            >
-              {researchStatus?.configured ? 'Connected' : 'Setup needed'}
-            </span>
-          </div>
+          <ResearchConnectionStatus
+            status={researchStatus}
+            checking={researchStatusLoading}
+            onRefresh={() => setResearchStatusRevision((value) => value + 1)}
+          />
           <fieldset className="research-output-shape">
             <legend>Output shape</legend>
             <div>
@@ -4375,23 +4397,12 @@ export default function PomadeWorkspace({
               evidence-backed list directly into this table.
             </DialogDescription>
           </DialogHeader>
-          <div className="research-provider-state">
-            <span className="source-logo source-logo-gemini">
-              <Building2 />
-            </span>
-            <div>
-              <strong>ICP company finder</strong>
-              <small>
-                {researchStatus?.label ?? 'AI web research'} ·{' '}
-                {researchStatus?.model ?? 'Checking provider…'}
-              </small>
-            </div>
-            <span
-              className={`connection-badge ${researchStatus?.configured ? 'connection-ready' : ''}`}
-            >
-              {researchStatus?.configured ? 'Connected' : 'Setup needed'}
-            </span>
-          </div>
+          <ResearchConnectionStatus
+            status={researchStatus}
+            checking={researchStatusLoading}
+            onRefresh={() => setResearchStatusRevision((value) => value + 1)}
+            title="ICP company finder"
+          />
           <label className="research-field">
             <span>Ideal customer profile</span>
             <textarea
@@ -4452,25 +4463,13 @@ export default function PomadeWorkspace({
               then add evidence-linked people as child rows.
             </DialogDescription>
           </DialogHeader>
-          <div className="research-provider-state">
-            <span className="source-logo source-logo-gemini">
-              <Users />
-            </span>
-            <div>
-              <strong>
-                {selectedValues.company || selectedValues.domain || 'Company'}
-              </strong>
-              <small>
-                {selectedValues.domain || 'No domain'} ·{' '}
-                {researchStatus?.label ?? 'AI web research'}
-              </small>
-            </div>
-            <span
-              className={`connection-badge ${researchStatus?.configured ? 'connection-ready' : ''}`}
-            >
-              {researchStatus?.configured ? 'Connected' : 'Setup needed'}
-            </span>
-          </div>
+          <ResearchConnectionStatus
+            status={researchStatus}
+            checking={researchStatusLoading}
+            onRefresh={() => setResearchStatusRevision((value) => value + 1)}
+            title={selectedValues.company || selectedValues.domain || 'Company'}
+            detail={`${selectedValues.domain || 'No domain'} · ${researchStatus?.label ?? 'AI web research'}`}
+          />
           <label className="research-field">
             <span>Roles and seniority</span>
             <textarea
@@ -4546,10 +4545,19 @@ export default function PomadeWorkspace({
               HTTP connections. Each request may consume provider credits or
               have effects defined by the endpoint
               {pendingRunMode === 'background'
-                ? ', while the durable worker continues after you close Pomade.'
+                ? '. Background jobs continue while Pomade’s local server is running.'
                 : '.'}
             </DialogDescription>
           </DialogHeader>
+          {pendingWebResearchColumns.some(
+            (column) => column.recipe === 'web-research',
+          ) ? (
+            <ResearchConnectionStatus
+              status={researchStatus}
+              checking={researchStatusLoading}
+              onRefresh={() => setResearchStatusRevision((value) => value + 1)}
+            />
+          ) : null}
           <div className="research-run-summary">
             <div>
               <span>Rows</span>
@@ -4568,14 +4576,7 @@ export default function PomadeWorkspace({
               <strong>{pendingListRowLimit}</strong>
             </div>
           </div>
-          {pendingWebResearchColumns.some(
-            (column) => column.recipe === 'web-research',
-          ) && !researchStatus?.configured ? (
-            <p className="research-warning" role="alert">
-              {researchStatus?.error ||
-                'Connect a research provider in your local settings and restart Pomade before this run.'}
-            </p>
-          ) : pendingResearchActionCount > pendingResearchActionLimit ? (
+          {pendingResearchActionCount > pendingResearchActionLimit ? (
             <p className="research-warning" role="alert">
               {pendingRunMode === 'background'
                 ? `One background job allows ${pendingResearchActionLimit} external requests across up to ${MAX_BACKGROUND_ROWS} rows.`
@@ -4624,7 +4625,7 @@ export default function PomadeWorkspace({
                 (pendingWebResearchColumns.some(
                   (column) => column.recipe === 'web-research',
                 ) &&
-                  !researchStatus?.configured) ||
+                  (researchStatusLoading || !researchStatus?.configured)) ||
                 pendingResearchActionCount === 0 ||
                 pendingResearchActionCount > pendingResearchActionLimit ||
                 jobSaving
@@ -5129,23 +5130,47 @@ export default function PomadeWorkspace({
                   <small>
                     {receipt.after || 'No output'} · {receipt.durationMs} ms
                   </small>
+                  {receipt.error ? (
+                    <p className="receipt-error">{receipt.error}</p>
+                  ) : null}
+                  {receipt.evidence?.length && !receipt.attempts?.length ? (
+                    <details>
+                      <summary>Result details</summary>
+                      <ul>
+                        {receipt.evidence.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
                   {receipt.attempts?.length ? (
                     <details>
                       <summary>
                         {receipt.attempts.length} provider attempts
                       </summary>
-                      {receipt.attempts.map((attempt, index) => (
-                        <p key={attempt.id}>
-                          {index + 1}. {attempt.action} ·{' '}
-                          {attempt.status === 'passed'
-                            ? 'accepted'
-                            : 'not accepted'}{' '}
-                          · {attempt.error ?? attempt.after ?? 'No result'} ·{' '}
-                          {attempt.durationMs} ms ·{' '}
-                          {attempt.creditsConsumed === null
-                            ? 'cost unknown'
-                            : `${attempt.creditsConsumed ?? 0} credits`}
-                        </p>
+                      {receipt.attempts.map((attempt) => (
+                        <div className="receipt-attempt" key={attempt.id}>
+                          <p>
+                            {attempt.action} ·{' '}
+                            {attempt.status === 'passed'
+                              ? 'accepted'
+                              : attempt.error
+                                ? 'provider error'
+                                : 'not accepted'}{' '}
+                            · {attempt.error || attempt.after || 'No result'} ·{' '}
+                            {attempt.durationMs} ms ·{' '}
+                            {attempt.creditsConsumed == null
+                              ? 'cost unknown'
+                              : `${attempt.creditsConsumed} credits`}
+                          </p>
+                          {attempt.evidence?.length ? (
+                            <ul>
+                              {attempt.evidence.map((item, detailIndex) => (
+                                <li key={detailIndex}>{item}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
                       ))}
                     </details>
                   ) : null}
@@ -5172,8 +5197,12 @@ export default function PomadeWorkspace({
                       </summary>
                       {receipt.browserVisits.map((visit, index) => (
                         <p key={`${visit.url}-${index}`}>
-                          {visit.status} · {visit.title || visit.url}
+                          {visit.status} ·{' '}
+                          <a href={visit.url} target="_blank" rel="noreferrer">
+                            {visit.title || visit.url}
+                          </a>
                           {visit.error ? ` · ${visit.error}` : ''}
+                          {visit.truncated ? ' · Page text was shortened' : ''}
                           {' · '}
                           {new Date(visit.visitedAt).toLocaleString()}
                         </p>
@@ -5181,9 +5210,21 @@ export default function PomadeWorkspace({
                       {receipt.references
                         ?.filter((reference) => reference.excerpt)
                         .map((reference, index) => (
-                          <blockquote key={`${reference.url}-${index}`}>
-                            {reference.excerpt}
-                          </blockquote>
+                          <figure
+                            className="receipt-quotation"
+                            key={`${reference.url}-${index}`}
+                          >
+                            <blockquote>{reference.excerpt}</blockquote>
+                            <figcaption>
+                              <a
+                                href={reference.url}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {reference.title || reference.url}
+                              </a>
+                            </figcaption>
+                          </figure>
                         ))}
                     </details>
                   ) : null}
@@ -5488,24 +5529,11 @@ export default function PomadeWorkspace({
             </span>
           </div>
 
-          <div className="enrichment-connection">
-            <span className="source-logo source-logo-gemini">
-              <Globe2 />
-            </span>
-            <div>
-              <strong>AI web research</strong>
-              <small>
-                {researchStatus?.configured
-                  ? `${researchStatus.label} + source citations`
-                  : 'Codex, Parallel or Gemini + source citations'}
-              </small>
-            </div>
-            <span
-              className={`connection-badge ${researchStatus?.configured ? 'connection-ready' : ''}`}
-            >
-              {researchStatus?.configured ? 'Connected' : 'Not configured'}
-            </span>
-          </div>
+          <ResearchConnectionStatus
+            status={researchStatus}
+            checking={researchStatusLoading}
+            onRefresh={() => setResearchStatusRevision((value) => value + 1)}
+          />
 
           {sourceError ? (
             <p className="source-error" role="alert">

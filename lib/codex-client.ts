@@ -51,14 +51,28 @@ export class CodexWebResearchClient {
       );
     }
     if (!response.ok) {
+      const details = (await response.json().catch(() => null)) as {
+        code?: string;
+      } | null;
+      const setupErrors: Record<string, string> = {
+        browser_unavailable:
+          'Install local Chromium with npm run research:browser:install, then check the connection again.',
+        chatgpt_login_required:
+          'Sign in to Codex with your ChatGPT account on this Mac, then check the connection again.',
+        codex_unavailable:
+          'The local helper could not start Codex. Check POMADE_CODEX_BIN and restart npm run research:codex.',
+      };
       const messages: Record<number, string> = {
         401: 'The local Codex connection token does not match.',
         429: 'Codex research is already running. Try this row again after it finishes.',
-        503: 'Sign in to Codex with your ChatGPT account on this Mac, then retry.',
+        503: 'The local research helper is not ready. Check its terminal, local browser installation and ChatGPT login, then check the connection again.',
         504: 'Codex research timed out. Try a narrower question.',
       };
       throw new Error(
-        messages[response.status] ||
+        (response.status === 503 &&
+          details?.code &&
+          setupErrors[details.code]) ||
+          messages[response.status] ||
           'Codex research failed. Check the local helper terminal and your subscription usage.',
       );
     }
@@ -68,12 +82,16 @@ export class CodexWebResearchClient {
     const data = (await this.request('/status')) as {
       configured?: unknown;
       browserAvailable?: unknown;
-    };
+    } | null;
+    if (data?.configured !== true)
+      throw new Error(
+        'Sign in to Codex with your ChatGPT account on this Mac, then check the connection again.',
+      );
     if (this.options.browser && data.browserAvailable !== true)
       throw new Error(
         'Install local Chromium with npm run research:browser:install, then restart the Codex helper.',
       );
-    return { configured: data?.configured === true };
+    return { configured: true };
   }
   async research(prompt: string): Promise<WebResearchResult> {
     const raw = await this.request('/research', {

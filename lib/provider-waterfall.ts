@@ -124,6 +124,7 @@ export async function executeProviderWaterfall(
   let value = '',
     winner = '',
     error: string | undefined;
+  let stoppedEarly = false;
   for (const [index, step] of config.steps.entries()) {
     const label =
       connections.find((c) => c.id === step.connectionId)?.label ||
@@ -199,17 +200,23 @@ export async function executeProviderWaterfall(
     }
     if (receipt.error) {
       error = receipt.error;
-      if (!config.continueOnError || receipt.error === 'HTTP 451') break;
+      if (!config.continueOnError || receipt.error === 'HTTP 451') {
+        stoppedEarly = true;
+        break;
+      }
     }
   }
+  const providerErrors = attempts.filter((attempt) => attempt.error).length;
   const values = {
     [column.id]: value,
     [config.winnerColumnId]: winner,
     [config.statusColumnId]: winner
-      ? `Accepted after ${attempts.length} attempt(s)`
-      : error
+      ? `Accepted after ${attempts.length} ${attempts.length === 1 ? 'attempt' : 'attempts'}`
+      : stoppedEarly
         ? `Stopped: ${error}`
-        : 'No provider returned an acceptable value',
+        : error
+          ? `All providers tried; no acceptable value. ${providerErrors} provider ${providerErrors === 1 ? 'error' : 'errors'}.`
+          : 'No provider returned an acceptable value',
   };
   const sent = attempts.some((a) => a.provider === 'http');
   const receipt: ActionReceipt = {

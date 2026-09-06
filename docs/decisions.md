@@ -854,3 +854,16 @@ Block private-network destinations and non-read methods because public websites
 are untrusted and the reader runs alongside the user's local services. Leave
 logged-in sessions, arbitrary UI actions and other model providers for a later
 requested slice.
+
+## Research and enrichment usability, 2026-09-05
+
+Load saved tables independently of provider readiness. The existing research
+dialogs share a connection check with an explicit refresh action; missing browser
+installation, missing ChatGPT login and an unavailable Codex executable produce
+different setup instructions. Checking readiness does not run enrichment.
+
+Email waterfall presets bind to columns selected in the table. Preset request
+details remain editable under advanced settings, while custom requests preserve
+their explicit inputs. Receipts expose recorded rejection reasons and source
+quotes. Exhausting a chain after a recoverable provider error is distinct from
+stopping early; both retain the underlying error for review.

@@ -2,41 +2,40 @@
 
 ## Finished
 
-- Pomade's Codex research provider now opens public websites in local Playwright/Chromium. The model chooses relevant links through a read-only browser MCP tool and returns the existing typed table outputs.
-- Browser mode is enabled on this Mac. Each research request gets an isolated browser with a six-page budget; the browser starts and closes automatically through the existing Codex helper.
-- Citations require an exact quotation from a successfully visited final URL. Run receipts expose browser visits, timestamps, outcomes and checked quotations; row evidence and cached results preserve them.
-- Live research passed for HealthEdge, Clearwater Security and Solera in **DemandDrive — Local browser research**. Each read its homepage plus a relevant second page: six pages and seven checked quotations total.
-- All three repeat runs reused cached browser results. The same work ran through Pomade's previously registered MCP connection. Nothing was published or pushed to GitHub.
+- Saved tables load independently of provider checks, so a slow research helper no longer holds up the grid.
+- All five research entry points share a readiness card with **Check again**, local-browser scope and actionable setup errors. Missing Chromium, missing ChatGPT login and an unavailable Codex executable are distinguished.
+- Email waterfall presets use selectable name/domain columns, show the chosen provider and keep request details under advanced settings in a scrollable dialog. Failed connection checks can be retried; setup makes the remaining mobile-lookup gap explicit.
+- Run receipts display errors and rejection evidence, readable provider attempts, linked browser visits and individually linked quotations. An exhausted waterfall with provider errors no longer incorrectly reports an early stop.
+- Updated local preview and research helper are running. The three existing DemandDrive tables retained identical rows and columns across the restart. No new enrichment requests, CRM writes or public publishing occurred.
 
 ## Try It
 
-Open http://localhost:8798 and select **DemandDrive — Local browser research**. Inspect the offering, business-customer flag and target-customer fields, then open a run receipt's **Browser visits** section.
+Reload http://localhost:8798. Open **Add AI web research** or **Sources** (the **Load data** panel) and use **Check again**. The card should report **Codex + local browser**, ready for public websites.
 
-The local preview and Codex helper are running. After restarting the Mac, run `npm run research:codex` and `npm run start -- --port 8798` in separate terminals. Installation and switching modes are in `docs/local-browser-research.md`.
+Open **Provider waterfall**, select the full-name and domain columns, then choose an email preset for each attempt. Expand **Advanced request settings** only when needed. Creating the columns does not consume provider credits.
 
-Use the existing research editor or MCP `run_recipe` tool for another question. Keep synchronous browser calls to one account at a time. Mode changes require rebuilding and restarting the preview.
+Open an existing run receipt. Expand provider attempts or browser visits to see rejection reasons and linked source quotes.
 
 ## Checks
 
-- 23 focused tests passed, including real Chromium rendering, link navigation, blocked pages, page budgets, POST blocking, private URL rejection, quotation validation and research persistence.
-- TypeScript, lint, script syntax checks and production build passed.
-- Three live account runs passed with six recorded page reads and seven accepted quotations; all results persisted. A three-row repeat hit the cache for every row.
-- Private evidence: `outputs/browser-research-live.json`.
+- 26 focused tests passed across provider waterfall, provider presets and the local research client/helper. The regressions cover exhausted chains, distinct setup errors and readiness after setup is repaired.
+- TypeScript, lint, helper script syntax, production build and Git whitespace checks passed.
+- Live local HTTP 200; research readiness confirmed; Apollo company/people, Hunter and Prospeo connections present. Three DemandDrive table content hashes matched before and after restart.
+- Browser interaction and visual QA were not performed.
 
 ## Decisions
 
-- Reuse the subscription helper, recipe pipeline, cache and MCP interface; run browsers locally for personal batches.
-- Check source quotations against actually returned page text. Missing/blocked evidence stays unknown or in review.
-- Keep clean public-site browser contexts; preserve the user's signed-in Chrome profile separately.
+- Preserve the current public-browser workflow and local-only iteration; no new provider accounts or Chrome extension in this polish pass.
+- Show ordinary missing data separately from provider errors; retain unknown credit costs and the underlying evidence.
 
 ## Remaining
 
-- Authenticated websites, broader UI interactions, alternate LLM providers and larger evaluations.
-- Whole-market discovery and easier conversational creation of tables/recipes.
-- Mid-research recovery across helper crashes; the existing pipeline already retains completed rows.
+- Configure and live-test a mobile-number waterfall with phone-type evidence and provider access.
+- Add an optional signed-in Chrome research method; the reviewed see project remains inspiration only.
+- Easier local startup and CRM credential renewal remain future usability work.
 
 ## Review First
 
-- `docs/local-browser-research.md` and the new table's run receipts.
-- `scripts/research-browser.mjs` and `scripts/codex-research.mjs`.
-- `outputs/browser-research-live.json` for the six-page live check and cache replay.
+- `components/provider-waterfall-builder.tsx` and `components/research-connection-status.tsx`.
+- `components/pomade-workspace.tsx` connection loading and receipt details.
+- `lib/provider-waterfall.test.ts` and `lib/codex-client.test.ts`.

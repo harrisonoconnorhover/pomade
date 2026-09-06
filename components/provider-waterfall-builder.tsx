@@ -25,7 +25,9 @@ import type {
   HttpProviderStep,
   ProviderWaterfall,
 } from '@/lib/pomade-types';
-const blank = (): HttpProviderStep => ({
+type EmailProvider = Parameters<typeof emailProviderStep>[0];
+type StepDraft = HttpProviderStep & { quickSetup?: EmailProvider };
+const blank = (): StepDraft => ({
   connectionId: '',
   method: 'GET',
   pathTemplate: '/enrich?domain={{domain}}',
@@ -42,12 +44,31 @@ export default function ProviderWaterfallBuilder({
   workspace: WorkspaceSnapshot;
   onAdd: (columns: PomadeColumn[]) => void;
 }) {
-  const [connections, setConnections] = useState<HttpConnectionSummary[]>([]);
+  const [connectionResult, setConnectionResult] = useState<{
+    revision: number;
+    connections: HttpConnectionSummary[];
+    error: string;
+  }>({ revision: -1, connections: [], error: '' });
+  const { connections, error } = connectionResult;
   const [title, setTitle] = useState('Provider result');
-  const [steps, setSteps] = useState<HttpProviderStep[]>([blank(), blank()]);
+  const [steps, setSteps] = useState<StepDraft[]>([blank(), blank()]);
+  const inputColumns = workspace.columns.filter(
+    (column) => column.kind !== 'status',
+  );
+  const [personColumn, setPersonColumn] = useState(
+    inputColumns.some((column) => column.id === 'person') ? 'person' : '',
+  );
+  const [domainColumn, setDomainColumn] = useState(
+    inputColumns.some((column) => column.id === 'domain') ? 'domain' : '',
+  );
+  const presetInputsReady =
+    [personColumn, domainColumn].every((id) =>
+      inputColumns.some((column) => column.id === id),
+    ) && personColumn !== domainColumn;
   const [accept, setAccept] = useState<ProviderWaterfall['accept']>('nonempty');
   const [continueOnError, setContinueOnError] = useState(false);
-  const [error, setError] = useState('');
+  const [connectionRevision, setConnectionRevision] = useState(0);
+  const loading = connectionResult.revision !== connectionRevision;
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -59,15 +80,30 @@ export default function ProviderWaterfallBuilder({
         };
         if (!r.ok || !data.connections)
           throw new Error(data.error ?? 'Connections could not be loaded.');
-        if (!cancelled) setConnections(data.connections);
+        if (!cancelled)
+          setConnectionResult({
+            revision: connectionRevision,
+            connections: data.connections,
+            error: '',
+          });
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled) {
+          setConnectionResult({
+            revision: connectionRevision,
+            connections: [],
+            error: e.message,
+          });
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, connectionRevision]);
+  function changeOpen(nextOpen: boolean) {
+    if (!nextOpen) setConnectionRevision((value) => value + 1);
+    onOpenChange(nextOpen);
+  }
   const id = title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
@@ -75,10 +111,14 @@ export default function ProviderWaterfallBuilder({
   let columns: PomadeColumn[] | undefined;
   let validation = '';
   try {
+    if (steps.some((step) => step.quickSetup) && !presetInputsReady)
+      throw new Error(
+        'Choose separate name and website columns for the email presets.',
+      );
     columns = createProviderWaterfall(workspace, {
       id,
       title,
-      steps,
+      steps: steps.map(({ quickSetup: _quickSetup, ...step }) => step),
       accept,
       continueOnError,
     });
@@ -97,12 +137,28 @@ export default function ProviderWaterfallBuilder({
   }
   function edit(index: number, patch: Partial<HttpProviderStep>) {
     setSteps((current) =>
-      current.map((step, i) => (i === index ? { ...step, ...patch } : step)),
+      current.map((step, i) =>
+        i === index ? { ...step, ...patch, quickSetup: undefined } : step,
+      ),
+    );
+  }
+  function updatePresetInputs(person: string, domain: string) {
+    setPersonColumn(person);
+    setDomainColumn(domain);
+    setSteps((current) =>
+      current.map((step) =>
+        step.quickSetup
+          ? {
+              ...emailProviderStep(step.quickSetup, person, domain),
+              quickSetup: step.quickSetup,
+            }
+          : step,
+      ),
     );
   }
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="template-dialog">
+    <Dialog open={open} onOpenChange={changeOpen}>
+      <DialogContent className="template-dialog provider-waterfall-dialog">
         <DialogHeader>
           <DialogTitle>Provider waterfall</DialogTitle>
           <DialogDescription>
@@ -115,30 +171,96 @@ export default function ProviderWaterfallBuilder({
           Result column name
           <input value={title} onChange={(e) => setTitle(e.target.value)} />
         </label>
-        {!connections.length ? (
+        <fieldset>
+          <legend>Email preset inputs</legend>
+          <div className="http-output-grid">
+            <label>
+              Person’s full name
+              <select
+                value={personColumn}
+                onChange={(e) =>
+                  updatePresetInputs(e.target.value, domainColumn)
+                }
+              >
+                <option value="">Choose a column</option>
+                {inputColumns.map((column) => (
+                  <option key={column.id} value={column.id}>
+                    {column.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Company domain (example.com)
+              <select
+                value={domainColumn}
+                onChange={(e) =>
+                  updatePresetInputs(personColumn, e.target.value)
+                }
+              >
+                <option value="">Choose a column</option>
+                {inputColumns.map((column) => (
+                  <option key={column.id} value={column.id}>
+                    {column.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <p>
-            Configure HTTP provider connections in .env.local first. Each
-            provider keeps its own server-side credentials.
+            Quick setup uses these columns for verified work email. Mobile
+            lookup is not included in these presets.
           </p>
+        </fieldset>
+        {loading ? (
+          <output>Checking available providers…</output>
+        ) : !connections.length ? (
+          <p>
+            No provider connections are available. Add a provider key in your
+            local settings and restart Pomade.
+          </p>
+        ) : null}
+        {!loading && error ? (
+          <Button
+            variant="outline"
+            onClick={() => setConnectionRevision((value) => value + 1)}
+          >
+            Check providers again
+          </Button>
         ) : null}
         {steps.map((step, index) => (
           <fieldset key={index}>
-            <legend>Attempt {index + 1}</legend>
+            <legend>
+              Attempt {index + 1}
+              {step.connectionId
+                ? ` · ${connections.find((connection) => connection.id === step.connectionId)?.label ?? step.connectionId}`
+                : ''}
+            </legend>
             <label>
               Quick setup
               <select
                 aria-label={`Provider preset ${index + 1}`}
-                value=""
+                value={step.quickSetup ?? ''}
+                disabled={loading || !presetInputsReady}
                 onChange={(e) => {
                   if (e.target.value) {
-                    edit(
-                      index,
-                      emailProviderStep(
-                        e.target.value as 'hunter' | 'apollo' | 'prospeo',
+                    const provider = e.target.value as EmailProvider;
+                    setSteps((current) =>
+                      current.map((item, i) =>
+                        i === index
+                          ? {
+                              ...emailProviderStep(
+                                provider,
+                                personColumn,
+                                domainColumn,
+                              ),
+                              quickSetup: provider,
+                            }
+                          : item,
                       ),
                     );
                     setAccept('verified-email');
-                  }
+                  } else edit(index, {});
                 }}
               >
                 <option value="">Custom request or choose a preset</option>
@@ -168,103 +290,117 @@ export default function ProviderWaterfallBuilder({
                 </option>
               </select>
             </label>
-            <div className="http-output-grid">
-              <label>
-                Connection
-                <select
-                  value={step.connectionId}
-                  onChange={(e) =>
-                    edit(index, { connectionId: e.target.value })
-                  }
-                >
-                  <option value="">Choose provider</option>
-                  {connections.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Method
-                <select
-                  value={step.method}
-                  onChange={(e) =>
-                    edit(index, { method: e.target.value as 'GET' | 'POST' })
-                  }
-                >
-                  <option>GET</option>
-                  <option>POST</option>
-                </select>
-              </label>
-              <label>
-                Relative path
-                <input
-                  value={step.pathTemplate}
-                  onChange={(e) =>
-                    edit(index, { pathTemplate: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Result JSON path
-                <input
-                  value={step.responsePath}
-                  onChange={(e) =>
-                    edit(index, { responsePath: e.target.value })
-                  }
-                />
-              </label>
-            </div>
-            {verifiedAcceptance(accept) ? (
+            {!presetInputsReady ? (
+              <p>
+                Choose separate name and website columns above to use a preset.
+              </p>
+            ) : null}
+            <details
+              className="provider-request-settings"
+              open={step.quickSetup ? undefined : true}
+            >
+              <summary>
+                {step.quickSetup
+                  ? 'Advanced request settings'
+                  : 'Custom request settings'}
+              </summary>
               <div className="http-output-grid">
                 <label>
-                  Verification status JSON path
-                  <input
-                    value={step.verification?.path ?? ''}
-                    placeholder="data.verification.status"
+                  Connection
+                  <select
+                    value={step.connectionId}
                     onChange={(e) =>
-                      edit(index, {
-                        verification: {
-                          path: e.target.value,
-                          acceptedValues: step.verification?.acceptedValues ?? [
-                            'valid',
-                          ],
-                        },
-                      })
+                      edit(index, { connectionId: e.target.value })
+                    }
+                  >
+                    <option value="">Choose provider</option>
+                    {connections.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Method
+                  <select
+                    value={step.method}
+                    onChange={(e) =>
+                      edit(index, { method: e.target.value as 'GET' | 'POST' })
+                    }
+                  >
+                    <option>GET</option>
+                    <option>POST</option>
+                  </select>
+                </label>
+                <label>
+                  Relative path
+                  <input
+                    value={step.pathTemplate}
+                    onChange={(e) =>
+                      edit(index, { pathTemplate: e.target.value })
                     }
                   />
                 </label>
                 <label>
-                  Verified status values from this provider (comma separated)
+                  Result JSON path
                   <input
-                    value={step.verification?.acceptedValues.join(', ') ?? ''}
-                    placeholder="valid"
+                    value={step.responsePath}
                     onChange={(e) =>
-                      edit(index, {
-                        verification: {
-                          path: step.verification?.path ?? '',
-                          acceptedValues: e.target.value
-                            .split(',')
-                            .map((v) => v.trim()),
-                        },
-                      })
+                      edit(index, { responsePath: e.target.value })
                     }
                   />
                 </label>
               </div>
-            ) : null}
-            {step.method === 'POST' ? (
-              <label>
-                JSON body
-                <textarea
-                  value={step.bodyTemplate ?? '{}'}
-                  onChange={(e) =>
-                    edit(index, { bodyTemplate: e.target.value })
-                  }
-                />
-              </label>
-            ) : null}
+              {verifiedAcceptance(accept) ? (
+                <div className="http-output-grid">
+                  <label>
+                    Verification status JSON path
+                    <input
+                      value={step.verification?.path ?? ''}
+                      placeholder="data.verification.status"
+                      onChange={(e) =>
+                        edit(index, {
+                          verification: {
+                            path: e.target.value,
+                            acceptedValues: step.verification
+                              ?.acceptedValues ?? ['valid'],
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Verified status values from this provider (comma separated)
+                    <input
+                      value={step.verification?.acceptedValues.join(', ') ?? ''}
+                      placeholder="valid"
+                      onChange={(e) =>
+                        edit(index, {
+                          verification: {
+                            path: step.verification?.path ?? '',
+                            acceptedValues: e.target.value
+                              .split(',')
+                              .map((v) => v.trim()),
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              ) : null}
+              {step.method === 'POST' ? (
+                <label>
+                  JSON body
+                  <textarea
+                    value={step.bodyTemplate ?? '{}'}
+                    onChange={(e) =>
+                      edit(index, { bodyTemplate: e.target.value })
+                    }
+                  />
+                </label>
+              ) : null}
+            </details>
             <Button
               variant="outline"
               disabled={index === 0}
@@ -335,16 +471,20 @@ export default function ProviderWaterfallBuilder({
           catch-all statuses in the presets fall through. Phone numbers must
           include a country code. A format-only result is not verification. Use
           row tokens such as {'{{domain}}'} in paths and JSON string values.
-          Presets use the person and domain columns; change the tokens for other
-          inputs.
+          Verified phone status does not establish whether a number is a mobile
+          number or a company switchboard.
         </p>
-        {error || validation ? <p role="alert">{error || validation}</p> : null}
+        {!loading && (error || validation) ? (
+          <p role="alert">{error || validation}</p>
+        ) : null}
         <Button
-          disabled={!columns || Boolean(validation)}
+          disabled={
+            loading || Boolean(error) || !columns || Boolean(validation)
+          }
           onClick={() => {
             if (columns) {
               onAdd(columns);
-              onOpenChange(false);
+              changeOpen(false);
             }
           }}
         >
