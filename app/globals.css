@@ -3596,3 +3596,51 @@ button {
   color: var(--muted-foreground);
   white-space: nowrap;
 }
+
+.source-card > label,
+.source-card > .hubspot-segment-picker {
+  grid-column: 1 / -1;
+}
+.source-card label,
+.source-card > .hubspot-segment-picker {
+  display: grid;
+  gap: 7px;
+  font-size: 11px;
+}
+.source-card select,
+.source-card input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d7dad4;
+  border-radius: 6px;
+  padding: 7px;
+  background: #fff;
+  font-size: 11px;
+}
+.hubspot-segment-picker > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px;
+  border: 1px solid #d7dad4;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 10px;
+}
+.hubspot-segment-picker > button svg {
+  width: 12px;
+  height: 12px;
+}
+.source-help {
+  margin: 0;
+  font-size: 11px;
+  color: #627469;
+  line-height: 1.5;
+}
+.source-pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}

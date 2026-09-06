@@ -879,3 +879,14 @@ stopping early; both retain the underlying error for review.
 - Route hosted subscription research through an outbound Mac companion and D1
   jobs. Persist partial row progress and an acknowledged-result outbox; reuse the
   existing isolated Codex/Playwright helper rather than exposing its local port.
+
+## HubSpot segment imports
+
+- Segment selection is explicit and separated from record loading. Fetch all
+  catalog pages for the chosen object, then preview only its member IDs. Keep the
+  unfiltered CRM preview as an explicitly labeled option.
+- Use the existing CRM import and native-ID merge behavior. Load member pages in
+  batches of at most 100 and retain the selected segment in source metadata;
+  do not silently import only the first page or automatically refresh membership.
+- Keep the existing 100-column/5,000-row capacities. New provider subscriptions
+  remain recommendations until Harrison chooses a budget and authorizes a purchase.

@@ -1,3 +1,4 @@
+import { HubSpotSegmentError } from '@/lib/hubspot-segments';
 import { env } from 'cloudflare:workers';
 
 import { readCrmSource } from '@/lib/crm-sources';
@@ -54,6 +55,8 @@ export async function POST(request: Request) {
 
     const preview = await readCrmSource(provider, limit, {
       objectType: (body as { objectType?: CrmObjectType }).objectType,
+      segmentId: (body as { segmentId?: string }).segmentId,
+      after: (body as { after?: string }).after,
       fields: (body as { fields?: string[] }).fields,
       recordIds: (body as { recordIds?: string[] }).recordIds,
       hubSpotAccessToken: env.HUBSPOT_ACCESS_TOKEN,
@@ -67,6 +70,9 @@ export async function POST(request: Request) {
       error instanceof Error
         ? error.message
         : 'The CRM source could not be read.';
-    return Response.json({ error: message }, { status: 502 });
+    return Response.json(
+      { error: message },
+      { status: error instanceof HubSpotSegmentError ? error.status : 502 },
+    );
   }
 }

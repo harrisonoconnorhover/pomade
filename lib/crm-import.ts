@@ -156,6 +156,11 @@ export function applyCrmImport(
           properties.map((name) => `crm_property_${name}`),
         );
 
+  if (rows.length > 5_000)
+    throw new Error(
+      'This import exceeds the table’s 5,000-row capacity. Use a smaller segment or another table.',
+    );
+
   return {
     ...workspace,
     name: mode === 'replace' ? preview.sourceLabel : workspace.name,
@@ -165,6 +170,7 @@ export function applyCrmImport(
     source: {
       provider: preview.provider,
       label: preview.sourceLabel,
+      ...(preview.segment ? { segment: preview.segment } : {}),
       importedAt: Date.parse(preview.readAt) || Date.now(),
     },
   };
@@ -216,4 +222,32 @@ function appendRows(
     };
   }
   return normalized;
+}
+
+export function mergeCrmSourcePages(
+  current: CrmSourcePreview,
+  page: CrmSourcePreview,
+): CrmSourcePreview {
+  if (
+    !current.segment ||
+    !page.segment ||
+    current.provider !== page.provider ||
+    current.segment.id !== page.segment.id ||
+    current.segment.objectType !== page.segment.objectType
+  ) {
+    throw new Error('The preview source changed. Start a fresh preview.');
+  }
+  const contacts = [
+    ...new Map(
+      [...current.contacts, ...page.contacts].map((contact) => [
+        contact.nativeId,
+        contact,
+      ]),
+    ).values(),
+  ];
+  if (contacts.length > 5_000)
+    throw new Error(
+      'A table can hold up to 5,000 rows. Import this page selection into a table before continuing separately.',
+    );
+  return { ...page, contacts, readAt: current.readAt };
 }

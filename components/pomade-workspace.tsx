@@ -82,7 +82,12 @@ import {
 import RunConditionEditor from './run-condition-editor';
 import { conditionOperators, conditionNeedsValue } from '@/lib/run-conditions';
 import CrmSyncBuilder from './crm-sync-builder';
-import { applyCrmImport, type CrmImportMode } from '@/lib/crm-import';
+import HubSpotSegmentPicker from './hubspot-segment-picker';
+import {
+  applyCrmImport,
+  mergeCrmSourcePages,
+  type CrmImportMode,
+} from '@/lib/crm-import';
 import {
   deleteWorkspaceColumn,
   findColumnDependencies,
@@ -603,6 +608,7 @@ export default function PomadeWorkspace({
     hubspot: 'contact',
     salesforce: 'lead',
   });
+  const [hubSpotSegmentId, setHubSpotSegmentId] = useState('');
   const [sourceLoading, setSourceLoading] = useState<CrmProvider>();
   const [sourceError, setSourceError] = useState('');
   const [sourcePreview, setSourcePreview] = useState<CrmSourcePreview>();
@@ -2409,10 +2415,11 @@ export default function PomadeWorkspace({
     }
   }
 
-  async function previewCrmSource(provider: CrmProvider) {
+  async function previewCrmSource(provider: CrmProvider, after?: string) {
+    const previous = sourcePreview;
     setSourceLoading(provider);
     setSourceError('');
-    setSourcePreview(undefined);
+    if (!after) setSourcePreview(undefined);
     try {
       const response = await fetch('/api/providers/crm', {
         method: 'POST',
@@ -2420,11 +2427,20 @@ export default function PomadeWorkspace({
         body: JSON.stringify({
           provider,
           objectType: sourceObjects[provider],
-          fields: sourceFields[provider]
-            .split(',')
-            .map((f) => f.trim())
-            .filter(Boolean),
-          limit: 50,
+          segmentId:
+            provider === 'hubspot' && hubSpotSegmentId !== 'all'
+              ? hubSpotSegmentId
+              : undefined,
+          after,
+          fields: after
+            ? previous?.fields
+            : sourceFields[provider]
+                .split(',')
+                .map((f) => f.trim())
+                .filter(Boolean),
+          limit: after
+            ? Math.min(100, 5_000 - (previous?.contacts.length ?? 0))
+            : 100,
         }),
       });
       const result = (await response.json()) as {
@@ -2434,7 +2450,11 @@ export default function PomadeWorkspace({
       if (!response.ok || !result.preview) {
         throw new Error(result.error || 'The CRM source could not be read.');
       }
-      setSourcePreview(result.preview);
+      setSourcePreview(
+        after && previous
+          ? mergeCrmSourcePages(previous, result.preview)
+          : result.preview,
+      );
     } catch (error) {
       setSourceError(
         error instanceof Error
@@ -2448,7 +2468,17 @@ export default function PomadeWorkspace({
 
   function importCrmPreview(mode: CrmImportMode) {
     if (!sourcePreview) return;
-    const imported = applyCrmImport(workspace, sourcePreview, mode);
+    let imported: WorkspaceSnapshot;
+    try {
+      imported = applyCrmImport(workspace, sourcePreview, mode);
+    } catch (error) {
+      setSourceError(
+        error instanceof Error
+          ? error.message
+          : 'The CRM records could not be imported.',
+      );
+      return;
+    }
     const next =
       mode === 'replace' && imported.schedule?.enabled
         ? {
@@ -5488,6 +5518,7 @@ export default function PomadeWorkspace({
                           ...sourceObjects,
                           [provider]: e.target.value,
                         });
+                        if (provider === 'hubspot') setHubSpotSegmentId('');
                         setSourcePreview(undefined);
                       }}
                     >
@@ -5501,11 +5532,25 @@ export default function PomadeWorkspace({
                       ))}
                     </select>
                   </div>
+                  {provider === 'hubspot' ? (
+                    <HubSpotSegmentPicker
+                      objectType={sourceObjects.hubspot}
+                      value={hubSpotSegmentId}
+                      active={sourcesOpen && status.configured}
+                      disabled={Boolean(sourceLoading)}
+                      onChange={(id) => {
+                        setHubSpotSegmentId(id);
+                        setSourcePreview(undefined);
+                        setSourceError('');
+                      }}
+                    />
+                  ) : null}
                   <label>
                     Extra CRM properties (optional)
                     <input
                       aria-label={`${provider} extra properties`}
                       value={sourceFields[provider]}
+                      disabled={Boolean(sourceLoading)}
                       placeholder={
                         provider === 'hubspot'
                           ? 'pomade_icp_score, pomade_signal_tags'
@@ -5528,14 +5573,18 @@ export default function PomadeWorkspace({
                   <button
                     type="button"
                     onClick={() => previewCrmSource(provider)}
-                    disabled={!status.configured || Boolean(sourceLoading)}
+                    disabled={
+                      !status.configured ||
+                      Boolean(sourceLoading) ||
+                      (provider === 'hubspot' && !hubSpotSegmentId)
+                    }
                   >
                     {loading ? (
                       <LoaderCircle className="spin" />
                     ) : (
                       <RefreshCw />
                     )}
-                    {loading ? 'Reading…' : 'Preview 50'}
+                    {loading ? 'Reading…' : 'Preview up to 100'}
                   </button>
                 </article>
               );
@@ -5600,6 +5649,44 @@ export default function PomadeWorkspace({
                   </div>
                 ))}
               </div>
+              {!sourcePreview.contacts.length ? (
+                <p className="source-help">
+                  No matching records in this segment.
+                </p>
+              ) : null}
+              {sourcePreview.truncated ? (
+                <div className="source-pagination">
+                  <p className="source-help">
+                    {sourcePreview.contacts.length} records loaded. More records
+                    are available
+                    {sourcePreview.segment ? ' in this segment' : ' in the CRM'}
+                    .
+                  </p>
+                  {sourcePreview.nextAfter ? (
+                    <Button
+                      variant="outline"
+                      disabled={
+                        Boolean(sourceLoading) ||
+                        sourcePreview.contacts.length >= 5_000
+                      }
+                      onClick={() =>
+                        void previewCrmSource(
+                          sourcePreview.provider,
+                          sourcePreview.nextAfter,
+                        )
+                      }
+                    >
+                      {sourceLoading ? 'Loading…' : 'Load next 100'}
+                    </Button>
+                  ) : null}
+                  {sourcePreview.contacts.length >= 5_000 ? (
+                    <p className="source-help">
+                      This table has reached its 5,000-row capacity. Use a
+                      smaller HubSpot segment for another table.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="source-preview-actions">
                 <p>
                   Append merges by CRM record ID and preserves recipe results.
@@ -5608,13 +5695,21 @@ export default function PomadeWorkspace({
                 <Button
                   variant="outline"
                   onClick={() => importCrmPreview('replace')}
-                  disabled={jobLocksWorkspace}
+                  disabled={
+                    jobLocksWorkspace ||
+                    Boolean(sourceLoading) ||
+                    !sourcePreview.contacts.length
+                  }
                 >
                   Replace rows
                 </Button>
                 <Button
                   onClick={() => importCrmPreview('append')}
-                  disabled={jobLocksWorkspace}
+                  disabled={
+                    jobLocksWorkspace ||
+                    Boolean(sourceLoading) ||
+                    !sourcePreview.contacts.length
+                  }
                 >
                   Append records
                 </Button>

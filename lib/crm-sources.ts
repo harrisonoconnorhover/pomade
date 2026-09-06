@@ -1,3 +1,7 @@
+import {
+  readHubSpotSegmentPage,
+  HubSpotSegmentError,
+} from './hubspot-segments';
 import type {
   CrmProvider,
   CrmObjectType,
@@ -7,6 +11,8 @@ import type {
 
 export type CrmSourceOptions = {
   objectType?: CrmObjectType;
+  segmentId?: string;
+  after?: string;
   recordIds?: string[];
   fields?: string[];
   hubSpotAccessToken?: string;
@@ -351,6 +357,42 @@ export async function readCrmSource(
   )
     throw new Error('Choose up to 20 valid CRM property names.');
   const limit = normalizeLimit(requestedLimit);
+  if (options.segmentId !== undefined || options.after !== undefined) {
+    if (
+      provider !== 'hubspot' ||
+      typeof options.segmentId !== 'string' ||
+      options.recordIds !== undefined
+    ) {
+      throw new HubSpotSegmentError(
+        'Choose a HubSpot segment without an additional record-ID filter.',
+        400,
+      );
+    }
+    const page = await readHubSpotSegmentPage(
+      options.segmentId,
+      object as 'contact' | 'company',
+      limit,
+      options.after,
+      options,
+    );
+    // An empty segment must never fall through to the unfiltered CRM reader.
+    const members = page.recordIds.length
+      ? await readHubSpot(limit, { ...options, recordIds: page.recordIds })
+      : [];
+    const byId = new Map(members.map((member) => [member.nativeId, member]));
+    return {
+      provider,
+      sourceLabel: `HubSpot ${object === 'company' ? 'companies' : 'contacts'} · ${page.segment.name}`,
+      segment: page.segment,
+      fields: options.fields,
+      contacts: page.recordIds.flatMap((id) =>
+        byId.has(id) ? [byId.get(id)!] : [],
+      ),
+      truncated: Boolean(page.nextAfter),
+      nextAfter: page.nextAfter,
+      readAt: (options.now ?? (() => new Date()))().toISOString(),
+    };
+  }
   const contacts =
     provider === 'hubspot'
       ? await readHubSpot(limit, options)

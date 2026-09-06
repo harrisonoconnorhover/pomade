@@ -49,3 +49,35 @@ The follow-up after adding pacing and NO_MATCH handling completed without
 technical errors. This establishes working fallback, not universal coverage.
 Private results and current balances are in `outputs/codex-and-free-enrichment.json`
 and `outputs/provider-credit-balances.json`.
+
+## Small-budget testing priorities
+
+Pricing checked September 5, 2026 against the providers' own pages. This is a
+recommendation, not a purchase or a claim that a new phone adapter is connected.
+
+| Priority | Provider | Practical test budget | Why use it next |
+|---|---|---|---|
+| Keep | Hunter | Free: 50 credits/month. One found email costs 1 credit; verification costs 0.5. | Existing email fallback plus independent verification of imported emails. |
+| Extend next | Prospeo | Free: 100 credits/month; mobile enrichment costs 10 credits/result, including email. Free API access is limited. | We already have a working email connection. Check the account's mobile endpoint entitlement before spending on another plan. Phone access has not been live-verified. |
+| First new paid provider | LeadMagic | Basic: $49.99/month for 2,000 credits. Email: 1; mobile: 5; email validation: 0.25. Full enrichment API included. | Adds an independent mobile source and email verifier. If spent entirely on successful mobiles, the allowance covers up to 400; email lookups share that balance. |
+| Later | Dropcontact | Starter listed at €79/month; 50-credit trial offered. | Useful for another email source, but less valuable than filling our mobile gap first. |
+
+With less than $25/month available, use the existing free accounts first. Around
+$50/month, test one month of LeadMagic and measure its additional matches before
+adding a second paid subscription. Match rates and number ownership still need
+measurement on our records; a vendor's verified label is not proof of delivery or
+a successful call. No paid plan was purchased in this update.
+
+Use a fixed set of 20–30 known business contacts and track, per provider: verified
+emails, mobiles versus office numbers, additional matches after earlier providers
+missed, provider errors, credits consumed, and cost per additional valid result.
+Keep no-match, catch-all, invalid, rate-limited and missing-access outcomes separate.
+
+Sources: [Hunter pricing](https://hunter.io/pricing),
+[Prospeo plans](https://help.prospeo.io/en/article/plans-and-pricing-overview-cdloq9/),
+[Prospeo credit costs](https://help.prospeo.io/en/article/how-prospeo-credits-work-yso5gk/),
+[LeadMagic pricing](https://leadmagic.io/pricing),
+[Dropcontact pricing](https://www.dropcontact.com/es/precios).
+Stripe Directory discovery used `"contact enrichment API"` and
+`"email verification"`, without filters. The completed email-verification search
+returned no matches; recommendations above use the official provider sources.
