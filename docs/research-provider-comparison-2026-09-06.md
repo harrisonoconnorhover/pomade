@@ -2,6 +2,8 @@
 
 Measured September 6, 2026 on HealthEdge, Clearwater Security and Solera. **Use Parallel for a cheap first pass and Astra/medium for research where verifying a difficult claim matters.** Luna is a subscription-powered middle option, but it did not outperform Parallel base in this small sample.
 
+Open the saved comparison in [local Pomade](http://localhost:8798/?table=9298258c-01e1-4392-89e7-3548174204f3) or [your private Pomade website](https://pomade.deleteddeleted.chatgpt.site/?table=4ec93d57-9c47-4b1b-bc09-5b88c38de0e9). Each sheet contains all 15 results, timings, source links and review notes. Claims and review assessments reflect the September 6 benchmark; blank fields mean unverified.
+
 | Option tested | Median time per company | Observed result | When to use it |
 | --- | ---: | --- | --- |
 | Parallel Search, advanced | 2.19 seconds | Returned source excerpts; mixed in unrelated Solera companies | Finding candidate sources for a later reasoning/verification step |
@@ -36,6 +38,6 @@ Pomade currently chooses the research provider through the installation setting.
 - Used Pomade's existing research clients and structured-answer parser. ChatGPT used the actual local helper with its six-page browser budget. Parallel used its existing adapter. The comparison did not include separate configured hiring-signal checks, CRM writes or hosted queue latency.
 - Twelve research responses returned valid structured data; three Search calls returned retrieval results. Eleven research responses included accepted citation receipts. Valid JSON and a citation count are not accuracy scores.
 - Bypassed Pomade's result cache; provider-internal retrieval caching is unknown. Independent source verification and setup time are excluded from measured call durations. One unsuccessful public job-search filter check was replaced by direct posting checks; it did not trigger another research call.
-- App-sheet import was blocked by automatic approval review because it involved persistent writes and a possible existing-sheet overwrite. Results are delivered as this standalone report; no app tables or provider defaults were changed.
+- After user approval, imported the reviewed results into one new comparison sheet in each installation. API readback matched all 15 rows and 13 columns exactly; existing table summaries were unchanged. This reused saved research and made no additional enrichment calls. Provider defaults were unchanged.
 
-Prompts and exact outputs are saved locally in [the comparison folder](../outputs/research-comparison-2026-09-06/): `cases.json`, `results.json`, `base-results.json`, `summary.json`, individual method results, and the Solera live-verification files. Existing clients came from local commit `a8aee2a`. The local runners are under `work/research-comparison/`.
+Prompts and exact outputs are saved locally in [the comparison folder](../outputs/research-comparison-2026-09-06/): `cases.json`, `results.json`, `base-results.json`, `summary.json`, individual method results, and the Solera live-verification files. Existing clients came from local commit `a8aee2a`. The local runners and importer are under `work/research-comparison/`. `reviewed-results.json` holds the imported presentation; `comparison-tables.json` records both sheet IDs and successful readback checks.
