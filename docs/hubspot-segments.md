@@ -11,17 +11,38 @@ Choose a segment and optional additional CRM properties, then **Preview up to
 The preview clearly indicates when it is only part of the segment. Tables retain
 the existing 5,000-row capacity.
 
-**Append records** merges by CRM record ID and preserves enrichment results.
+**Merge records** merges by CRM record ID and preserves enrichment results.
 **Replace rows** replaces the rows while keeping recipe columns; it pauses an
 enabled table schedule. Empty previews cannot replace existing rows. Imported
-tables retain the segment ID, name, record type and import time in source metadata.
+tables retain the segment ID, name, record type, extra properties and import time in source metadata.
 
 Choose **All contacts/companies (no segment)** explicitly to use the original
 unfiltered CRM preview. Salesforce's existing import options remain available.
 
-The saved source is a snapshot. Active HubSpot segment membership can change
-between pages; the preview deduplicates record IDs. Automatic segment refresh,
-removal of records that leave a segment, and refresh scheduling are future work.
+## Refresh an imported sheet
+
+Choose **Refresh CRM source** at the bottom of the sheet, or **Load data →
+Preview latest**. Pomade reuses the saved CRM, record type, segment and extra
+properties. Existing segment imports work without re-importing first. Older
+unfiltered imports recover the record type when their CRM rows are unambiguous.
+Salesforce imports use the same saved-source controls.
+
+The preview shows new, updated and unchanged records. Expand **Review changed
+values** to see old and incoming field values for the first ten changed records.
+**Not returned · kept** counts existing records of that CRM/object type absent
+from a complete preview; it does not claim they left a segment. While more pages
+remain, that count is **Not checked**. Unfiltered previews still read at most 100
+records and cannot load additional pages; use a HubSpot segment for larger imports.
+
+**Merge records** updates CRM input fields, including values cleared in the CRM,
+and adds new records. It preserves recipe output fields, existing run statuses,
+column order and rows not returned by the source. It does not rerun enrichment.
+The change summary describes merging, not replacing. Closing the dialog cancels
+the pending preview; it does not change the sheet.
+
+The saved source is a snapshot. Active HubSpot membership can change between pages;
+the preview deduplicates record IDs. Refresh is manual. Automatic refresh, removal
+of records that leave a segment, and refresh scheduling remain future work.
 
 ## Connection
 

@@ -382,6 +382,7 @@ export async function readCrmSource(
     const byId = new Map(members.map((member) => [member.nativeId, member]));
     return {
       provider,
+      objectType: object,
       sourceLabel: `HubSpot ${object === 'company' ? 'companies' : 'contacts'} · ${page.segment.name}`,
       segment: page.segment,
       fields: options.fields,
@@ -399,6 +400,8 @@ export async function readCrmSource(
       : await readSalesforce(limit, options);
   return {
     provider,
+    objectType: object,
+    fields: options.fields,
     sourceLabel: `${provider === 'hubspot' ? 'HubSpot' : 'Salesforce'} ${object === 'company' ? 'companies' : object + 's'}`,
     contacts,
     truncated: contacts.length >= limit,

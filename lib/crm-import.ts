@@ -1,4 +1,6 @@
 import type {
+  CrmObjectType,
+  CrmProvider,
   CrmSourceContact,
   CrmSourcePreview,
   PomadeColumn,
@@ -29,10 +31,171 @@ const statusColumn: PomadeColumn = {
   kind: 'status',
   width: 140,
 };
-const importedFieldIds = new Set([
-  ...sourceColumns.map((column) => column.id),
-  statusColumn.id,
-]);
+const importedFieldIds = new Set(sourceColumns.map((column) => column.id));
+
+export type SavedCrmSource = {
+  provider: CrmProvider;
+  objectType: CrmObjectType;
+  segmentId?: string;
+  fields: string[];
+};
+
+export function savedCrmSource(
+  workspace: WorkspaceSnapshot,
+): SavedCrmSource | undefined {
+  const source = workspace.source;
+  if (
+    !source ||
+    (source.provider !== 'hubspot' && source.provider !== 'salesforce')
+  )
+    return;
+  const providerLabel =
+    source.provider === 'hubspot' ? 'HubSpot' : 'Salesforce';
+  // Older imports saved the segment or row identity, before object/field settings.
+  const types = [
+    ...new Set(
+      workspace.rows
+        .map((row) => row.values.crm_source)
+        .filter((value) => value?.startsWith(`${providerLabel} `))
+        .map((value) => value.slice(providerLabel.length + 1)),
+    ),
+  ];
+  const objectType =
+    source.objectType ??
+    source.segment?.objectType ??
+    (types.length === 1 ? (types[0] as CrmObjectType) : undefined);
+  if (
+    !objectType ||
+    !(
+      source.provider === 'hubspot'
+        ? ['contact', 'company']
+        : ['lead', 'contact', 'account']
+    ).includes(objectType)
+  )
+    return;
+  return {
+    provider: source.provider,
+    objectType,
+    segmentId: source.provider === 'hubspot' ? source.segment?.id : undefined,
+    fields:
+      source.fields ??
+      workspace.columns
+        .filter((column) => column.id.startsWith('crm_property_'))
+        .map((column) => column.id.slice('crm_property_'.length)),
+  };
+}
+
+function protectedColumnIds(columns: PomadeColumn[]) {
+  return new Set(
+    columns.flatMap((column) => [
+      ...(column.kind !== 'text' || column.recipe ? [column.id] : []),
+      ...(column.outputFields?.map((field) => field.id) ?? []),
+      ...(column.http?.outputs.map((output) => output.outputColumnId) ?? []),
+      ...(column.lookup?.outputs.map((output) => output.outputColumnId) ?? []),
+      ...[
+        column.http?.statusColumnId,
+        column.lookup?.statusColumnId,
+        column.providerWaterfall?.winnerColumnId,
+        column.providerWaterfall?.statusColumnId,
+        column.lineageColumnId,
+      ].filter((id): id is string => Boolean(id)),
+    ]),
+  );
+}
+
+function importableValues(
+  values: Record<string, string>,
+  protectedIds: Set<string>,
+  propertyIds: string[],
+) {
+  return Object.fromEntries(
+    Object.entries(values).filter(
+      ([id]) =>
+        !protectedIds.has(id) &&
+        (importedFieldIds.has(id) || propertyIds.includes(id)),
+    ),
+  );
+}
+
+function rowIdentity(row: PomadeRow) {
+  return `${row.values.crm_source ?? ''}|${row.values.crm_id ?? ''}`;
+}
+
+export function reviewCrmImport(
+  workspace: WorkspaceSnapshot,
+  preview: CrmSourcePreview,
+) {
+  const existing = new Map(
+    workspace.rows
+      .filter((row) => row.values.crm_id)
+      .map((row) => [rowIdentity(row), row]),
+  );
+  const protectedIds = protectedColumnIds(workspace.columns);
+  const titles = new Map(
+    [...sourceColumns, ...workspace.columns].map((column) => [
+      column.id,
+      column.title,
+    ]),
+  );
+  const propertyIds = [
+    ...new Set(
+      preview.contacts.flatMap((contact) =>
+        Object.keys(contact.properties ?? {}),
+      ),
+    ),
+  ].map((name) => `crm_property_${name}`);
+  const seen = new Set<string>();
+  const changes: {
+    nativeId: string;
+    label: string;
+    fields: { title: string; before: string; after: string }[];
+  }[] = [];
+  let added = 0;
+  let unchanged = 0;
+  for (const contact of preview.contacts) {
+    const values = contactValues(preview.provider, contact);
+    const key = `${values.crm_source}|${values.crm_id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const current = existing.get(key);
+    if (!current) {
+      added++;
+      continue;
+    }
+    const updates = importableValues(
+      { ...Object.fromEntries(propertyIds.map((id) => [id, ''])), ...values },
+      protectedIds,
+      propertyIds,
+    );
+    const fields = Object.entries(updates)
+      .filter(([id, value]) => (current.values[id] ?? '') !== value)
+      .map(([id, value]) => ({
+        title: titles.get(id) ?? `CRM: ${id.slice('crm_property_'.length)}`,
+        before: current.values[id] ?? '',
+        after: value,
+      }));
+    if (fields.length)
+      changes.push({
+        nativeId: contact.nativeId,
+        label: contact.fullName || contact.company || contact.nativeId,
+        fields,
+      });
+    else unchanged++;
+  }
+  const objectType =
+    preview.objectType ??
+    preview.segment?.objectType ??
+    preview.contacts[0]?.objectType;
+  const sourceLabel = `${preview.provider === 'hubspot' ? 'HubSpot' : 'Salesforce'} ${objectType}`;
+  const notReturned =
+    preview.truncated || !objectType
+      ? null
+      : [...existing.entries()].filter(
+          ([key, row]) =>
+            row.values.crm_source === sourceLabel && !seen.has(key),
+        ).length;
+  return { added, updated: changes.length, unchanged, notReturned, changes };
+}
 
 function companyDomain(value: string) {
   const trimmed = value.trim().toLowerCase();
@@ -86,19 +249,16 @@ function contactValues(
 }
 
 function mergedColumns(current: PomadeColumn[]) {
-  const currentById = new Map(current.map((column) => [column.id, column]));
-  const required = sourceColumns.map(
-    (column) => currentById.get(column.id) ?? column,
-  );
-  const requiredIds = new Set(required.map((column) => column.id));
-  const remainder = current.filter(
-    (column) => column.kind !== 'status' && !requiredIds.has(column.id),
-  );
-  return [
-    ...required,
-    ...remainder,
-    current.find((column) => column.kind === 'status') ?? statusColumn,
-  ];
+  const currentIds = new Set(current.map((column) => column.id));
+  const missing = sourceColumns.filter((column) => !currentIds.has(column.id));
+  const statusIndex = current.findIndex((column) => column.kind === 'status');
+  return statusIndex < 0
+    ? [...current, ...missing, statusColumn]
+    : [
+        ...current.slice(0, statusIndex),
+        ...missing,
+        ...current.slice(statusIndex),
+      ];
 }
 
 function sourceRow(
@@ -170,6 +330,11 @@ export function applyCrmImport(
     source: {
       provider: preview.provider,
       label: preview.sourceLabel,
+      objectType:
+        preview.objectType ??
+        preview.segment?.objectType ??
+        preview.contacts[0]?.objectType,
+      fields: preview.fields ?? properties,
       ...(preview.segment ? { segment: preview.segment } : {}),
       importedAt: Date.parse(preview.readAt) || Date.now(),
     },
@@ -200,6 +365,7 @@ function appendRows(
       .filter(([key]) => key !== '|'),
   );
 
+  const protectedIds = protectedColumnIds(columns);
   for (const row of incoming) {
     const key = `${row.values.crm_source}|${row.values.crm_id}`;
     const index = indexByExternalId.get(key);
@@ -212,12 +378,7 @@ function appendRows(
       ...normalized[index],
       values: {
         ...normalized[index].values,
-        ...Object.fromEntries(
-          Object.entries(row.values).filter(
-            ([columnId]) =>
-              importedFieldIds.has(columnId) || propertyIds.includes(columnId),
-          ),
-        ),
+        ...importableValues(row.values, protectedIds, propertyIds),
       },
     };
   }

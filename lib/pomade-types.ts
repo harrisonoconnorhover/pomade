@@ -280,6 +280,8 @@ export type WorkspaceVersionSummary = {
 };
 
 export type WorkspaceSource = {
+  objectType?: CrmObjectType;
+  fields?: string[];
   segment?: HubSpotSegment;
   provider: 'sample' | 'csv' | 'hubspot' | 'salesforce';
   label: string;
@@ -409,6 +411,7 @@ export type HubSpotSegment = {
 };
 
 export type CrmSourcePreview = {
+  objectType?: CrmObjectType;
   segment?: HubSpotSegment;
   nextAfter?: string;
   fields?: string[];

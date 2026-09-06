@@ -890,3 +890,17 @@ stopping early; both retain the underlying error for review.
   do not silently import only the first page or automatically refresh membership.
 - Keep the existing 100-column/5,000-row capacities. New provider subscriptions
   remain recommendations until Harrison chooses a budget and authorizes a purchase.
+
+
+## 2026-09-05 — Reviewable CRM refresh
+
+- Reuse the existing read and native-ID merge paths for manual refresh. Persist
+  object type and extra property names with the source; recover earlier imports
+  from their segment or unambiguous row identities.
+- Show additions, changed values and unchanged records before merging. Only count
+  records not returned after a complete preview, and always keep those rows.
+  This avoids mistaking a partial page or a mixed-source sheet for lost membership.
+- Preserve recipe-owned outputs, run status and column order during a merge,
+  including recipes that write to standard email/phone fields. CRM input fields
+  may change or clear as shown in the preview. Enrichment is not rerun; scheduling
+  and automatic removal remain separate future work.

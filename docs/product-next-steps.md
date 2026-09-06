@@ -20,12 +20,12 @@ Most valuable next work, in order:
 3. **Repeatable provider comparison.** Run the same small business-contact set
    through each provider to measure fallback value, verification differences and
    the order that gives the best result for our budget.
-4. **Refresh saved CRM sources.** Re-read a saved HubSpot segment on demand, then
-   add controlled scheduled refresh. Preserve enrichment values and show records
-   that joined or left the segment before deciding how to reconcile them.
+4. **Scheduled CRM refresh.** Manual saved-source refresh and change previews now
+   work for HubSpot and Salesforce. Next, consider scheduled refresh and an
+   explicit policy for records no longer returned by a segment.
 5. **Easier CRM setup.** A searchable property picker and automatic Salesforce
    OAuth renewal would remove manual property-name entry and expiring-token repairs.
 
-The segment selector is implemented in this update. The priorities above are a
+The segment selector, saved-source refresh and merge-change preview are implemented. The priorities above are a
 roadmap, not claims of completed features. See [provider recommendations](enrichment-providers.md)
 and [segment import usage](hubspot-segments.md).

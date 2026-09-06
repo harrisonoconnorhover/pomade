@@ -83,9 +83,13 @@ import RunConditionEditor from './run-condition-editor';
 import { conditionOperators, conditionNeedsValue } from '@/lib/run-conditions';
 import CrmSyncBuilder from './crm-sync-builder';
 import HubSpotSegmentPicker from './hubspot-segment-picker';
+import CrmImportReview from './crm-import-review';
 import {
   applyCrmImport,
   mergeCrmSourcePages,
+  savedCrmSource,
+  reviewCrmImport,
+  type SavedCrmSource,
   type CrmImportMode,
 } from '@/lib/crm-import';
 import {
@@ -612,6 +616,14 @@ export default function PomadeWorkspace({
   const [sourceLoading, setSourceLoading] = useState<CrmProvider>();
   const [sourceError, setSourceError] = useState('');
   const [sourcePreview, setSourcePreview] = useState<CrmSourcePreview>();
+  const sourceRequest = useRef<AbortController | undefined>(undefined);
+  const savedSource = useMemo(() => savedCrmSource(workspace), [workspace]);
+  const importReview = useMemo(
+    () =>
+      sourcePreview ? reviewCrmImport(workspace, sourcePreview) : undefined,
+    [workspace, sourcePreview],
+  );
+  useEffect(() => () => sourceRequest.current?.abort(), []);
 
   const hydrated = useRef(false);
   const [savedWorkspace, setSavedWorkspace] = useState<WorkspaceSnapshot>();
@@ -2415,29 +2427,67 @@ export default function PomadeWorkspace({
     }
   }
 
-  async function previewCrmSource(provider: CrmProvider, after?: string) {
+  function openSources() {
+    if (savedSource) {
+      setSourceObjects((current) => ({
+        ...current,
+        [savedSource.provider]: savedSource.objectType,
+      }));
+      setSourceFields((current) => ({
+        ...current,
+        [savedSource.provider]: savedSource.fields.join(', '),
+      }));
+      if (savedSource.provider === 'hubspot')
+        setHubSpotSegmentId(savedSource.segmentId ?? 'all');
+    }
+    setSourcePreview(undefined);
+    setSourceError('');
+    setSourcesOpen(true);
+  }
+
+  function refreshSavedCrmSource() {
+    if (!savedSource || sourceLoading || jobLocksWorkspace) return;
+    openSources();
+    void previewCrmSource(savedSource.provider, undefined, savedSource);
+  }
+
+  async function previewCrmSource(
+    provider: CrmProvider,
+    after?: string,
+    saved?: SavedCrmSource,
+  ) {
+    sourceRequest.current?.abort();
+    const controller = new AbortController();
+    sourceRequest.current = controller;
     const previous = sourcePreview;
     setSourceLoading(provider);
     setSourceError('');
     if (!after) setSourcePreview(undefined);
     try {
       const response = await fetch('/api/providers/crm', {
+        signal: controller.signal,
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           provider,
-          objectType: sourceObjects[provider],
-          segmentId:
-            provider === 'hubspot' && hubSpotSegmentId !== 'all'
+          objectType:
+            saved?.objectType ??
+            (after ? previous?.objectType : undefined) ??
+            sourceObjects[provider],
+          segmentId: saved
+            ? saved.segmentId
+            : provider === 'hubspot' && hubSpotSegmentId !== 'all'
               ? hubSpotSegmentId
               : undefined,
           after,
-          fields: after
-            ? previous?.fields
-            : sourceFields[provider]
-                .split(',')
-                .map((f) => f.trim())
-                .filter(Boolean),
+          fields:
+            saved?.fields ??
+            (after
+              ? previous?.fields
+              : sourceFields[provider]
+                  .split(',')
+                  .map((f) => f.trim())
+                  .filter(Boolean)),
           limit: after
             ? Math.min(100, 5_000 - (previous?.contacts.length ?? 0))
             : 100,
@@ -2450,19 +2500,21 @@ export default function PomadeWorkspace({
       if (!response.ok || !result.preview) {
         throw new Error(result.error || 'The CRM source could not be read.');
       }
+      if (controller.signal.aborted) return;
       setSourcePreview(
         after && previous
           ? mergeCrmSourcePages(previous, result.preview)
           : result.preview,
       );
     } catch (error) {
-      setSourceError(
-        error instanceof Error
-          ? error.message
-          : 'The CRM source could not be read.',
-      );
+      if (!controller.signal.aborted)
+        setSourceError(
+          error instanceof Error
+            ? error.message
+            : 'The CRM source could not be read.',
+        );
     } finally {
-      setSourceLoading(undefined);
+      if (sourceRequest.current === controller) setSourceLoading(undefined);
     }
   }
 
@@ -2721,7 +2773,7 @@ export default function PomadeWorkspace({
           <button
             className={`usage-pill ${connectedCount ? 'usage-pill-connected' : ''}`}
             type="button"
-            onClick={() => setSourcesOpen(true)}
+            onClick={openSources}
           >
             <Plug />
             <strong>{connectedCount}/4</strong> connected
@@ -2753,11 +2805,7 @@ export default function PomadeWorkspace({
             >
               <Cloud /> Background runs <span>{runJobs.length}</span>
             </button>
-            <button
-              className="nav-item"
-              type="button"
-              onClick={() => setSourcesOpen(true)}
-            >
+            <button className="nav-item" type="button" onClick={openSources}>
               <Database /> Sources <span>{connectedCount}/4</span>
             </button>
             <button
@@ -2878,7 +2926,7 @@ export default function PomadeWorkspace({
               <Button
                 variant="outline"
                 size="lg"
-                onClick={() => setSourcesOpen(true)}
+                onClick={openSources}
                 disabled={jobLocksWorkspace}
               >
                 <Upload /> Load data
@@ -3224,6 +3272,15 @@ export default function PomadeWorkspace({
             {currentRunJob && currentRunJob.status !== 'completed' ? (
               <button type="button" onClick={() => setBackgroundRunsOpen(true)}>
                 <Cloud /> Background {runJobPercent(currentRunJob)}%
+              </button>
+            ) : null}
+            {savedSource ? (
+              <button
+                type="button"
+                onClick={refreshSavedCrmSource}
+                disabled={jobLocksWorkspace || Boolean(sourceLoading)}
+              >
+                <RefreshCw /> Refresh CRM source
               </button>
             ) : null}
             <span>{workspace.source?.label ?? 'Manual workspace'}</span>
@@ -5466,6 +5523,8 @@ export default function PomadeWorkspace({
         onOpenChange={(open) => {
           setSourcesOpen(open);
           if (!open) {
+            sourceRequest.current?.abort();
+            setSourceLoading(undefined);
             setSourcePreview(undefined);
             setSourceError('');
           }
@@ -5479,6 +5538,29 @@ export default function PomadeWorkspace({
               them. This action only reads the CRM.
             </DialogDescription>
           </DialogHeader>
+          {savedSource ? (
+            <section className="saved-crm-source">
+              <div>
+                <strong>{workspace.source?.label}</strong>
+                <p className="source-help">
+                  Last imported{' '}
+                  {new Date(workspace.source!.importedAt).toLocaleString()}.{' '}
+                  Uses the saved record type, segment and extra properties.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={refreshSavedCrmSource}
+                disabled={
+                  jobLocksWorkspace ||
+                  Boolean(sourceLoading) ||
+                  !crmCatalog.providers[savedSource.provider].configured
+                }
+              >
+                <RefreshCw /> Preview latest
+              </Button>
+            </section>
+          ) : null}
           <div className="source-grid">
             <article className="source-card">
               <span className="source-logo source-logo-csv">
@@ -5492,7 +5574,7 @@ export default function PomadeWorkspace({
               <button
                 type="button"
                 onClick={() => fileInput.current?.click()}
-                disabled={jobLocksWorkspace}
+                disabled={jobLocksWorkspace || Boolean(sourceLoading)}
               >
                 Choose file
               </button>
@@ -5651,7 +5733,8 @@ export default function PomadeWorkspace({
               </div>
               {!sourcePreview.contacts.length ? (
                 <p className="source-help">
-                  No matching records in this segment.
+                  No matching records in this{' '}
+                  {sourcePreview.segment ? 'segment' : 'CRM preview'}.
                 </p>
               ) : null}
               {sourcePreview.truncated ? (
@@ -5687,10 +5770,11 @@ export default function PomadeWorkspace({
                   ) : null}
                 </div>
               ) : null}
+              {importReview ? <CrmImportReview review={importReview} /> : null}
               <div className="source-preview-actions">
                 <p>
-                  Append merges by CRM record ID and preserves recipe results.
-                  Replace swaps the rows but keeps your recipe columns.
+                  Merge updates CRM fields and adds new records by CRM record
+                  ID. Replace swaps the rows but keeps your recipe columns.
                 </p>
                 <Button
                   variant="outline"
@@ -5711,7 +5795,7 @@ export default function PomadeWorkspace({
                     !sourcePreview.contacts.length
                   }
                 >
-                  Append records
+                  Merge records
                 </Button>
               </div>
             </section>

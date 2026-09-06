@@ -25,6 +25,7 @@ describe('CRM source readers', () => {
 
     const preview = await readCrmSource('hubspot', 25, {
       hubSpotAccessToken: 'hubspot-test',
+      fields: ['industry'],
       fetchImpl: fetchImpl as typeof fetch,
       now: () => new Date('2026-09-04T12:00:00Z'),
     });
@@ -38,6 +39,8 @@ describe('CRM source readers', () => {
     expect(preview).toMatchObject({
       provider: 'hubspot',
       sourceLabel: 'HubSpot contacts',
+      objectType: 'contact',
+      fields: ['industry'],
       readAt: '2026-09-04T12:00:00.000Z',
       contacts: [
         expect.objectContaining({
@@ -83,6 +86,7 @@ describe('CRM source readers', () => {
     expect(request.headers).toMatchObject({
       authorization: 'Bearer salesforce-test',
     });
+    expect(preview.objectType).toBe('lead');
     expect(preview.contacts[0]).toMatchObject({
       nativeId: '00Q1',
       objectType: 'lead',
@@ -111,22 +115,20 @@ describe('CRM source readers', () => {
 
 describe('company and contact round-trip reads', () => {
   it('reads HubSpot companies by native IDs', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(
-        Response.json({
-          results: [
-            {
-              id: '7',
-              properties: {
-                name: 'Example',
-                domain: 'example.com',
-                description: 'Research',
-              },
+    const fetchImpl = vi.fn().mockResolvedValue(
+      Response.json({
+        results: [
+          {
+            id: '7',
+            properties: {
+              name: 'Example',
+              domain: 'example.com',
+              description: 'Research',
             },
-          ],
-        }),
-      );
+          },
+        ],
+      }),
+    );
     const p = await readCrmSource('hubspot', 10, {
       hubSpotAccessToken: 'test',
       objectType: 'company',
@@ -145,22 +147,20 @@ describe('company and contact round-trip reads', () => {
     );
   });
   it('reads Salesforce contacts with their associated account', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(
-        Response.json({
-          records: [
-            {
-              Id: '0031',
-              FirstName: 'Ada',
-              LastName: 'Lovelace',
-              Email: 'ada@example.com',
-              AccountId: '0011',
-              Account: { Name: 'Example', Website: 'example.com' },
-            },
-          ],
-        }),
-      );
+    const fetchImpl = vi.fn().mockResolvedValue(
+      Response.json({
+        records: [
+          {
+            Id: '0031',
+            FirstName: 'Ada',
+            LastName: 'Lovelace',
+            Email: 'ada@example.com',
+            AccountId: '0011',
+            Account: { Name: 'Example', Website: 'example.com' },
+          },
+        ],
+      }),
+    );
     const p = await readCrmSource('salesforce', 10, {
       salesforceAccessToken: 'test',
       salesforceInstanceUrl: 'https://dev.my.salesforce.com',

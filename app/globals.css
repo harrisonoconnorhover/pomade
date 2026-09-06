@@ -3644,3 +3644,83 @@ button {
   gap: 12px;
   flex-wrap: wrap;
 }
+
+.saved-crm-source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #cbdcc7;
+  border-radius: 12px;
+  background: #f5faef;
+}
+.saved-crm-source > div {
+  flex: 1;
+  min-width: 180px;
+}
+.saved-crm-source strong,
+.crm-import-review > strong {
+  font-size: 12px;
+}
+.crm-import-review {
+  display: grid;
+  gap: 9px;
+  padding-top: 9px;
+  border-top: 1px solid #d8e0d5;
+}
+.crm-import-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.crm-import-counts > div {
+  padding: 9px;
+  border: 1px solid #d8e0d5;
+  border-radius: 8px;
+  background: #fff;
+}
+.crm-import-counts dt {
+  font-size: 10px;
+  color: #627469;
+}
+.crm-import-counts dd {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.crm-import-changes {
+  font-size: 11px;
+}
+.crm-import-changes summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+.crm-import-changes article {
+  padding: 10px 0;
+  border-bottom: 1px solid #d8e0d5;
+}
+.crm-import-changes dl {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+.crm-import-changes dl > div {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) 3fr;
+  gap: 8px;
+}
+.crm-import-changes dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.crm-import-changes del {
+  color: #795848;
+}
+.crm-import-changes ins {
+  color: #315e48;
+  text-decoration: none;
+}
