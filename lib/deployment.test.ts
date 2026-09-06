@@ -108,3 +108,33 @@ describe('local and hosted access', () => {
     expect(deploymentStatus(hosted).schedulesEnabled).toBe(false);
   });
 });
+
+it('requires a separate owner key for identity-less data-copy requests, and still checks browser origins', async () => {
+  const token = 'o'.repeat(64);
+  const env = {
+    POMADE_DEPLOYMENT: 'hosted',
+    POMADE_OWNER_EMAIL: 'owner@example.com',
+    POMADE_PUBLIC_ORIGIN: 'https://pomade.example.com',
+    POMADE_OWNER_TOKEN_SHA256: await sha256(token),
+  };
+  const request = (headers: Record<string, string>) =>
+    new Request('https://pomade.example.com/api/tables', { headers });
+  expect(
+    await authorizeDeployment(request({ 'x-pomade-owner-key': token }), env),
+  ).toBeNull();
+  expect(
+    (await authorizeDeployment(request({ 'x-pomade-owner-key': 'bad' }), env))
+      ?.status,
+  ).toBe(401);
+  expect(
+    (
+      await authorizeDeployment(
+        request({
+          'x-pomade-owner-key': token,
+          origin: 'https://foreign.example',
+        }),
+        env,
+      )
+    )?.status,
+  ).toBe(403);
+});

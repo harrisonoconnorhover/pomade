@@ -3,6 +3,7 @@ declare namespace Cloudflare {
     DB: D1Database;
     POMADE_DEPLOYMENT?: string;
     POMADE_OWNER_EMAIL?: string;
+    POMADE_OWNER_TOKEN_SHA256?: string;
     POMADE_PUBLIC_ORIGIN?: string;
     POMADE_SCHEDULES_ENABLED?: string;
     POMADE_COMPANION_TOKEN_SHA256?: string;

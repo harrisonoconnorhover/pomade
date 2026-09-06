@@ -1,6 +1,7 @@
 export type DeploymentEnvironment = {
   POMADE_DEPLOYMENT?: string;
   POMADE_OWNER_EMAIL?: string;
+  POMADE_OWNER_TOKEN_SHA256?: string;
   POMADE_PUBLIC_ORIGIN?: string;
   POMADE_SCHEDULES_ENABLED?: string;
   POMADE_COMPANION_TOKEN_SHA256?: string;
@@ -68,7 +69,16 @@ export async function authorizeDeployment(
     .get('oai-authenticated-user-email')
     ?.trim()
     .toLowerCase();
-  if (!email || email !== env.POMADE_OWNER_EMAIL.trim().toLowerCase())
+  const ownerToken = request.headers.get('x-pomade-owner-key');
+  const ownerAutomation =
+    !!ownerToken &&
+    /^[A-Za-z0-9_-]{40,160}$/.test(ownerToken) &&
+    !!env.POMADE_OWNER_TOKEN_SHA256 &&
+    (await sha256(ownerToken)) === env.POMADE_OWNER_TOKEN_SHA256;
+  if (
+    !ownerAutomation &&
+    (!email || email !== env.POMADE_OWNER_EMAIL.trim().toLowerCase())
+  )
     return reject('Sign in with the account that owns this Pomade site.', 401);
   if (origin && origin !== env.POMADE_PUBLIC_ORIGIN)
     return reject('Cross-origin requests are not allowed.', 403);

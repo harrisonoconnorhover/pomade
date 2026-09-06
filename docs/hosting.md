@@ -21,7 +21,12 @@ Sites must restrict visitors to the owner. Hosted requests additionally check
 `POMADE_DEPLOYMENT=hosted` and `POMADE_PUBLIC_ORIGIN` to the actual HTTPS origin.
 The worker trusts identity headers only behind Sites' authentication dispatcher;
 these headers are not a standalone authentication system for another host.
-API requests with a foreign browser Origin are rejected. The existing scoped
+An optional, separately generated owner automation key supports authenticated
+initial data copies and maintenance. Keep it in ignored `.env.hosted-ops.local`,
+set only its SHA-256 digest as `POMADE_OWNER_TOKEN_SHA256` in Sites, and send it as
+`X-Pomade-Owner-Key` together with the Sites dispatch credential. This full-owner
+key is never loaded by the research companion. Remove its hosted digest to revoke
+it after maintenance. API requests with a foreign browser Origin are rejected. The existing scoped
 `/api/v1` and stdio MCP tools remain local-only.
 
 Provider and CRM credentials are configured independently in Sites. Reusing the
