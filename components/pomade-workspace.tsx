@@ -59,6 +59,7 @@ import ProviderPresetBuilder from '@/components/provider-preset-builder';
 import ChangeSignals from '@/components/change-signals';
 import RecipeFunctionBuilder from '@/components/recipe-function-builder';
 import TableTransferBuilder from '@/components/table-transfer-builder';
+import WorkbookPlanGuide from '@/components/workbook-plan-guide';
 import ApiSourceBuilder from '@/components/api-source-builder';
 import WebhookInbox from '@/components/webhook-inbox';
 import {
@@ -2803,6 +2804,13 @@ export default function PomadeWorkspace({
           </div>
         </div>
       </header>
+      <WorkbookPlanGuide
+        key={`plan-${workspace.id}`}
+        workspace={workspace}
+        ready={canLeaveTable && !jobLocksWorkspace}
+        onOpenTable={onOpenTable}
+        onRun={(columnId) => void runEnrichment(undefined, false, [columnId])}
+      />
 
       <div className="workspace-layout">
         <aside className="sidebar">

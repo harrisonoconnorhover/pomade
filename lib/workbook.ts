@@ -56,6 +56,7 @@ export function createTable(options: {
       id,
       name,
       schedule: undefined,
+      workbookPlan: undefined,
       webhookMappings: undefined,
       tableTransfers: undefined,
       webhookAutoImport: undefined,

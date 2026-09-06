@@ -1,3 +1,4 @@
+import { rubricScoreValues } from './rubric-score';
 import { matchesRunCondition } from './run-conditions';
 export { matchesRunCondition } from './run-conditions';
 import { createLookupResolver } from './table-lookup';
@@ -150,6 +151,7 @@ function waterfallWinner(column: PomadeColumn, row: PomadeRow) {
 }
 
 function runRecipeOutputs(column: PomadeColumn, row: PomadeRow) {
+  if (column.recipe === 'rubric-score') return rubricScoreValues(column, row);
   if (column.recipe === 'waterfall') {
     const winner = waterfallWinner(column, row);
     return {

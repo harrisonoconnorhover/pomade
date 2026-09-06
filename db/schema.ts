@@ -185,6 +185,7 @@ export const researchRequests = sqliteTable(
   {
     id: text('id').primaryKey(),
     prompt: text('prompt').notNull(),
+    purpose: text('purpose').notNull().default('research'),
     model: text('model'),
     reasoningEffort: text('reasoning_effort'),
     browser: integer('browser').notNull().default(0),

@@ -65,6 +65,7 @@ export async function runCompanion(
   let busy = false;
   let ready = false;
   let browserAvailable = false;
+  let planningAvailable = false;
   let catalog;
   let catalogCheckedAt = 0;
   const siteRequest = async (body) => {
@@ -98,6 +99,7 @@ export async function runCompanion(
       ready =
         status.configured === true && status.researchSettingsVersion === 1;
       browserAvailable = status.browserAvailable === true;
+      planningAvailable = status.planningVersion === 1;
       if (ready && Date.now() - catalogCheckedAt > 60_000) {
         catalogCheckedAt = Date.now();
         const modelsResponse = await fetchImpl(`${config.helper}/models`, {
@@ -116,6 +118,7 @@ export async function runCompanion(
     return siteRequest({
       action: 'poll',
       researchSettingsVersion: 1,
+      planningVersion: planningAvailable ? 1 : 0,
       ...(catalog
         ? { models: catalog.models, modelsUpdatedAt: catalog.updatedAt }
         : {}),
@@ -154,13 +157,16 @@ export async function runCompanion(
             const response = await fetchImpl(`${config.helper}/research`, {
               method: 'POST',
               redirect: 'manual',
-              signal: AbortSignal.timeout(265_000),
+              signal: AbortSignal.timeout(
+                job.purpose === 'plan' ? 320_000 : 265_000,
+              ),
               headers: {
                 'content-type': 'application/json',
                 Authorization: `Bearer ${config.helperToken}`,
               },
               body: JSON.stringify({
                 prompt: job.prompt,
+                purpose: job.purpose,
                 model: job.model || undefined,
                 reasoningEffort: job.reasoning_effort || undefined,
                 browser: job.browser === 1,

@@ -40,7 +40,11 @@ export async function handleCompanion(request: Request, db: D1Database) {
         body.ready === true &&
         body.claim === true &&
         body.researchSettingsVersion === 1
-          ? await claimCompanionRequest(db)
+          ? await claimCompanionRequest(
+              db,
+              Date.now(),
+              body.planningVersion === 1,
+            )
           : null;
       return Response.json({ job });
     }

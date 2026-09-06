@@ -131,6 +131,10 @@ export function createRecipeTemplate(
   if (!column.recipe || !['formula', 'enrichment'].includes(column.kind)) {
     throw new Error('Only configured recipe columns can become templates.');
   }
+  if (column.recipe === 'rubric-score')
+    throw new Error(
+      'Save these linked scoring columns in a workbook template so the rubric and inputs stay together.',
+    );
   const name = options.name.trim();
   if (!name) throw new Error('Template name is required.');
 

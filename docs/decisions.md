@@ -918,3 +918,29 @@ stopping early; both retain the underlying error for review.
   cached account catalog to the hosted app. Require the updated companion protocol
   before assigning jobs. Receipts record completed invocation settings; missing
   metadata is never replaced with guessed settings from the current configuration.
+
+
+## 2026-09-06 — Natural-language workbook planning
+
+Use a text-only ChatGPT planning request to translate a brief into a bounded workbook
+plan. Compile supported research, list, score and transfer steps into ordinary
+Pomade columns and saved routes. Validate column references, numeric scoring
+inputs and forward table dependencies before creating the sheets. Keep one
+request row initially; the planner designs research rather than supplying
+unverified prospect data as finished results.
+
+Create all new sheets in one database batch. Reuse a creation ID and matching
+plan fingerprint for retries so a lost response cannot duplicate or overwrite
+a workbook. Persist the request and run guide in the existing workspace
+snapshot. Add a purpose field to the existing companion queue so planning
+and research remain separate, and let only an updated companion claim plans.
+The planner disables tools and web search; subsequent research uses the normal
+configured provider and evidence checks. A live browsing-based plan timed out;
+a Parallel base draft failed the structural checks, so this slice uses ChatGPT
+for planning.
+
+Run each step through the established research and transfer controls. List CRM,
+contact enrichment and presentation tasks separately when this planner cannot
+wire them. Score evidence with a local points rubric totaling 100; absent or
+invalid points and failed qualification gates remain in Review. Clear original
+request/guide metadata from templates and duplicates to avoid stale navigation.

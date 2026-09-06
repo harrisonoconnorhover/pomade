@@ -87,7 +87,7 @@ export function renderWebResearchPrompt(
 
 // Providers can append a Sources section even when JSON-only output is requested.
 // Stop at the matching delimiter; citation brackets are outside the JSON value.
-function extractJsonContainer(answer: string, opening: '{' | '[') {
+export function extractJsonContainer(answer: string, opening: '{' | '[') {
   const closing = opening === '{' ? '}' : ']';
   const start = answer.indexOf(opening);
   if (start < 0) return '';

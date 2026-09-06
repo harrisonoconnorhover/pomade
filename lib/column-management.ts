@@ -55,6 +55,7 @@ export function findColumnDependencies(
     const boundInputs = new Set(Object.values(column.inputBindings ?? {}));
     const templateInputs = [
       ...templateFields(column.expression),
+      ...(column.rubricScore?.inputs.map((input) => input.field) ?? []),
       ...(column.http ? httpInputFields(column.http) : []),
       ...(column.providerWaterfall
         ? providerInputFields(column.providerWaterfall)
@@ -75,6 +76,14 @@ export function findColumnDependencies(
       Object.values(column.listDestinationBindings ?? {}).includes(columnId)
     ) {
       addDependency(dependencies, column.id, column.title, 'list destination');
+    }
+    if (
+      [
+        column.rubricScore?.tierColumnId,
+        column.rubricScore?.reasonColumnId,
+      ].includes(columnId)
+    ) {
+      addDependency(dependencies, column.id, column.title, 'score output');
     }
     if (column.lineageColumnId === columnId) {
       addDependency(dependencies, column.id, column.title, 'lineage output');

@@ -15,6 +15,7 @@ export class ResearchPendingError extends Error {
 export type CompanionRequest = {
   id: string;
   prompt: string;
+  purpose: 'research' | 'plan';
   model: string | null;
   reasoning_effort: string | null;
   browser: number;
@@ -35,14 +36,18 @@ export async function companionStatus(db: D1Database, now = Date.now()) {
   };
 }
 
-export async function claimCompanionRequest(db: D1Database, now = Date.now()) {
+export async function claimCompanionRequest(
+  db: D1Database,
+  now = Date.now(),
+  planningAvailable = false,
+) {
   const lease = crypto.randomUUID();
   return db
     .prepare(`UPDATE research_requests SET status = 'running', lease_token = ?, lease_until = ?, updated_at = ?
-    WHERE id = (SELECT id FROM research_requests WHERE status = 'queued' OR (status = 'running' AND lease_until <= ?)
+    WHERE id = (SELECT id FROM research_requests WHERE (status = 'queued' OR (status = 'running' AND lease_until <= ?)) AND (purpose = 'research' OR ? = 1)
     ORDER BY created_at LIMIT 1)
-    RETURNING id, prompt, model, reasoning_effort, browser, lease_token`)
-    .bind(lease, now + COMPANION_LEASE_MS, now, now)
+    RETURNING id, prompt, purpose, model, reasoning_effort, browser, lease_token`)
+    .bind(lease, now + COMPANION_LEASE_MS, now, now, planningAvailable ? 1 : 0)
     .first<CompanionRequest>();
 }
 
@@ -108,6 +113,7 @@ export class HostedCodexWebResearchClient {
     private options: {
       model?: string;
       browser?: boolean;
+      purpose?: 'research' | 'plan';
       reasoningEffort?: string;
     },
   ) {}
@@ -125,7 +131,7 @@ export class HostedCodexWebResearchClient {
     const id = await sha256(
       JSON.stringify([
         codexCacheIdentity(this.options, !!this.options.browser),
-        prompt,
+        this.options.purpose === 'plan' ? `workbook-plan-v1:${prompt}` : prompt,
       ]),
     );
     const now = Date.now();
@@ -138,10 +144,11 @@ export class HostedCodexWebResearchClient {
       .run();
     await this.db
       .prepare(`INSERT OR IGNORE INTO research_requests
-      (id, prompt, model, reasoning_effort, browser, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'queued', ?, ?)`)
+      (id, prompt, purpose, model, reasoning_effort, browser, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?)`)
       .bind(
         id,
         prompt,
+        this.options.purpose ?? 'research',
         this.options.model || null,
         this.options.reasoningEffort || null,
         this.options.browser ? 1 : 0,

@@ -63,6 +63,7 @@ export function researchConfiguration(env: ResearchEnvironment) {
 export function createResearchClient(
   env: ResearchEnvironment,
   settings?: import('./codex-models.mjs').CodexResearchSettings,
+  purpose?: 'plan',
 ) {
   const { provider, model } = researchConfiguration(env);
   if (provider === 'codex' && env.POMADE_DEPLOYMENT === 'hosted') {
@@ -71,14 +72,16 @@ export function createResearchClient(
       model: settings?.model ?? env.POMADE_CODEX_MODEL?.trim(),
       reasoningEffort:
         settings?.reasoningEffort ?? env.POMADE_CODEX_REASONING_EFFORT?.trim(),
-      browser: env.POMADE_CODEX_BROWSER === 'true',
+      browser: purpose !== 'plan' && env.POMADE_CODEX_BROWSER === 'true',
+      purpose,
     });
   }
   if (provider === 'codex')
     return new CodexWebResearchClient({
       url: env.POMADE_CODEX_URL,
       token: env.POMADE_CODEX_TOKEN,
-      browser: env.POMADE_CODEX_BROWSER === 'true',
+      browser: purpose !== 'plan' && env.POMADE_CODEX_BROWSER === 'true',
+      purpose,
       model: settings?.model ?? env.POMADE_CODEX_MODEL?.trim(),
       reasoningEffort:
         settings?.reasoningEffort ?? env.POMADE_CODEX_REASONING_EFFORT?.trim(),

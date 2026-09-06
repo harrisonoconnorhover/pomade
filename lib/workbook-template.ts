@@ -31,6 +31,7 @@ function references(table: WorkspaceSnapshot) {
 function emptyStructure(source: WorkspaceSnapshot): WorkspaceSnapshot {
   const table = structuredClone(source);
   table.rows = [];
+  table.workbookPlan = undefined;
   table.revision = 0;
   table.source = undefined;
   table.webhookMappings = undefined;

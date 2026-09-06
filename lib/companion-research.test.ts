@@ -36,6 +36,12 @@ function fixture() {
       'utf8',
     ),
   );
+  sql.exec(
+    readFileSync(
+      new URL('../drizzle/0007_green_red_ghost.sql', import.meta.url),
+      'utf8',
+    ),
+  );
   const db = {
     prepare(query: string) {
       const stmt = sql.prepare(query);
@@ -246,4 +252,33 @@ it('keeps queued research separate by model and effort and returns the selected 
     model: 'model-a',
     reasoning_effort: 'medium',
   });
+});
+
+it('keeps planning separate from research and waits for a planning-capable companion', async () => {
+  const { db, sql } = fixture();
+  const planner = new HostedCodexWebResearchClient(db, {
+    browser: false,
+    purpose: 'plan',
+  });
+  await expect(planner.research('Same input')).rejects.toThrow('Waiting');
+  await expect(planner.research('Same input')).rejects.toThrow('Waiting');
+  expect(
+    sql.prepare('SELECT COUNT(*) AS n FROM research_requests').get()?.n,
+  ).toBe(1);
+  expect(await claimCompanionRequest(db)).toBeNull();
+  const job = await claimCompanionRequest(db, Date.now(), true);
+  expect(job).toMatchObject({
+    purpose: 'plan',
+    browser: 0,
+    prompt: 'Same input',
+  });
+  await finishCompanionRequest(db, {
+    id: job!.id,
+    leaseToken: job!.lease_token,
+    result,
+  });
+  expect(await planner.research('Same input')).toEqual(result);
+  const researcher = new HostedCodexWebResearchClient(db, { browser: false });
+  await expect(researcher.research('Same input')).rejects.toThrow('Waiting');
+  expect((await claimCompanionRequest(db))?.purpose).toBe('research');
 });

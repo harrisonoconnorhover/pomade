@@ -77,6 +77,7 @@ export type ProviderWaterfall = {
   statusColumnId: string;
 };
 export type PomadeColumn = {
+  rubricScore?: import('./rubric-score').RubricScore;
   codexResearch?: import('./codex-models.mjs').CodexResearchSettings;
   functionInstance?: {
     id: string;
@@ -116,6 +117,7 @@ export type PomadeColumn = {
     | 'email-domain'
     | 'dedupe-key'
     | 'score-fit'
+    | 'rubric-score'
     | 'waterfall'
     | 'write-opener'
     | 'company-summary'
@@ -250,6 +252,7 @@ export type TableTransferRule = {
   mapping: Record<string, string>;
 };
 export type WorkspaceSnapshot = {
+  workbookPlan?: import('./workbook-planner').WorkbookPlanGuide;
   crmMappings?: import('./crm-mappings').CrmMapping[];
   signalWatches?: import('./change-signals').SignalWatch[];
   signalFeedFields?: boolean;

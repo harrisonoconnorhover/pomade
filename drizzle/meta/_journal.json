@@ -50,6 +50,13 @@
       "when": 1788691776157,
       "tag": "0006_pretty_black_cat",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1788697384409,
+      "tag": "0007_green_red_ghost",
+      "breakpoints": true
     }
   ]
 }

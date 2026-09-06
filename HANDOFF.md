@@ -2,38 +2,39 @@
 
 ## Finished
 
-- Compared ChatGPT Luna/low and Astra/medium with Parallel speed, base and raw Search on the three DemandDrive companies.
-- Saved the prompts, exact responses, timings, citation evidence and recommendation report locally.
-- Added all 15 reviewed results to new comparison sheets in local and private hosted Pomade after user approval.
-- Included source links and review flags for stale hiring, ambiguous company identity and unsupported citations.
+- Added **Build from a prompt**: paste a brief, review an AI plan, and create linked sheets with research columns, scoring and transfers.
+- Added an ordered run guide to generated sheets. Research and transfer steps use the existing runners.
+- Added a local 100-point rubric that holds missing or invalid evidence for review.
+- Added text-only ChatGPT planning through the local helper and hosted companion queue.
+- Created the real ChatGPT DemandDrive plan locally: Request, Accounts and Buyer Committee; 63 columns total.
 
 ## Try It
 
-- Open [the hosted comparison](https://pomade.deleteddeleted.chatgpt.site/?table=4ec93d57-9c47-4b1b-bc09-5b88c38de0e9) or [the local comparison](http://localhost:8798/?table=9298258c-01e1-4392-89e7-3548174204f3).
-- Read [the provider comparison](docs/research-provider-comparison-2026-09-06.md) for the recommendation and limitations.
-- Existing ChatGPT model controls remain under **Add AI web research → Research settings**. Provider selection is still an installation setting.
+- Open [the local example](http://localhost:8798/?table=plan_8d5f4538-b463-4193-a677-9c798a2ad155_requests), or choose **Build from a prompt → Use DemandDrive example → Plan workbook**.
+- Review and create the proposed sheets. Use **Run step**, then **Preview route → Transfer matching rows**, and open the next sheet from its guide.
+- Keep the ChatGPT helper running for local planning, and the Mac companion for hosted planning. See [the feature guide](docs/prompt-to-workbook.md).
 
 ## Checks
 
-- All 15 benchmark calls completed: 12 structured research responses and three Search responses. All 12 answers parsed; 11 had accepted citation receipts.
-- Prior direct-page checks confirmed HealthEdge requisition 2026-8232 and Solera BDR JR-019664; Solera SDR JR-019383 showed a missing-page state.
-- Importer syntax check passed. API readback matched all 15 rows and 13 columns in both installations; each gained exactly one sheet and existing table summaries were unchanged.
-- The import reused saved results without additional research calls. Earlier Parallel consumption was estimated at $0.06 at list rates; exact billing and per-run Codex usage were unavailable.
-- Documentation links, receipt consistency and diff whitespace checked. No runtime code changed; no build or regression suite was needed.
+- Typecheck and lint passed. The focused 73-test suite passed; the final planner/helper/queue check passed all 18 tests after normalization changes.
+- Local and hosted production builds passed. Diff whitespace checks passed. Browser visual QA was not run.
+- Real ChatGPT planning returned a valid three-sheet plan in 137 seconds. Local API readback verified the original brief, blank research rows, saved routes, safe creation replay and unchanged existing table summaries.
+- The additive queue migration passed against the SQLite test fixture. Private deployment and hosted verification are next.
 
 ## Decisions
 
-- Prefer Parallel for routine first-pass enrichment and Astra/medium for difficult, valuable claims requiring direct verification.
-- Treat three companies as a diagnostic sample, not an accuracy score. Date the review notes and leave unverified fields blank.
-- Create new comparison sheets using the approved account connections and retain exact import receipts locally.
+- ChatGPT plans the workbook in text-only mode; later research uses the installation's normal provider.
+- Compile supported steps into existing Pomade columns and routes; keep CRM, enrichment and presentation tasks visible as separate work.
+- Create a new workbook and require the usual run controls for subsequent research and transfers.
 
 ## Remaining
 
-- Per-column provider selection and conditional Parallel-to-Codex research fallback are future improvements.
-- Broader sampling and per-run Codex usage reporting would improve cost and quality comparisons.
+- Finish private deployment and verify hosted planning and workbook creation.
+- The plan guides execution one step at a time; unattended execution across every sheet is future work.
+- Direct CRM/enrichment configuration from the brief and editing the proposed plan in place remain future improvements.
 
 ## Review First
 
-- The comparison sheets, especially **Assessment** and **Review notes**.
-- `docs/research-provider-comparison-2026-09-06.md`.
-- `outputs/research-comparison-2026-09-06/comparison-tables.json` for verified sheet IDs.
+- `components/workbook-prompt-builder.tsx` and `components/workbook-plan-guide.tsx`.
+- `lib/workbook-planner.ts` and `app/api/workbook-plans/route.ts`.
+- `docs/prompt-to-workbook.md` and the local example.

@@ -1,0 +1,1 @@
+ALTER TABLE `research_requests` ADD `purpose` text DEFAULT 'research' NOT NULL;

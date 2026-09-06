@@ -70,6 +70,20 @@ self-host packaging are not implemented yet. Development currently uses
 Workers/D1 and Sites tooling. Build slices are committed locally; GitHub pushes
 and site publication wait for a requested release milestone.
 
+## Build from a prompt
+
+Paste a project brief into **Build from a prompt** beside the table selector.
+Pomade proposes connected sheets, typed research columns, local points scoring
+and routes between sheets. Preview the plan, then create the workbook and follow
+its **Run step** / **Preview route** guide. The included DemandDrive example
+covers ICP accounts, three buying signals, scoring and a buyer committee.
+
+The planner uses the connected ChatGPT account; the resulting research columns
+use the installation's usual research provider. Researched values
+start empty, and the normal research controls apply when steps run. Enrichment,
+CRM actions and presentation tasks that need separate flows appear in the plan.
+See [prompt-to-workbook](docs/prompt-to-workbook.md) for limits and usage.
+
 ## Work across tables
 
 Use the **Tables** selector above the grid to switch stages. **New table** starts

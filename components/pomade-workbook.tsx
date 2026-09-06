@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import PomadeWorkspace from './pomade-workspace';
 import WorkbookTemplateBuilder from './workbook-template-builder';
+import WorkbookPromptBuilder from './workbook-prompt-builder';
 import {
   DEFAULT_TABLE_ID,
   type TableCreationMode,
@@ -164,6 +165,25 @@ export default function PomadeWorkbook({
         >
           <Copy /> Duplicate
         </Button>
+        <WorkbookPromptBuilder
+          disabled={!ready || creating}
+          onBusy={setCreating}
+          onCreated={(added) => {
+            setTables((current) => [
+              ...current.filter(
+                (table) => !added.some((item) => item.id === table.id),
+              ),
+              ...added,
+            ]);
+            setActiveId(added[0].id);
+            setFocusRowId('');
+            setReady(false);
+            const url = new URL(window.location.href);
+            url.searchParams.set('table', added[0].id);
+            url.searchParams.delete('row');
+            window.history.replaceState(null, '', url);
+          }}
+        />
         <WorkbookTemplateBuilder
           tables={tables}
           disabled={!ready || creating}

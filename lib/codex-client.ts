@@ -14,6 +14,7 @@ export class CodexWebResearchClient {
       model?: string;
       reasoningEffort?: string;
       browser?: boolean;
+      purpose?: 'research' | 'plan';
       fetchImpl?: typeof fetch;
     },
   ) {
@@ -48,7 +49,13 @@ export class CodexWebResearchClient {
         ...(body ? { body: JSON.stringify(body) } : {}),
         redirect: 'manual',
         signal: AbortSignal.timeout(
-          body ? (this.options.browser ? 260_000 : 200_000) : 15_000,
+          body
+            ? this.options.purpose === 'plan'
+              ? 320_000
+              : this.options.browser
+                ? 260_000
+                : 200_000
+            : 15_000,
         ),
       });
     } catch {
@@ -126,6 +133,7 @@ export class CodexWebResearchClient {
       model: this.options.model,
       reasoningEffort: this.options.reasoningEffort,
       browser: this.options.browser,
+      purpose: this.options.purpose,
     });
     const data = raw as Partial<WebResearchResult> | null;
     if (

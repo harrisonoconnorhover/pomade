@@ -250,6 +250,37 @@ describe('local ChatGPT research', () => {
           })
         ).status,
       ).toBe(502);
+      const planned = await fetch(base + '/research', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          prompt: 'Plan a workbook',
+          purpose: 'plan',
+          browser: false,
+        }),
+      });
+      expect(planned.status).toBe(200);
+      const planningArgs = run.mock.calls
+        .filter(([, args]) => args[0] === 'exec')
+        .at(-1)![1];
+      expect(planningArgs).toContain('web_search="disabled"');
+      expect(planningArgs).toContain('features.shell_tool=false');
+      expect(planningArgs.join(' ')).not.toContain(
+        'mcp_servers.pomade_browser',
+      );
+      expect(
+        (
+          await fetch(base + '/research', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              prompt: 'Plan',
+              purpose: 'plan',
+              browser: true,
+            }),
+          })
+        ).status,
+      ).toBe(400);
     } finally {
       server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));
