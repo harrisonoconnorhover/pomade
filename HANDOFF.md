@@ -17,7 +17,10 @@
 ## Checks
 
 - 22 focused tests across three files passed; typecheck, lint and diff whitespace checks passed.
-- Local/hosted build and live refresh verification are pending for this source revision.
+- Local and hosted builds passed. Private Sites version 11 deployed successfully from `e1336dc`.
+- Live local and hosted refreshes each loaded the three existing HubSpot segment contacts across two pages. Saved settings survived reload; row/column hashes stayed identical; repeat merges produced zero duplicates. Table counts remained 14 local and five hosted.
+- Live HubSpot company and Salesforce account reads returned HTTP 200 and retained requested property settings.
+- Verification used functional HTTP checks, not interactive browser QA of Pomade.
 
 ## Decisions
 
@@ -27,7 +30,6 @@
 
 ## Remaining
 
-- Complete local/hosted builds and live verification.
 - Scheduled CRM refresh, a property picker and automatic Salesforce token renewal remain future work.
 - Mobile coverage and per-run cost estimates remain the most useful enrichment improvements.
 
