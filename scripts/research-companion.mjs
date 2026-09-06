@@ -2,6 +2,7 @@
 import { readFile, writeFile, mkdir, unlink } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { validCodexModels } from '../lib/codex-models.mjs';
 import { setTimeout as delay } from 'node:timers/promises';
 
 /** @param {Record<string, string | undefined>} env */
@@ -64,6 +65,8 @@ export async function runCompanion(
   let busy = false;
   let ready = false;
   let browserAvailable = false;
+  let catalog;
+  let catalogCheckedAt = 0;
   const siteRequest = async (body) => {
     const response = await fetchImpl(`${config.site}/api/companion`, {
       method: 'POST',
@@ -92,13 +95,30 @@ export async function runCompanion(
         signal: AbortSignal.timeout(12_000),
       });
       const status = response.ok ? await response.json() : {};
-      ready = status.configured === true;
+      ready =
+        status.configured === true && status.researchSettingsVersion === 1;
       browserAvailable = status.browserAvailable === true;
+      if (ready && Date.now() - catalogCheckedAt > 60_000) {
+        catalogCheckedAt = Date.now();
+        const modelsResponse = await fetchImpl(`${config.helper}/models`, {
+          headers: { Authorization: `Bearer ${config.helperToken}` },
+          redirect: 'manual',
+          signal: AbortSignal.timeout(20_000),
+        });
+        const discovered = modelsResponse.ok
+          ? await modelsResponse.json()
+          : null;
+        if (validCodexModels(discovered?.models)) catalog = discovered;
+      }
     } catch {
       ready = false;
     }
     return siteRequest({
       action: 'poll',
+      researchSettingsVersion: 1,
+      ...(catalog
+        ? { models: catalog.models, modelsUpdatedAt: catalog.updatedAt }
+        : {}),
       ready,
       browserAvailable,
       claim: claim && !busy,
@@ -142,6 +162,7 @@ export async function runCompanion(
               body: JSON.stringify({
                 prompt: job.prompt,
                 model: job.model || undefined,
+                reasoningEffort: job.reasoning_effort || undefined,
                 browser: job.browser === 1,
               }),
             });

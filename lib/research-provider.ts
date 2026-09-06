@@ -10,6 +10,7 @@ export type ResearchEnvironment = {
   POMADE_CODEX_URL?: string;
   POMADE_CODEX_TOKEN?: string;
   POMADE_CODEX_MODEL?: string;
+  POMADE_CODEX_REASONING_EFFORT?: string;
   POMADE_CODEX_BROWSER?: string;
   PARALLEL_API_KEY?: string;
   PARALLEL_MODEL?: string;
@@ -59,12 +60,17 @@ export function researchConfiguration(env: ResearchEnvironment) {
           : 'Gemini + Google Search',
   };
 }
-export function createResearchClient(env: ResearchEnvironment) {
+export function createResearchClient(
+  env: ResearchEnvironment,
+  settings?: import('./codex-models.mjs').CodexResearchSettings,
+) {
   const { provider, model } = researchConfiguration(env);
   if (provider === 'codex' && env.POMADE_DEPLOYMENT === 'hosted') {
     if (!env.DB) throw new Error('Hosted research storage is unavailable.');
     return new HostedCodexWebResearchClient(env.DB, {
-      model: env.POMADE_CODEX_MODEL?.trim(),
+      model: settings?.model ?? env.POMADE_CODEX_MODEL?.trim(),
+      reasoningEffort:
+        settings?.reasoningEffort ?? env.POMADE_CODEX_REASONING_EFFORT?.trim(),
       browser: env.POMADE_CODEX_BROWSER === 'true',
     });
   }
@@ -73,7 +79,9 @@ export function createResearchClient(env: ResearchEnvironment) {
       url: env.POMADE_CODEX_URL,
       token: env.POMADE_CODEX_TOKEN,
       browser: env.POMADE_CODEX_BROWSER === 'true',
-      model: env.POMADE_CODEX_MODEL?.trim(),
+      model: settings?.model ?? env.POMADE_CODEX_MODEL?.trim(),
+      reasoningEffort:
+        settings?.reasoningEffort ?? env.POMADE_CODEX_REASONING_EFFORT?.trim(),
     });
   if (provider === 'parallel')
     return new ParallelWebResearchClient({

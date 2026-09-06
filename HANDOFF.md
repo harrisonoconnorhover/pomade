@@ -2,39 +2,38 @@
 
 ## Finished
 
-- Added manual refresh from the saved HubSpot or Salesforce source, including segment, record type and extra properties.
-- Added merge previews for new, updated and unchanged records, with before/after field values.
-- Keep records absent from a complete preview; partial previews leave that count unchecked.
-- Preserve recipe outputs, run statuses and column order when merging CRM data.
-- Recover older import settings where unambiguous and cancel pending reads when the dialog closes.
+- Added account-backed model and reasoning-effort selectors to new research columns, column settings and recipe settings.
+- Added shared ChatGPT research defaults for each Pomade installation, with optional column overrides.
+- Carried settings through saved recipes and the hosted research companion; older companions cannot claim jobs requiring these settings.
+- Added model and effort to research receipts and separated cached results by model, effort and browser mode.
+- Unsupported settings require review and preserve the previous answer.
 
 ## Try It
 
-- Open the existing DemandDrive segment sheet locally at http://localhost:8798/?table=65aec481-84b4-416c-a851-b22c8a0ef66d or privately at https://pomade.deleteddeleted.chatgpt.site/?table=63f0fdf0-e791-4ac6-bc0c-bfbfd183e910.
-- Choose **Refresh CRM source**, or **Load data → Preview latest**. Load remaining pages, review changes, then **Merge records**.
-- See [CRM refresh usage](docs/hubspot-segments.md).
+- Open **Add AI research**, or edit an existing research column. Keep **Use app defaults**, or choose its model and effort.
+- Expand **ChatGPT research defaults** to set shared defaults or refresh account models. These controls are also under **Load data**.
+- See [research setup and model selection](docs/codex-research.md). Restart the local helper and hosted companion after updating.
 
 ## Checks
 
-- 22 focused tests across three files passed; typecheck, lint and diff whitespace checks passed.
-- Local and hosted builds passed. Private Sites version 11 deployed successfully from `e1336dc`.
-- Live local and hosted refreshes each loaded the three existing HubSpot segment contacts across two pages. Saved settings survived reload; row/column hashes stayed identical; repeat merges produced zero duplicates. Table counts remained 14 local and five hosted.
-- Live HubSpot company and Salesforce account reads returned HTTP 200 and retained requested property settings.
-- Verification used functional HTTP checks, not interactive browser QA of Pomade.
+- 50 focused tests across eight files passed; typecheck, lint and diff whitespace checks passed.
+- Account discovery returned seven models and their supported effort levels through the signed-in Codex account, without starting a research turn.
+- Local and hosted builds passed before final receipt-error polish. Final rebuild, live research and private deployment verification are pending.
+- Functional HTTP checks are planned; no interactive browser QA of Pomade was requested.
 
 ## Decisions
 
-- Refresh remains an explicit read, review and merge; no automatic membership deletion or enrichment rerun.
-- Preserve recipe-owned fields even when a recipe writes to standard email or phone columns.
-- Reuse the existing CRM importer and native-ID matching; no new background infrastructure.
+- Discover available models from Codex instead of maintaining a hardcoded list.
+- Unset defaults follow the account default model and its default effort. Each installation saves its own preferences.
+- Change shared defaults between batches; explicit column overrides remain independent.
 
 ## Remaining
 
-- Scheduled CRM refresh, a property picker and automatic Salesforce token renewal remain future work.
-- Mobile coverage and per-run cost estimates remain the most useful enrichment improvements.
+- Finish live local and hosted research, cache verification and private publication.
+- Higher effort may take longer and use more subscription allowance; existing research timeouts still apply.
 
 ## Review First
 
-- `lib/crm-import.ts`: settings recovery, change summary and merge preservation.
-- `components/crm-import-review.tsx` and the saved-source controls in `components/pomade-workspace.tsx`.
-- `lib/crm-import.test.ts`: preservation, empty/partial previews and cross-CRM identities.
+- `components/codex-research-settings.tsx` and `app/api/providers/research/settings/route.ts`.
+- `scripts/codex-model-catalog.mjs`, helper settings and companion transport.
+- `app/api/runs/route.ts`: resolution, cache identity and receipts.

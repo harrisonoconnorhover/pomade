@@ -85,6 +85,12 @@ import CrmSyncBuilder from './crm-sync-builder';
 import HubSpotSegmentPicker from './hubspot-segment-picker';
 import CrmImportReview from './crm-import-review';
 import {
+  CodexDefaultsEditor,
+  CodexModelPicker,
+  useCodexResearchSettings,
+} from './codex-research-settings';
+import type { CodexResearchSettings } from '@/lib/codex-models.mjs';
+import {
   applyCrmImport,
   mergeCrmSourcePages,
   savedCrmSource,
@@ -206,6 +212,7 @@ type RecipePreset = Pick<
   | 'autoRun'
   | 'expression'
   | 'prompt'
+  | 'codexResearch'
   | 'recipe'
   | 'runCondition'
   | 'width'
@@ -546,6 +553,15 @@ export default function PomadeWorkspace({
     status?: ResearchProviderStatus;
   }>({ revision: -1 });
   const researchStatus = researchCheck.status;
+  const codexSettings = useCodexResearchSettings(
+    researchStatus?.provider === 'codex' &&
+      (researchBuilderOpen ||
+        recipeSettingsOpen ||
+        sourcesOpen ||
+        columnEditorOpen),
+  );
+  const [researchModelSettings, setResearchModelSettings] =
+    useState<CodexResearchSettings>();
   const researchStatusLoading =
     researchCheck.revision !== researchStatusRevision;
   const [researchColumnName, setResearchColumnName] = useState(
@@ -1327,7 +1343,9 @@ export default function PomadeWorkspace({
 
   function updateRecipeColumn(
     columnId: string,
-    patch: Partial<Pick<PomadeColumn, 'autoRun' | 'runCondition'>>,
+    patch: Partial<
+      Pick<PomadeColumn, 'autoRun' | 'runCondition' | 'codexResearch'>
+    >,
   ) {
     setWorkspace((current) => {
       const columns = current.columns.map((column) =>
@@ -1717,6 +1735,7 @@ export default function PomadeWorkspace({
         prompt,
         width: 380,
         group: 'Research',
+        codexResearch: researchModelSettings,
         description: 'Custom research grounded in the live public web.',
         requires: 'Research provider key + public web',
       });
@@ -1745,6 +1764,7 @@ export default function PomadeWorkspace({
       recipe: 'web-research',
       prompt,
       outputFields,
+      codexResearch: researchModelSettings,
       outputCardinality: researchOutputMode === 'list' ? 'list' : undefined,
       listLimit:
         researchOutputMode === 'list'
@@ -3772,6 +3792,9 @@ export default function PomadeWorkspace({
               <strong>{automaticFormulaCount}</strong>
             </div>
           </div>
+          {researchStatus?.provider === 'codex' ? (
+            <CodexDefaultsEditor state={codexSettings} />
+          ) : null}
           <div className="recipe-settings-list">
             {recipeColumns.map((column) => {
               const columnIndex = workspace.columns.findIndex(
@@ -3838,6 +3861,20 @@ export default function PomadeWorkspace({
                       )}
                     </div>
                   </div>
+                  {column.recipe === 'web-research' &&
+                  researchStatus?.provider === 'codex' ? (
+                    <CodexModelPicker
+                      label={`${column.title} research`}
+                      value={column.codexResearch}
+                      defaults={codexSettings.data?.defaults}
+                      models={codexSettings.data?.models}
+                      inherit
+                      disabled={jobLocksWorkspace || codexSettings.loading}
+                      onChange={(codexResearch) =>
+                        updateRecipeColumn(column.id, { codexResearch })
+                      }
+                    />
+                  ) : null}
                   <RunConditionEditor
                     columns={availableInputs}
                     condition={condition}
@@ -4308,6 +4345,20 @@ export default function PomadeWorkspace({
             checking={researchStatusLoading}
             onRefresh={() => setResearchStatusRevision((value) => value + 1)}
           />
+          {researchStatus?.provider === 'codex' ? (
+            <>
+              <CodexModelPicker
+                label="Research settings"
+                value={researchModelSettings}
+                defaults={codexSettings.data?.defaults}
+                models={codexSettings.data?.models}
+                inherit
+                disabled={codexSettings.loading}
+                onChange={setResearchModelSettings}
+              />
+              <CodexDefaultsEditor state={codexSettings} />
+            </>
+          ) : null}
           <fieldset className="research-output-shape">
             <legend>Output shape</legend>
             <div>
@@ -4480,7 +4531,7 @@ export default function PomadeWorkspace({
                 ? `One provider request fills ${researchFields.length} columns. Malformed results stay visible and require review.`
                 : researchOutputMode === 'list'
                   ? `One request may create up to ${researchListLimit} child rows. Rerunning replaces this recipe's earlier children instead of duplicating them.`
-                  : 'Your API key stays server-side. Results and citations are saved with the workspace receipt.'}
+                  : 'Answers and citations are saved with each research receipt.'}
             </p>
             <Button
               variant="outline"
@@ -5245,6 +5296,15 @@ export default function PomadeWorkspace({
                   <small>
                     {receipt.after || 'No output'} · {receipt.durationMs} ms
                   </small>
+                  {receipt.researchModel ? (
+                    <small>
+                      Research: {receipt.researchModel}
+                      {receipt.reasoningEffort
+                        ? ` · ${receipt.reasoningEffort} effort`
+                        : ''}
+                      {receipt.cached ? ' · cached result' : ''}
+                    </small>
+                  ) : null}
                   {receipt.error ? (
                     <p className="receipt-error">{receipt.error}</p>
                   ) : null}
@@ -5694,6 +5754,9 @@ export default function PomadeWorkspace({
             onRefresh={() => setResearchStatusRevision((value) => value + 1)}
           />
 
+          {researchStatus?.provider === 'codex' ? (
+            <CodexDefaultsEditor state={codexSettings} />
+          ) : null}
           {sourceError ? (
             <p className="source-error" role="alert">
               {sourceError}
@@ -5812,6 +5875,23 @@ export default function PomadeWorkspace({
               used by recipes, views, or row data.
             </DialogDescription>
           </DialogHeader>
+          {editedColumn?.recipe === 'web-research' &&
+          researchStatus?.provider === 'codex' ? (
+            <>
+              <CodexModelPicker
+                label={`${editedColumn.title} research`}
+                value={editedColumn.codexResearch}
+                defaults={codexSettings.data?.defaults}
+                models={codexSettings.data?.models}
+                inherit
+                disabled={jobLocksWorkspace || codexSettings.loading}
+                onChange={(codexResearch) =>
+                  updateRecipeColumn(editedColumn.id, { codexResearch })
+                }
+              />
+              <CodexDefaultsEditor state={codexSettings} />
+            </>
+          ) : null}
           <div className="column-editor-meta">
             <span>
               <small>Stable ID</small>

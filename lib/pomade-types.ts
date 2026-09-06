@@ -77,6 +77,7 @@ export type ProviderWaterfall = {
   statusColumnId: string;
 };
 export type PomadeColumn = {
+  codexResearch?: import('./codex-models.mjs').CodexResearchSettings;
   functionInstance?: {
     id: string;
     definitionId: string;
@@ -289,6 +290,8 @@ export type WorkspaceSource = {
 };
 
 export type ActionReceipt = {
+  researchModel?: string;
+  reasoningEffort?: string;
   pending?: boolean;
   attempts?: ActionReceipt[];
   id: string;
@@ -375,6 +378,7 @@ export type WebResearchCitation = {
 };
 
 export type WebResearchResult = {
+  reasoningEffort?: string;
   browserVisits?: BrowserResearchVisit[];
   answer: string;
   citations: WebResearchCitation[];

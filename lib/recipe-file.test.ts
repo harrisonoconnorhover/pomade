@@ -72,6 +72,7 @@ describe('portable recipe files', () => {
       width: 300,
       recipe: 'web-research',
       prompt: 'Find companies like {{seed}}',
+      codexResearch: { model: 'model-a', reasoningEffort: 'high' },
       outputCardinality: 'list',
       listLimit: 12,
       outputFields: [
@@ -89,6 +90,7 @@ describe('portable recipe files', () => {
       prompt: research.prompt,
       outputFields: research.outputFields,
       listLimit: 12,
+      codexResearch: { model: 'model-a', reasoningEffort: 'high' },
     });
     expect(() => instantiateRecipeTemplate(imported, [], {})).toThrow(
       'Seed needs an input column',

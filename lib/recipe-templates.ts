@@ -96,6 +96,9 @@ function cloneColumn(column: PomadeColumn): PomadeColumn {
   return {
     ...column,
     functionInstance: undefined,
+    codexResearch: column.codexResearch
+      ? { ...column.codexResearch }
+      : undefined,
     providerWaterfall: column.providerWaterfall
       ? structuredClone(column.providerWaterfall)
       : undefined,

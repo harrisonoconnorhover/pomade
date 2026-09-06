@@ -1,3 +1,4 @@
+import { validCodexModels } from '../lib/codex-models.mjs';
 import {
   claimCompanionRequest,
   finishCompanionRequest,
@@ -22,8 +23,23 @@ export async function handleCompanion(request: Request, db: D1Database) {
           Date.now(),
         )
         .run();
+      if (validCodexModels(body.models)) {
+        await db
+          .prepare(
+            'UPDATE research_companion SET models = ?, models_updated_at = ? WHERE id = 1',
+          )
+          .bind(
+            JSON.stringify(body.models),
+            typeof body.modelsUpdatedAt === 'number'
+              ? body.modelsUpdatedAt
+              : Date.now(),
+          )
+          .run();
+      }
       const job =
-        body.ready === true && body.claim === true
+        body.ready === true &&
+        body.claim === true &&
+        body.researchSettingsVersion === 1
           ? await claimCompanionRequest(db)
           : null;
       return Response.json({ job });

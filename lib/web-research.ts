@@ -398,6 +398,8 @@ export function applyWebResearchResult(
           : 'No rows created · output needs review',
       provider,
       cached: result.cached,
+      researchModel: result.model,
+      reasoningEffort: result.reasoningEffort,
       evidence: result.citations.map(
         (citation) => `${citation.title}: ${citation.url}`,
       ),
@@ -454,6 +456,8 @@ export function applyWebResearchResult(
     after,
     provider,
     cached: result.cached,
+    researchModel: result.model,
+    reasoningEffort: result.reasoningEffort,
     evidence: result.citations.map(
       (citation) => `${citation.title}: ${citation.url}`,
     ),

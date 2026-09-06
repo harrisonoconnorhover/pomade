@@ -1,3 +1,12 @@
+import {
+  readResearchDefaults,
+  readResearchModels,
+} from '@/db/research-settings';
+import {
+  resolveCodexSettings,
+  CodexSettingsError,
+  codexCacheIdentity,
+} from '@/lib/codex-models.mjs';
 import { ResearchPendingError } from '@/lib/companion-research';
 import { projectSignalFeed } from '@/lib/account-signals';
 import { detectSignalChanges, type SignalBatch } from '@/lib/change-signals';
@@ -226,8 +235,9 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     const researchProvider = research.provider;
-    const model = research.model;
-    const researchClient = createResearchClient(env);
+    const defaults =
+      researchProvider === 'codex' ? await readResearchDefaults(db, env) : {};
+    let catalog: Awaited<ReturnType<typeof readResearchModels>> | undefined;
 
     if (workspace.signalFeedFields) {
       const feed = await db
@@ -277,6 +287,20 @@ export async function POST(request: Request) {
             column.outputCardinality,
             column.listLimit,
           );
+          const settings =
+            researchProvider === 'codex'
+              ? (column.codexResearch ?? defaults)
+              : undefined;
+          if (settings && !catalog) catalog = await readResearchModels(env);
+          if (settings && !catalog?.models.length)
+            throw new ResearchPendingError();
+          const resolved = settings
+            ? resolveCodexSettings(catalog!.models, settings)
+            : undefined;
+          const researchClient = createResearchClient(env, resolved);
+          const model = resolved
+            ? codexCacheIdentity(resolved, research.browser)
+            : research.model;
           const cacheModel =
             researchProvider === 'parallel' && column.outputFields?.length
               ? `${model}:structured-v1`
@@ -359,12 +383,15 @@ export async function POST(request: Request) {
                 evidence: [message],
               },
             };
-          const values = Object.fromEntries(
-            (column.outputFields ?? [{ id: column.id }]).map((field) => [
-              field.id,
-              '',
-            ]),
-          );
+          const values =
+            error instanceof CodexSettingsError
+              ? {}
+              : Object.fromEntries(
+                  (column.outputFields ?? [{ id: column.id }]).map((field) => [
+                    field.id,
+                    '',
+                  ]),
+                );
           return {
             workspace: {
               ...currentWorkspace,
@@ -382,11 +409,14 @@ export async function POST(request: Request) {
               action: column.title,
               status: 'review',
               before: currentRow.values[column.id] ?? '',
-              after: '',
+              after:
+                error instanceof CodexSettingsError
+                  ? (currentRow.values[column.id] ?? '')
+                  : '',
               outputValues: values,
               durationMs: Date.now() - actionStartedAt,
               provider: research.configured ? researchProvider : 'local',
-              creditsConsumed: null,
+              creditsConsumed: error instanceof CodexSettingsError ? 0 : null,
               evidence: [message],
               error: message,
             },

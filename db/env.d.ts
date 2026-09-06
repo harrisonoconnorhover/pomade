@@ -17,6 +17,7 @@ declare namespace Cloudflare {
     POMADE_CODEX_URL?: string;
     POMADE_CODEX_TOKEN?: string;
     POMADE_CODEX_MODEL?: string;
+    POMADE_CODEX_REASONING_EFFORT?: string;
     POMADE_CODEX_BROWSER?: string;
     PDL_API_KEY?: string;
     PARALLEL_API_KEY?: string;

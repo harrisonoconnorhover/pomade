@@ -1,3 +1,4 @@
+import { codexCacheIdentity } from './codex-models.mjs';
 import type { WebResearchResult } from './pomade-types';
 import { sha256 } from './deployment';
 
@@ -15,6 +16,7 @@ export type CompanionRequest = {
   id: string;
   prompt: string;
   model: string | null;
+  reasoning_effort: string | null;
   browser: number;
   lease_token: string;
 };
@@ -39,7 +41,7 @@ export async function claimCompanionRequest(db: D1Database, now = Date.now()) {
     .prepare(`UPDATE research_requests SET status = 'running', lease_token = ?, lease_until = ?, updated_at = ?
     WHERE id = (SELECT id FROM research_requests WHERE status = 'queued' OR (status = 'running' AND lease_until <= ?)
     ORDER BY created_at LIMIT 1)
-    RETURNING id, prompt, model, browser, lease_token`)
+    RETURNING id, prompt, model, reasoning_effort, browser, lease_token`)
     .bind(lease, now + COMPANION_LEASE_MS, now, now)
     .first<CompanionRequest>();
 }
@@ -103,7 +105,11 @@ export async function finishCompanionRequest(
 export class HostedCodexWebResearchClient {
   constructor(
     private db: D1Database,
-    private options: { model?: string; browser?: boolean },
+    private options: {
+      model?: string;
+      browser?: boolean;
+      reasoningEffort?: string;
+    },
   ) {}
   async status() {
     const status = await companionStatus(this.db);
@@ -118,8 +124,7 @@ export class HostedCodexWebResearchClient {
       throw new Error('Use a shorter research prompt.');
     const id = await sha256(
       JSON.stringify([
-        this.options.model || '',
-        !!this.options.browser,
+        codexCacheIdentity(this.options, !!this.options.browser),
         prompt,
       ]),
     );
@@ -133,11 +138,12 @@ export class HostedCodexWebResearchClient {
       .run();
     await this.db
       .prepare(`INSERT OR IGNORE INTO research_requests
-      (id, prompt, model, browser, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'queued', ?, ?)`)
+      (id, prompt, model, reasoning_effort, browser, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'queued', ?, ?)`)
       .bind(
         id,
         prompt,
         this.options.model || null,
+        this.options.reasoningEffort || null,
         this.options.browser ? 1 : 0,
         now,
         now,

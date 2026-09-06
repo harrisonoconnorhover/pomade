@@ -1,3 +1,8 @@
+import {
+  CodexSettingsError,
+  validCodexModels,
+  type CodexModel,
+} from './codex-models.mjs';
 import type { WebResearchResult } from './pomade-types';
 
 export class CodexWebResearchClient {
@@ -7,6 +12,7 @@ export class CodexWebResearchClient {
       url?: string;
       token?: string;
       model?: string;
+      reasoningEffort?: string;
       browser?: boolean;
       fetchImpl?: typeof fetch;
     },
@@ -53,6 +59,7 @@ export class CodexWebResearchClient {
     if (!response.ok) {
       const details = (await response.json().catch(() => null)) as {
         code?: string;
+        error?: string;
       } | null;
       const setupErrors: Record<string, string> = {
         browser_unavailable:
@@ -68,6 +75,14 @@ export class CodexWebResearchClient {
         503: 'The local research helper is not ready. Check its terminal, local browser installation and ChatGPT login, then check the connection again.',
         504: 'Codex research timed out. Try a narrower question.',
       };
+      if (details?.code === 'invalid_research_settings')
+        throw new CodexSettingsError(
+          details.error || 'Choose a supported model and reasoning effort.',
+        );
+      if (details?.code === 'models_unavailable')
+        throw new Error(
+          'The Codex model list is unavailable. Restart the helper and refresh models.',
+        );
       throw new Error(
         (response.status === 503 &&
           details?.code &&
@@ -93,10 +108,23 @@ export class CodexWebResearchClient {
       );
     return { configured: true };
   }
+  async models(
+    refresh = false,
+  ): Promise<{ models: CodexModel[]; updatedAt: number }> {
+    const catalog = (await this.request(
+      refresh ? '/models?refresh=true' : '/models',
+    )) as { models?: unknown; updatedAt: number };
+    if (!validCodexModels(catalog?.models))
+      throw new Error(
+        'Update the local research helper to load its model list.',
+      );
+    return { models: catalog.models, updatedAt: catalog.updatedAt };
+  }
   async research(prompt: string): Promise<WebResearchResult> {
     const raw = await this.request('/research', {
       prompt,
       model: this.options.model,
+      reasoningEffort: this.options.reasoningEffort,
       browser: this.options.browser,
     });
     const data = raw as Partial<WebResearchResult> | null;
@@ -118,9 +146,8 @@ export class CodexWebResearchClient {
           typeof c.title === 'string',
       ),
       queries: data.queries.filter((q: unknown) => typeof q === 'string'),
-      model:
-        (this.options.model || 'Codex default') +
-        (this.options.browser ? ' + local-browser-v1' : ''),
+      model: typeof data.model === 'string' ? data.model : 'Not reported',
+      reasoningEffort: data.reasoningEffort,
       ...(this.options.browser && Array.isArray(data.browserVisits)
         ? { browserVisits: data.browserVisits }
         : {}),

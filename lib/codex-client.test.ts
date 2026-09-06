@@ -11,6 +11,18 @@ import {
 } from '../scripts/codex-research.mjs';
 import { writeFile } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
+const models = [
+  {
+    id: 'model-a',
+    name: 'Model A',
+    isDefault: true,
+    defaultReasoningEffort: 'medium',
+    efforts: [
+      { value: 'medium', description: 'Balanced' },
+      { value: 'high', description: 'Deeper' },
+    ],
+  },
+];
 
 describe('local ChatGPT research', () => {
   it('keeps explicit Codex selection even when Parallel has a key', async () => {
@@ -43,6 +55,8 @@ describe('local ChatGPT research', () => {
             { url: 'javascript:alert(1)', title: 'Bad' },
           ],
           queries: ['company'],
+          model: 'model-a',
+          reasoningEffort: 'high',
         }),
       )
       .mockResolvedValueOnce(new Response(null, { status: 429 }));
@@ -52,6 +66,7 @@ describe('local ChatGPT research', () => {
     });
     const r = await c.research('Research this company');
     expect(r.answer).toBe('{"fit":true}');
+    expect(r).toMatchObject({ model: 'model-a', reasoningEffort: 'high' });
     expect(r.citations).toHaveLength(1);
     expect(f.mock.calls[0][0]).toBe('http://127.0.0.1:9876/research');
     expect(f.mock.calls[0][1]).toMatchObject({
@@ -158,7 +173,11 @@ describe('local ChatGPT research', () => {
         return Object.assign(result, { child: { stdin: { end: vi.fn() } } });
       });
     const token = 'a'.repeat(32);
-    const server = createCodexServer({ token, run });
+    const server = createCodexServer({
+      token,
+      run,
+      discoverModels: async () => models,
+    });
     await new Promise<void>((resolve) =>
       server.listen(0, '127.0.0.1', resolve),
     );
@@ -192,9 +211,34 @@ describe('local ChatGPT research', () => {
         body: JSON.stringify({ prompt: 'Research' }),
       });
       expect(result.status).toBe(200);
+      const args = run.mock.calls.find(([, args]) => args[0] === 'exec')![1];
+      expect(args).toContain('model-a');
+      expect(args).toContain('model_reasoning_effort="medium"');
+      const invalid = await fetch(base + '/research', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          prompt: 'Research',
+          model: 'model-a',
+          reasoningEffort: 'ultra',
+        }),
+      });
+      expect(invalid.status).toBe(400);
+      expect(
+        run.mock.calls.filter(([, args]) => args[0] === 'exec'),
+      ).toHaveLength(1);
+      expect(
+        (
+          (await (await fetch(base + '/models', { headers })).json()) as {
+            models: unknown;
+          }
+        ).models,
+      ).toEqual(models);
       expect(await result.json()).toMatchObject({
         answer: '{"fit":true}',
         queries: ['example company'],
+        model: 'model-a',
+        reasoningEffort: 'medium',
       });
       searched = false;
       expect(

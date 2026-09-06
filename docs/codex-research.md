@@ -51,6 +51,42 @@ when the helper is stopped, login expires or subscription usage is exhausted.
 Choose `parallel` or `gemini` explicitly to switch back. Removing the selection
 restores the earlier automatic preference for Parallel, then Gemini.
 
+## Choose a model and reasoning effort
+
+In **Add AI web research**, use **Research settings**. Existing columns have the
+same controls in **Column settings** and **Recipe engine → Recipe run settings**.
+Keep **Use app defaults** checked, or uncheck it to choose a model and one of its
+supported effort levels for that column.
+
+Expand **ChatGPT research defaults** to save shared defaults for this installation.
+The same editor is available in **Load data**. Changes apply without rebuilding.
+The local and hosted installations retain their own defaults, just like their data.
+A column override wins over saved app defaults. Without saved defaults, optional
+`POMADE_CODEX_MODEL` / `POMADE_CODEX_REASONING_EFFORT` environment values apply.
+Otherwise Pomade resolves the model and effort from Codex's account catalog.
+Model changes reset effort to the newly chosen model's default in the picker.
+
+Models and supported effort combinations come from official Codex `model/list`;
+Pomade does not hardcode a list of model names. Discovery starts no research turn.
+The helper caches the catalog for five minutes. **Refresh models** requests a new
+local catalog; hosted controls reload the catalog published by the Mac companion,
+which checks every minute. Its timestamp shows when the catalog was read.
+Unavailable selections produce an error instead of silently choosing another model.
+
+Every completed research action records the explicit model and effort passed to
+Codex in its receipt. Cached results retain the original execution settings and
+are labeled as cached. Model, effort and browser mode have distinct cache keys.
+Recipe templates and portable recipe files preserve column overrides. Higher
+effort can take longer and use more subscription allowance; the existing three-
+minute search and four-minute browser limits still apply.
+
+Restart both `npm run research:codex` and `npm run research:companion` after updating
+this feature. The hosted queue requires the updated companion before assigning
+work with reasoning settings. An already dispatched request keeps its settings;
+change shared defaults between batches for consistent results across a batch.
+
+Reference: [official Codex model discovery](https://learn.chatgpt.com/docs/app-server#models).
+
 ## Evidence and limits
 
 On 2026-09-05, an independent CLI probe with API keys absent completed a live

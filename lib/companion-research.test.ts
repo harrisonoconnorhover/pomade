@@ -30,6 +30,12 @@ function fixture() {
       'utf8',
     ),
   );
+  sql.exec(
+    readFileSync(
+      new URL('../drizzle/0006_pretty_black_cat.sql', import.meta.url),
+      'utf8',
+    ),
+  );
   const db = {
     prepare(query: string) {
       const stmt = sql.prepare(query);
@@ -125,7 +131,11 @@ describe('durable Mac research', () => {
   });
   it('requires a fresh ready heartbeat and handles local busy responses without losing work', async () => {
     const { db, sql, client } = fixture();
-    sql.prepare('INSERT INTO research_companion VALUES (1,1,1,100)').run();
+    sql
+      .prepare(
+        'INSERT INTO research_companion (id,ready,browser_available,updated_at) VALUES (1,1,1,100)',
+      )
+      .run();
     expect((await companionStatus(db, 200)).ready).toBe(true);
     expect((await companionStatus(db, 50_000)).ready).toBe(false);
     await expect(client.research('Question')).rejects.toThrow('Waiting');
@@ -154,8 +164,20 @@ describe('durable Mac research', () => {
       const url = String(input),
         headers = new Headers(options.headers);
       if (url.endsWith('/status'))
-        return Response.json({ configured: true, browserAvailable: true });
+        return Response.json({
+          configured: true,
+          browserAvailable: true,
+          researchSettingsVersion: 1,
+        });
+      if (url.endsWith('/models'))
+        return Response.json({ models: [], updatedAt: 0 });
       if (url.endsWith('/research')) {
+        expect(
+          JSON.parse(typeof options.body === 'string' ? options.body : '{}'),
+        ).toMatchObject({
+          model: 'model-a',
+          reasoningEffort: 'high',
+        });
         researches++;
         expect(headers.get('authorization')).toBe('Bearer helper-secret');
         expect(headers.has('OAI-Sites-Authorization')).toBe(false);
@@ -175,7 +197,14 @@ describe('durable Mac research', () => {
       }
       const job =
         !claimed && body.claim
-          ? { id: 'job', lease_token: 'lease', prompt: 'Question', browser: 1 }
+          ? {
+              id: 'job',
+              lease_token: 'lease',
+              prompt: 'Question',
+              browser: 1,
+              model: 'model-a',
+              reasoning_effort: 'high',
+            }
           : null;
       if (job) claimed = true;
       return Response.json({ job });
@@ -196,5 +225,25 @@ describe('durable Mac research', () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+it('keeps queued research separate by model and effort and returns the selected settings to the companion', async () => {
+  const { db, sql } = fixture();
+  for (const options of [
+    { model: 'model-a', reasoningEffort: 'medium' },
+    { model: 'model-a', reasoningEffort: 'high' },
+    { model: 'model-b', reasoningEffort: 'high' },
+  ]) {
+    await expect(
+      new HostedCodexWebResearchClient(db, options).research('Same question'),
+    ).rejects.toThrow('Waiting');
+  }
+  expect(
+    sql.prepare('SELECT COUNT(*) AS n FROM research_requests').get()?.n,
+  ).toBe(3);
+  expect(await claimCompanionRequest(db)).toMatchObject({
+    model: 'model-a',
+    reasoning_effort: 'medium',
   });
 });

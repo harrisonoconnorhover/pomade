@@ -904,3 +904,17 @@ stopping early; both retain the underlying error for review.
   including recipes that write to standard email/phone fields. CRM input fields
   may change or clear as shown in the preview. Enrichment is not rerun; scheduling
   and automatic removal remain separate future work.
+
+
+## 2026-09-06 — ChatGPT research model controls
+
+- Read picker-visible models and supported reasoning efforts through the official
+  Codex app-server `model/list`, using a metadata-only session. Keep the existing
+  isolated `codex exec` research path and pass resolved model/effort explicitly.
+- Persist app defaults separately in each installation and optional overrides on
+  research columns. Preserve overrides in recipe templates/files; include model,
+  effort and browser mode in both research cache and companion request identities.
+- Add reasoning effort to the existing durable companion queue and publish its
+  cached account catalog to the hosted app. Require the updated companion protocol
+  before assigning jobs. Receipts record completed invocation settings; missing
+  metadata is never replaced with guessed settings from the current configuration.

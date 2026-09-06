@@ -63,7 +63,8 @@ describe('web research recipe', () => {
           { title: 'Mercury newsroom', url: 'https://mercury.com/news' },
         ],
         queries: ['Mercury latest product announcement'],
-        model: 'gemini-3.8-flash',
+        model: 'model-a',
+        reasoningEffort: 'high',
         cached: false,
       },
       Date.now() - 20,
@@ -75,6 +76,8 @@ describe('web research recipe', () => {
     );
     expect(result.receipt).toMatchObject({
       provider: 'parallel',
+      researchModel: 'model-a',
+      reasoningEffort: 'high',
       status: 'passed',
       references: [
         { title: 'Mercury newsroom', url: 'https://mercury.com/news' },

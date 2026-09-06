@@ -1,3 +1,4 @@
+import { validateCodexSettings } from './codex-models.mjs';
 import { conditionOperators, mapConditionFields } from './run-conditions';
 import type { PomadeColumn, RecipeTemplate } from './pomade-types';
 import { createRecipeTemplate } from './recipe-templates';
@@ -73,6 +74,14 @@ const columnCheck = object({
   autoRun: optional((v) => typeof v === 'boolean'),
   expression: optional(string),
   prompt: optional(string),
+  codexResearch: optional((value) => {
+    try {
+      validateCodexSettings(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }),
   inputBindings: optional(bindings),
   lineageColumnId: optional(id),
   valueType: optional(oneOf(valueTypes)),
@@ -139,6 +148,9 @@ export function exportRecipeFile(template: RecipeTemplate): string {
     autoRun: c.autoRun,
     expression: c.expression,
     prompt: c.prompt,
+    codexResearch: c.codexResearch
+      ? validateCodexSettings(c.codexResearch)
+      : undefined,
     inputBindings: c.inputBindings,
     lineageColumnId: c.lineageColumnId,
     valueType: c.valueType,

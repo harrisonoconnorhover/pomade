@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { browserAvailable, evidenceFromBrowser } from './research-browser.mjs';
+import { readCodexModels } from './codex-model-catalog.mjs';
+import { resolveCodexSettings } from '../lib/codex-models.mjs';
 const exec = promisify(execFile);
 const schema = {
   type: 'object',
@@ -44,7 +46,13 @@ export function codexEnvironment(source = process.env) {
       .map((k) => [k, source[k]]),
   );
 }
-export function codexArguments(schemaPath, answerPath, model, browserTrace) {
+export function codexArguments(
+  schemaPath,
+  answerPath,
+  model,
+  browserTrace,
+  reasoningEffort,
+) {
   return [
     'exec',
     '--ignore-user-config',
@@ -88,6 +96,9 @@ export function codexArguments(schemaPath, answerPath, model, browserTrace) {
         ]
       : []),
     ...(model ? ['--model', model] : []),
+    ...(reasoningEffort
+      ? ['-c', `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`]
+      : []),
     '-',
   ];
 }
@@ -96,12 +107,27 @@ export function createCodexServer({
   binary = 'codex',
   environment = codexEnvironment(),
   run = exec,
+  discoverModels = readCodexModels,
 } = {}) {
   if (!token || token.length < 32)
     throw new Error(
       'Set POMADE_CODEX_TOKEN to at least 32 random characters in .env.local.',
     );
   let busy = false;
+  let catalog;
+  let catalogPromise;
+  const models = async () => {
+    if (catalog && Date.now() - catalog.updatedAt < 300_000) return catalog;
+    catalogPromise ??= discoverModels(binary, environment)
+      .then((items) => {
+        catalog = { models: items, updatedAt: Date.now() };
+        return catalog;
+      })
+      .finally(() => {
+        catalogPromise = undefined;
+      });
+    return catalogPromise;
+  };
   async function account() {
     const r = await run(binary, ['login', 'status'], {
       env: environment,
@@ -127,11 +153,26 @@ export function createCodexServer({
         return reply(configured ? 200 : 503, {
           configured,
           authentication: 'chatgpt',
+          researchSettingsVersion: 1,
           browserAvailable: browserAvailable(),
           ...(!configured ? { code: 'chatgpt_login_required' } : {}),
         });
       } catch {
         return reply(503, { configured: false, code: 'codex_unavailable' });
+      }
+    }
+    if (req.method === 'GET' && req.url?.split('?')[0] === '/models') {
+      try {
+        if (!(await account()))
+          return reply(503, { code: 'chatgpt_login_required' });
+        if (req.url.endsWith('?refresh=true')) catalog = undefined;
+        return reply(200, await models());
+      } catch {
+        return reply(503, {
+          code: 'models_unavailable',
+          error:
+            'The Codex model list is unavailable. Check the helper and refresh models.',
+        });
       }
     }
     if (req.method !== 'POST' || req.url !== '/research')
@@ -171,6 +212,18 @@ export function createCodexServer({
           error: 'ChatGPT login required',
           code: 'chatgpt_login_required',
         });
+      let settings;
+      try {
+        settings = resolveCodexSettings((await models()).models, {
+          model: input.model,
+          reasoningEffort: input.reasoningEffort,
+        });
+      } catch (error) {
+        return reply(400, {
+          code: 'invalid_research_settings',
+          error: error.message,
+        });
+      }
       directory = await mkdtemp(join(tmpdir(), 'pomade-research-'));
       const schemaPath = join(directory, 'schema.json'),
         answerPath = join(directory, 'answer.json');
@@ -200,7 +253,13 @@ export function createCodexServer({
         input.prompt;
       const child = run(
         binary,
-        codexArguments(schemaPath, answerPath, input.model, browserTrace),
+        codexArguments(
+          schemaPath,
+          answerPath,
+          settings.model,
+          browserTrace,
+          settings.reasoningEffort,
+        ),
         {
           cwd: directory,
           env: environment,
@@ -237,6 +296,8 @@ export function createCodexServer({
       }
       return reply(200, {
         ...answer,
+        model: settings.model,
+        reasoningEffort: settings.reasoningEffort,
         ...browserEvidence,
         queries: [
           ...new Set(searches.map((e) => e.item.query).filter(Boolean)),

@@ -43,6 +43,13 @@
       "when": 1788656186944,
       "tag": "0005_loud_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788691776157,
+      "tag": "0006_pretty_black_cat",
+      "breakpoints": true
     }
   ]
 }

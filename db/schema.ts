@@ -186,6 +186,7 @@ export const researchRequests = sqliteTable(
     id: text('id').primaryKey(),
     prompt: text('prompt').notNull(),
     model: text('model'),
+    reasoningEffort: text('reasoning_effort'),
     browser: integer('browser').notNull().default(0),
     status: text('status').notNull(),
     leaseToken: text('lease_token'),
@@ -204,8 +205,15 @@ export const researchRequests = sqliteTable(
 );
 
 export const researchCompanion = sqliteTable('research_companion', {
+  models: text('models'),
+  modelsUpdatedAt: integer('models_updated_at'),
   id: integer('id').primaryKey(),
   ready: integer('ready').notNull(),
   browserAvailable: integer('browser_available').notNull(),
   updatedAt: integer('updated_at').notNull(),
+});
+
+export const researchSettings = sqliteTable('research_settings', {
+  id: integer('id').primaryKey(),
+  settings: text('settings').notNull(),
 });
