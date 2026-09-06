@@ -2,39 +2,39 @@
 
 ## Finished
 
-- Added account-backed model and reasoning-effort selectors to new research columns, column settings and recipe settings.
-- Added shared ChatGPT research defaults for each installation, with optional column overrides.
-- Preserved settings in saved recipes and the hosted companion queue.
-- Recorded model and effort in receipts; cached results remain separate by model, effort and browser mode.
-- Updated the running local app and privately published Sites version 12 from `f125626`. Unsupported settings preserve previous answers.
+- Compared ChatGPT Luna/low and Astra/medium with Parallel speed, base and raw Search on the three DemandDrive companies.
+- Saved the prompts, exact responses, timings, citation evidence and a recommendation report locally.
+- Independently verified Astra's HealthEdge and Solera hiring leads; identified a stale Solera listing in Parallel base's output.
+- Recorded one Luna result that needs review because no citations survived Pomade's quote checks.
 
 ## Try It
 
-- Open **Add AI web research → Research settings**, or edit an existing research column. Keep **Use app defaults**, or choose its model and effort.
-- Expand **ChatGPT research defaults** to save shared preferences or refresh account models. Also available under **Load data**.
-- Inspect **Research model controls — check** [locally](http://localhost:8798/?table=ac31d85b-4265-4ed4-8c72-ae0e64dd24e0) or on the [private site](https://pomade.deleteddeleted.chatgpt.site/?table=41d8f4d7-a7c5-40ae-9680-6788af631910). See [setup and model selection](docs/codex-research.md).
+- Read [the provider comparison](docs/research-provider-comparison-2026-09-06.md).
+- Inspect exact answers in `outputs/research-comparison-2026-09-06/`, including `results.json`, `base-results.json` and `summary.json`.
+- Existing ChatGPT model controls remain under **Add AI web research → Research settings**. Provider selection is still an installation setting.
 
 ## Checks
 
-- 50 focused tests across eight files passed; typecheck, lint, diff whitespace checks and final local/hosted builds passed.
-- Live account discovery returned seven models and supported efforts without starting a research turn.
-- Local research inherited Luna/low defaults; hosted research used a Luna/low column override over Sol/medium defaults. Each visited HealthEdge's website and returned an answer with a citation. Both cached reruns retained the selected model and effort.
-- Unsupported Luna/ultra defaults returned HTTP 400 on both installations. A local invalid-column run retained the previous answer and recorded zero credits. Original app defaults were restored.
-- Private deployment succeeded with the database migration. Verification used functional HTTP checks and a static picker-render test, with no interactive browser QA of Pomade.
+- All 15 live calls completed: 12 structured research responses and three Search responses. All 12 answers parsed as valid structured data; 11 had accepted citation receipts.
+- Median seconds per company: Search 2.19, speed 2.94, base 11.51, Luna/low 38.92, Astra/medium 67.55.
+- HealthEdge requisition 2026-8232 was verified on its direct iCIMS page. Solera BDR JR-019664 loaded with Apply; the SDR JR-019383 referenced by Parallel base showed a missing-page state on two URL variants.
+- Estimated Parallel list-rate consumption was $0.06. Exact account billing and per-run Codex token/credit usage were not available.
+- Only standalone report files changed; no runtime build or regression suite was needed. Report links, result counts and diff whitespace were checked.
 
 ## Decisions
 
-- Discover available models from Codex instead of hardcoding names or effort levels.
-- Unset defaults follow the account default model and its default effort. Local and hosted preferences are independent.
-- Change shared defaults between batches; explicit column overrides remain independent.
+- Prefer Parallel for routine first-pass enrichment and Astra/medium for difficult, valuable claims requiring direct verification.
+- Treat three companies as a diagnostic sample; valid JSON, source counts and null values are not accuracy scores.
+- Deliver a standalone report after automatic approval review blocked optional writes to app comparison sheets due to persistence and possible overwrite risk.
 
 ## Remaining
 
-- Hosted subscription research still needs the Mac helper and companion running.
-- Higher effort may take longer and use more allowance; existing research timeouts remain in effect.
+- Per-column provider selection and conditional Parallel-to-Codex research fallback are future improvements.
+- Broader sampling and per-run Codex usage reporting would improve cost and quality comparisons.
+- Native app comparison sheets were not created; the standalone comparison is complete.
 
 ## Review First
 
-- `components/codex-research-settings.tsx` and `app/api/providers/research/settings/route.ts`.
-- `scripts/codex-model-catalog.mjs`, helper settings and companion transport.
-- `app/api/runs/route.ts`: resolution, cache identity and receipts.
+- `docs/research-provider-comparison-2026-09-06.md`.
+- `outputs/research-comparison-2026-09-06/solera-parallel-base.json` and live Solera verification files.
+- `outputs/research-comparison-2026-09-06/solera-codex-luna-low.json` for the citation limitation.
