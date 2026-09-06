@@ -129,7 +129,10 @@ operation's error status. Reads are paginated to at most 100 rows per response.
   remain future work. The private hosted installation is for its owner only;
   it does not configure a web-based ChatGPT/Claude MCP connector.
 - Salesforce access tokens can expire. Refresh from the existing Salesforce CLI
-  login, update the private binding and rebuild/restart; automatic OAuth token
+  login with `sf org auth show-access-token --target-org <alias> --json`, then update
+  the private credential binding. Rebuild/restart locally and redeploy the saved
+  hosted version after changing its Sites secret. The CLI's `org display` output
+  contains a redacted placeholder, not a usable token. Automatic OAuth token
   refresh inside Pomade is not implemented yet.
 
 The design follows the [official MCP SDK](https://ts.sdk.modelcontextprotocol.io/).

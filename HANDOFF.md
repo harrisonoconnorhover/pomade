@@ -2,36 +2,39 @@
 
 ## Finished
 
-- Separate local and hosted configuration; clean hosted build preserves local artifacts and data.
-- Owner-only hosted access with a server-side owner check and a scoped Mac connection.
-- Outbound Mac research companion, durable job/results storage, and pending-row continuation.
-- Hosted research uses background jobs; hosted scheduled automations start paused.
+- Private Pomade is live at https://pomade.deleteddeleted.chatgpt.site; local Pomade still runs at http://localhost:8798/.
+- Preserved all 13 local tables and the original hosted table; copied three DemandDrive tables into the hosted database.
+- Added owner-only hosted access, separate hosted configuration, and an outbound Mac research companion.
+- Verified a real hosted research job waiting offline, resuming after Mac reconnection, and saving cited HealthEdge research.
+- Verified HubSpot company and Salesforce account reads from both installations; refreshed the existing Salesforce connection.
 
 ## Try It
 
-- Local: `npm run build`, `npm start`, and `npm run research:codex`.
-- Hosted connection: `npm run research:companion` using the private companion settings.
-- See `docs/hosting.md` for independent data, credentials and deployment instructions.
+- Open the hosted URL and sign in with the owner account. The Local/Hosted label identifies the installation. Table edits do not synchronize.
+- Local restart: `npm run build`, then `npm start -- --port 8798 --ip 127.0.0.1`.
+- Mac research restart: run `npm run research:codex` and `npm run research:companion` in separate terminals. Private connection settings are already saved. Keep the Mac awake for research.
+- Operating details: [docs/hosting.md](docs/hosting.md).
 
 ## Checks
 
-- 277 tests passed across all 48 existing and new test files.
-- Typecheck, lint, script syntax, and both local and hosted builds passed before final publishing.
-- Hosted build contains no local credentials; local build credentials remain present.
-- Private snapshots captured all 13 local tables before migration.
-- Live deployment and research verification are pending.
+- 278 tests passed across 48 files. Typecheck, lint, script syntax, and local/hosted builds passed.
+- Hosted artifact excludes local credentials; hosted builds preserve local artifacts and data.
+- HTTP access checks rejected anonymous requests, forged identity, wrong-scope credentials, and foreign browser origins; authorized owner access succeeded.
+- All 13 local table row/column snapshots matched. The hosted database has four tables.
+- Live research read two pages and saved three cited excerpts. HubSpot and Salesforce each returned one record successfully from both installations.
+- Private Sites version 9 deployed successfully from source commit `81f015c`; no GitHub publishing. Verification was functional HTTP testing, not interactive browser QA.
 
 ## Decisions
 
-- Reuse the existing private Sites project, with separate hosted data and no GitHub publishing.
-- Keep schedules owned locally initially; permit explicit manual hosted runs.
-- Use an outbound companion instead of exposing a Mac browser port.
+- Use one codebase with independent local and hosted databases and credentials; hosted schedules start paused.
+- Keep research on the Mac through an outbound connection, without exposing browser ports.
+- Separate the limited research token from the owner maintenance key.
 
 ## Remaining
 
-- Publish and verify the private hosted version, then record its real URL and research result here.
-- Test Mac disconnect/reconnect and confirm existing local tables remain unchanged.
-- Multiple users and remote MCP remain outside this one-owner release.
+- Salesforce access tokens require manual renewal; automatic OAuth refresh is not implemented.
+- Table synchronization, multiple users, and remote MCP remain future work.
+- Mac research waits while the Mac or helper is offline; other hosted features remain available.
 
 ## Review First
 
