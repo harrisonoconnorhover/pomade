@@ -1,7 +1,11 @@
+import { HostedCodexWebResearchClient } from './companion-research';
 import { CodexWebResearchClient } from './codex-client';
 import { ParallelWebResearchClient } from './parallel-client';
 import { GeminiWebResearchClient } from './gemini-client';
 export type ResearchEnvironment = {
+  DB?: D1Database;
+  POMADE_DEPLOYMENT?: string;
+  POMADE_COMPANION_TOKEN_SHA256?: string;
   POMADE_RESEARCH_PROVIDER?: string;
   POMADE_CODEX_URL?: string;
   POMADE_CODEX_TOKEN?: string;
@@ -23,13 +27,17 @@ export function researchConfiguration(env: ResearchEnvironment) {
     | 'codex'
     | 'parallel'
     | 'gemini';
+  const hosted = env.POMADE_DEPLOYMENT === 'hosted';
   const browser = provider === 'codex' && env.POMADE_CODEX_BROWSER === 'true';
   return {
     provider,
     browser,
+    companion: hosted && provider === 'codex',
     configured: Boolean(
       provider === 'codex'
-        ? env.POMADE_CODEX_TOKEN?.trim()
+        ? hosted
+          ? env.POMADE_COMPANION_TOKEN_SHA256?.trim()
+          : env.POMADE_CODEX_TOKEN?.trim()
         : provider === 'parallel'
           ? env.PARALLEL_API_KEY?.trim()
           : env.GEMINI_API_KEY?.trim(),
@@ -53,6 +61,13 @@ export function researchConfiguration(env: ResearchEnvironment) {
 }
 export function createResearchClient(env: ResearchEnvironment) {
   const { provider, model } = researchConfiguration(env);
+  if (provider === 'codex' && env.POMADE_DEPLOYMENT === 'hosted') {
+    if (!env.DB) throw new Error('Hosted research storage is unavailable.');
+    return new HostedCodexWebResearchClient(env.DB, {
+      model: env.POMADE_CODEX_MODEL?.trim(),
+      browser: env.POMADE_CODEX_BROWSER === 'true',
+    });
+  }
   if (provider === 'codex')
     return new CodexWebResearchClient({
       url: env.POMADE_CODEX_URL,

@@ -434,12 +434,14 @@ function LogoMark() {
 }
 
 export default function PomadeWorkspace({
+  deployment,
   workspaceId,
   initialRowId = '',
   onTableState,
   onOpenTable,
   onCopyRows,
 }: {
+  deployment: { hosted: boolean; label: string; schedulesEnabled: boolean };
   workspaceId: string;
   initialRowId?: string;
   onTableState: (summary: TableSummary, canLeave: boolean) => void;
@@ -2194,6 +2196,16 @@ export default function PomadeWorkspace({
     columnIds?: string[],
   ) {
     if (running || rowIds.length === 0) return;
+    if (
+      deployment.hosted &&
+      researchStatus?.companion &&
+      workspace.columns.some(
+        (column) =>
+          column.recipe === 'web-research' &&
+          (!columnIds || columnIds.includes(column.id)),
+      )
+    )
+      return queueBackgroundRun(rowIds, confirmExternalResearch, columnIds);
     const target = new Set(rowIds);
     const eligibleResearchActions = countMaximumExternalActions(
       workspace.rows.filter((row) => target.has(row.id)),
@@ -2481,6 +2493,12 @@ export default function PomadeWorkspace({
   }
 
   function openScheduleBuilder() {
+    if (!deployment.schedulesEnabled) {
+      setNotice(
+        'Scheduled automations are paused on this hosted copy. Manual and background runs are available.',
+      );
+      return;
+    }
     const now = Date.now();
     const existing = workspace.schedule;
     const nextRunAt =
@@ -2604,6 +2622,16 @@ export default function PomadeWorkspace({
         <div className="brand-lockup">
           <LogoMark />
           <span className="brand-name">Pomade</span>
+          <span
+            className="deployment-badge"
+            title={
+              deployment.hosted
+                ? 'Hosted tables are separate from your local tables. Scheduled automations are paused.'
+                : 'Tables saved on this Mac. Hosted tables are separate.'
+            }
+          >
+            {deployment.label}
+          </span>
           <span className="crumb">/</span>
           <button
             className="workspace-name"

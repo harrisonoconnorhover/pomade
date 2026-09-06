@@ -105,10 +105,17 @@ export async function ensureDatabaseSchema(db: D1Database) {
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_run_jobs_status_updated
       ON run_jobs(status, updated_at)`),
   ]);
+  const columns = await db
+    .prepare('PRAGMA table_info(run_jobs)')
+    .all<{ name: string }>();
+  if (!columns.results.some((column) => column.name === 'resume_column_ids'))
+    await db
+      .prepare('ALTER TABLE run_jobs ADD COLUMN resume_column_ids TEXT')
+      .run();
 }
 
 export async function ensureDatabase() {
-  if (schemaReady) return env.DB;
+  if (schemaReady || env.POMADE_DEPLOYMENT === 'hosted') return env.DB;
 
   await ensureDatabaseSchema(env.DB);
 

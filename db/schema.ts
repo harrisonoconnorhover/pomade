@@ -63,6 +63,7 @@ export const runJobs = sqliteTable(
     status: text('status').notNull(),
     rowIds: text('row_ids').notNull(),
     columnIds: text('column_ids'),
+    resumeColumnIds: text('resume_column_ids'),
     cursor: integer('cursor').notNull().default(0),
     completedCount: integer('completed_count').notNull().default(0),
     skippedCount: integer('skipped_count').notNull().default(0),
@@ -178,3 +179,33 @@ export const crmSyncRuns = sqliteTable(
     index('idx_crm_sync_workspace').on(table.workspaceId, table.createdAt),
   ],
 );
+
+export const researchRequests = sqliteTable(
+  'research_requests',
+  {
+    id: text('id').primaryKey(),
+    prompt: text('prompt').notNull(),
+    model: text('model'),
+    browser: integer('browser').notNull().default(0),
+    status: text('status').notNull(),
+    leaseToken: text('lease_token'),
+    leaseUntil: integer('lease_until'),
+    result: text('result'),
+    error: text('error'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_research_requests_status_created').on(
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const researchCompanion = sqliteTable('research_companion', {
+  id: integer('id').primaryKey(),
+  ready: integer('ready').notNull(),
+  browserAvailable: integer('browser_available').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});

@@ -64,10 +64,10 @@ Sources and schema validation do not establish that every generated claim is
 correct; review the linked evidence before using the output for qualification
 or outreach. The helper confirms actual web-search events occurred, but does
 not independently verify every cited claim. It has not been tested as a hosted
-multi-user subscription service. Hosted Pomade would need a per-user local
-companion or a separately supported hosted authentication/runtime design;
-one owner's subscription is not a shared research pool. Mac sleep or stopping
-the helper makes local subscription research unavailable.
+multi-user subscription service. The private hosted installation uses the
+[outbound Mac companion](hosting.md) for this owner's research. One owner's
+subscription is not a shared research pool. Mac sleep or stopping the helper
+leaves hosted background research waiting for the companion to reconnect.
 
 References: [Job Ops](https://github.com/dakheera47/Job-Ops),
 [official Codex app-server](https://learn.chatgpt.com/docs/app-server),

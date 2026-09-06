@@ -1,3 +1,5 @@
+import { env } from 'cloudflare:workers';
+import { deploymentStatus } from '@/lib/deployment';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { ensureDatabase } from '@/db/ensure';
 import { versionedWorkspaceStatements } from '@/db/workspace-store';
@@ -60,6 +62,15 @@ export async function PUT(request: Request) {
       { status: 400 },
     );
   }
+
+  if (workspace.schedule?.enabled && !deploymentStatus(env).schedulesEnabled)
+    return Response.json(
+      {
+        error:
+          'Scheduled automations are paused in this environment. Manual runs are available.',
+      },
+      { status: 409 },
+    );
 
   const requestedId =
     new URL(request.url).searchParams.get('workspaceId') ?? DEFAULT_TABLE_ID;

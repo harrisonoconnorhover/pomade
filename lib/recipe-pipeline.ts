@@ -29,7 +29,7 @@ export async function executeRecipePipeline(
   let workspace = input;
   const receipts: ActionReceipt[] = [];
   let skippedCount = 0;
-  for (const column of columns) {
+  pipeline: for (const column of columns) {
     if (!isExternalRecipe(column)) {
       const local = executeWorkspace(
         workspace,
@@ -51,6 +51,7 @@ export async function executeRecipePipeline(
       const result = await external(workspace, id, column);
       workspace = result.workspace;
       receipts.push(result.receipt);
+      if (result.receipt.pending) break pipeline;
     }
   }
   const reviewed = new Set(

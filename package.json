@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
+    "build:hosted": "node scripts/build-hosted.mjs",
+    "research:companion": "node --env-file-if-exists=.env.local --env-file-if-exists=.env.companion.local scripts/research-companion.mjs",
     "start": "wrangler dev --config dist/server/wrangler.json --local --test-scheduled --persist-to .wrangler/state",
     "lint": "oxlint app components db lib vite.config.ts worker.ts",
     "typecheck": "tsc --noEmit",

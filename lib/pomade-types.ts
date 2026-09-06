@@ -286,6 +286,7 @@ export type WorkspaceSource = {
 };
 
 export type ActionReceipt = {
+  pending?: boolean;
   attempts?: ActionReceipt[];
   id: string;
   rowId: string;

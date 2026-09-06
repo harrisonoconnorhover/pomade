@@ -18,7 +18,11 @@ import {
   type TableSummary,
 } from '@/lib/workbook';
 
-export default function PomadeWorkbook() {
+export default function PomadeWorkbook({
+  deployment,
+}: {
+  deployment: { hosted: boolean; label: string; schedulesEnabled: boolean };
+}) {
   const [tables, setTables] = useState<TableSummary[]>([]);
   const [activeId, setActiveId] = useState('');
   const [focusRowId, setFocusRowId] = useState('');
@@ -183,6 +187,7 @@ export default function PomadeWorkbook() {
       {activeId ? (
         <PomadeWorkspace
           key={`${activeId}:${focusRowId}`}
+          deployment={deployment}
           workspaceId={activeId}
           initialRowId={focusRowId}
           onTableState={onStateChange}

@@ -6,6 +6,8 @@ import { Button } from './ui/button';
 export type ResearchProviderStatus = {
   provider: 'parallel' | 'gemini' | 'codex' | null;
   configured: boolean;
+  ready?: boolean;
+  companion?: boolean;
   label: string;
   model: string;
   error?: string;
@@ -42,7 +44,9 @@ export default function ResearchConnectionStatus({
           <small>
             {detail ??
               (status?.provider === 'codex'
-                ? 'Uses your ChatGPT subscription'
+                ? status.companion
+                  ? 'Uses your Mac and ChatGPT subscription'
+                  : 'Uses your ChatGPT subscription'
                 : (status?.model ?? 'Checking the research connection'))}
           </small>
           {status?.capabilities.localBrowser ? (
@@ -61,7 +65,9 @@ export default function ResearchConnectionStatus({
               ? 'Checking…'
               : status?.configured
                 ? status.provider === 'codex'
-                  ? 'Ready'
+                  ? status.ready === false
+                    ? 'Waiting for Mac'
+                    : 'Ready'
                   : 'Configured'
                 : 'Setup needed'}
           </output>
@@ -80,7 +86,7 @@ export default function ResearchConnectionStatus({
           </Button>
         </div>
       </div>
-      {!checking && !status?.configured ? (
+      {!checking && (!status?.configured || status.ready === false) ? (
         <p className="research-connection-error" role="alert">
           {status?.error ||
             'Connect a research provider in your local settings, then check again.'}

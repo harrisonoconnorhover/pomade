@@ -12,6 +12,7 @@ const { d1, r2 } = hostingConfig;
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
 const localVariableNames = [
+  'POMADE_SCHEDULES_ENABLED',
   'POMADE_API_KEYS',
   'POMADE_HTTP_CONNECTIONS',
   'POMADE_WEBHOOK_SOURCES',
@@ -35,9 +36,10 @@ const localVariableNames = [
 ] as const;
 
 export default defineConfig(async ({ mode }) => {
-  const fileEnv = loadEnv(mode, process.cwd(), '');
+  const hosted = mode === 'hosted';
+  const fileEnv = hosted ? {} : loadEnv(mode, process.cwd(), '');
   const localVars = Object.fromEntries(
-    localVariableNames.flatMap((name) => {
+    (hosted ? [] : localVariableNames).flatMap((name) => {
       const value = process.env[name] ?? fileEnv[name];
       return value ? [[name, value]] : [];
     }),
@@ -46,7 +48,7 @@ export default defineConfig(async ({ mode }) => {
     main: './worker.ts',
     compatibility_flags: ['nodejs_compat'],
     triggers: { crons: ['* * * * *'] },
-    vars: localVars,
+    vars: { ...localVars, POMADE_DEPLOYMENT: hosted ? 'hosted' : 'local' },
     d1_databases: d1
       ? [
           {

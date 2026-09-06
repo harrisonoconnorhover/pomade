@@ -1,3 +1,4 @@
+import { ResearchPendingError } from '@/lib/companion-research';
 import { projectSignalFeed } from '@/lib/account-signals';
 import { detectSignalChanges, type SignalBatch } from '@/lib/change-signals';
 import { verifyHiringEvidence } from '@/lib/hiring-evidence';
@@ -212,6 +213,18 @@ export async function POST(request: Request) {
       ? configuredHttpConnections(env)
       : [];
     const research = researchConfiguration(env);
+    if (
+      research.companion &&
+      externalColumns.some((column) => column.recipe === 'web-research') &&
+      new URL(request.url).hostname !== 'pomade.internal'
+    )
+      return Response.json(
+        {
+          error:
+            'Run Mac research in the background so it can wait and resume safely.',
+        },
+        { status: 409 },
+      );
     const researchProvider = research.provider;
     const model = research.model;
     const researchClient = createResearchClient(env);
@@ -327,6 +340,25 @@ export async function POST(request: Request) {
         } catch (error) {
           const message =
             error instanceof Error ? error.message : 'Research failed.';
+          if (error instanceof ResearchPendingError)
+            return {
+              workspace: currentWorkspace,
+              receipt: {
+                id: crypto.randomUUID(),
+                rowId,
+                rowLabel: currentRow.values.company || rowId,
+                columnId: column.id,
+                action: column.title,
+                status: 'review' as const,
+                pending: true,
+                before: currentRow.values[column.id] ?? '',
+                after: currentRow.values[column.id] ?? '',
+                durationMs: Date.now() - actionStartedAt,
+                provider: researchProvider,
+                creditsConsumed: 0,
+                evidence: [message],
+              },
+            };
           const values = Object.fromEntries(
             (column.outputFields ?? [{ id: column.id }]).map((field) => [
               field.id,

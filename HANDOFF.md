@@ -2,40 +2,39 @@
 
 ## Finished
 
-- Saved tables load independently of provider checks, so a slow research helper no longer holds up the grid.
-- All five research entry points share a readiness card with **Check again**, local-browser scope and actionable setup errors. Missing Chromium, missing ChatGPT login and an unavailable Codex executable are distinguished.
-- Email waterfall presets use selectable name/domain columns, show the chosen provider and keep request details under advanced settings in a scrollable dialog. Failed connection checks can be retried; setup makes the remaining mobile-lookup gap explicit.
-- Run receipts display errors and rejection evidence, readable provider attempts, linked browser visits and individually linked quotations. An exhausted waterfall with provider errors no longer incorrectly reports an early stop.
-- Updated local preview and research helper are running. The three existing DemandDrive tables retained identical rows and columns across the restart. No new enrichment requests, CRM writes or public publishing occurred.
+- Separate local and hosted configuration; clean hosted build preserves local artifacts and data.
+- Owner-only hosted access with a server-side owner check and a scoped Mac connection.
+- Outbound Mac research companion, durable job/results storage, and pending-row continuation.
+- Hosted research uses background jobs; hosted scheduled automations start paused.
 
 ## Try It
 
-Reload http://localhost:8798. Open **Add AI web research** or **Sources** (the **Load data** panel) and use **Check again**. The card should report **Codex + local browser**, ready for public websites.
-
-Open **Provider waterfall**, select the full-name and domain columns, then choose an email preset for each attempt. Expand **Advanced request settings** only when needed. Creating the columns does not consume provider credits.
-
-Open an existing run receipt. Expand provider attempts or browser visits to see rejection reasons and linked source quotes.
+- Local: `npm run build`, `npm start`, and `npm run research:codex`.
+- Hosted connection: `npm run research:companion` using the private companion settings.
+- See `docs/hosting.md` for independent data, credentials and deployment instructions.
 
 ## Checks
 
-- 26 focused tests passed across provider waterfall, provider presets and the local research client/helper. The regressions cover exhausted chains, distinct setup errors and readiness after setup is repaired.
-- TypeScript, lint, helper script syntax, production build and Git whitespace checks passed.
-- Live local HTTP 200; research readiness confirmed; Apollo company/people, Hunter and Prospeo connections present. Three DemandDrive table content hashes matched before and after restart.
-- Browser interaction and visual QA were not performed.
+- 277 tests passed across all 48 existing and new test files.
+- Typecheck, lint, script syntax, and both local and hosted builds passed before final publishing.
+- Hosted build contains no local credentials; local build credentials remain present.
+- Private snapshots captured all 13 local tables before migration.
+- Live deployment and research verification are pending.
 
 ## Decisions
 
-- Preserve the current public-browser workflow and local-only iteration; no new provider accounts or Chrome extension in this polish pass.
-- Show ordinary missing data separately from provider errors; retain unknown credit costs and the underlying evidence.
+- Reuse the existing private Sites project, with separate hosted data and no GitHub publishing.
+- Keep schedules owned locally initially; permit explicit manual hosted runs.
+- Use an outbound companion instead of exposing a Mac browser port.
 
 ## Remaining
 
-- Configure and live-test a mobile-number waterfall with phone-type evidence and provider access.
-- Add an optional signed-in Chrome research method; the reviewed see project remains inspiration only.
-- Easier local startup and CRM credential renewal remain future usability work.
+- Publish and verify the private hosted version, then record its real URL and research result here.
+- Test Mac disconnect/reconnect and confirm existing local tables remain unchanged.
+- Multiple users and remote MCP remain outside this one-owner release.
 
 ## Review First
 
-- `components/provider-waterfall-builder.tsx` and `components/research-connection-status.tsx`.
-- `components/pomade-workspace.tsx` connection loading and receipt details.
-- `lib/provider-waterfall.test.ts` and `lib/codex-client.test.ts`.
+- `worker.ts` and `lib/deployment.ts`: access and pending job continuation.
+- `lib/companion-research.ts` and `scripts/research-companion.mjs`: leases and acknowledged results.
+- `docs/hosting.md`: operating both installations.

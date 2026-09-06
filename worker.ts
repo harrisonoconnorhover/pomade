@@ -1,3 +1,6 @@
+import { authorizeDeployment, deploymentStatus } from './lib/deployment';
+import { handleCompanion } from './db/companion-handler';
+import { companionStatus } from './lib/companion-research';
 import { runScheduledCrm } from './db/scheduled-crm';
 import { signalStatements } from './db/signal-store';
 import app from 'vinext/server/fetch-handler';
@@ -36,6 +39,7 @@ type RunJobRecord = {
   status: string;
   row_ids: string;
   column_ids: string | null;
+  resume_column_ids: string | null;
   cursor: number;
   completed_count: number;
   skipped_count: number;
@@ -298,7 +302,7 @@ async function finishRunJobStep(
      SET cursor = ?, completed_count = completed_count + ?,
          skipped_count = skipped_count + ?,
          status = CASE WHEN status = 'paused' THEN 'paused' ELSE ? END,
-         lease_until = NULL, last_run_id = COALESCE(?, last_run_id),
+         lease_until = NULL, resume_column_ids = NULL, last_run_id = COALESCE(?, last_run_id),
          last_error = NULL, updated_at = ?
      WHERE id = ? AND status IN ('running', 'paused')`,
   )
@@ -325,13 +329,35 @@ async function failRunJob(env: Cloudflare.Env, jobId: string, error: string) {
     .run();
 }
 
+async function waitForCompanion(
+  env: Cloudflare.Env,
+  job: RunJobRecord,
+  columnIds: string[] | undefined,
+  message: string,
+  runId?: string,
+) {
+  await env.DB.prepare(`UPDATE run_jobs SET
+    status = CASE WHEN status = 'paused' THEN 'paused' ELSE 'queued' END,
+    lease_until = NULL, resume_column_ids = ?, last_error = ?,
+    last_run_id = COALESCE(?, last_run_id), updated_at = ?
+    WHERE id = ? AND status IN ('running', 'paused')`)
+    .bind(
+      columnIds ? JSON.stringify(columnIds) : null,
+      message,
+      runId ?? null,
+      Date.now(),
+      job.id,
+    )
+    .run();
+}
+
 export async function runQueuedJobs(
   scheduledTime: number,
   env: Cloudflare.Env,
   ctx: ExecutionContext,
 ) {
   const records = await env.DB.prepare(
-    `SELECT id, workspace_id, status, row_ids, column_ids, cursor,
+    `SELECT id, workspace_id, status, row_ids, column_ids, resume_column_ids, cursor,
             completed_count, skipped_count, confirm_external_research,
             lease_until, updated_at
      FROM run_jobs
@@ -372,9 +398,32 @@ export async function runQueuedJobs(
         await finishRunJobStep(env, job, { skipped: true });
         continue;
       }
-      const columnIds = job.column_ids
-        ? (JSON.parse(job.column_ids) as string[])
+      const savedColumns = job.resume_column_ids ?? job.column_ids;
+      const columnIds = savedColumns
+        ? (JSON.parse(savedColumns) as string[])
         : undefined;
+      const hasMacResearch =
+        env.POMADE_DEPLOYMENT === 'hosted' &&
+        env.POMADE_RESEARCH_PROVIDER === 'codex' &&
+        workspace.columns.some(
+          (column) =>
+            column.recipe === 'web-research' &&
+            (!columnIds || columnIds.includes(column.id)),
+        );
+      const connection = hasMacResearch ? await companionStatus(env.DB) : null;
+      if (
+        connection &&
+        (!connection.ready ||
+          (env.POMADE_CODEX_BROWSER === 'true' && !connection.browserAvailable))
+      ) {
+        await waitForCompanion(
+          env,
+          job,
+          columnIds,
+          'Waiting for your Mac to reconnect.',
+        );
+        continue;
+      }
       const response = await app.fetch(
         new Request('https://pomade.internal/api/runs', {
           method: 'POST',
@@ -402,6 +451,24 @@ export async function runQueuedJobs(
         (receipt) => receipt.error,
       )?.error;
       if (stepError) throw new Error(stepError);
+      const pending = result.run.receipts.find((receipt) => receipt.pending);
+      if (pending) {
+        const scoped = workspace.columns
+          .filter(
+            (column) =>
+              (column.kind === 'formula' || column.kind === 'enrichment') &&
+              (!columnIds || columnIds.includes(column.id)),
+          )
+          .map((column) => column.id);
+        await waitForCompanion(
+          env,
+          job,
+          scoped.slice(scoped.indexOf(pending.columnId)),
+          'Waiting for research on your Mac.',
+          result.run.id,
+        );
+        continue;
+      }
       await finishRunJobStep(env, job, { runId: result.run.id });
     } catch (error) {
       const message =
@@ -427,17 +494,31 @@ async function runBackgroundWork(
   env: Cloudflare.Env,
   ctx: ExecutionContext,
 ) {
-  if (!workerSchemaReady) {
+  if (!workerSchemaReady && env.POMADE_DEPLOYMENT !== 'hosted') {
     await ensureDatabaseSchema(env.DB);
     workerSchemaReady = true;
   }
-  await ingestWebhookEvents(env.DB);
-  await runDueSchedules(scheduledTime, env, ctx);
+  if (deploymentStatus(env).schedulesEnabled) {
+    await ingestWebhookEvents(env.DB);
+    await runDueSchedules(scheduledTime, env, ctx);
+  }
   await runQueuedJobs(scheduledTime, env, ctx);
 }
 
 export default {
-  fetch: app.fetch,
+  async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext) {
+    const denied = await authorizeDeployment(request, env);
+    if (denied) return denied;
+    if (
+      env.POMADE_DEPLOYMENT === 'hosted' &&
+      new URL(request.url).pathname === '/api/companion'
+    ) {
+      const response = await handleCompanion(request, env.DB);
+      if (response.ok) ctx.waitUntil(runQueuedJobs(Date.now(), env, ctx));
+      return response;
+    }
+    return app.fetch(request, env, ctx);
+  },
   scheduled(
     controller: ScheduledController,
     env: Cloudflare.Env,

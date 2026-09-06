@@ -118,16 +118,16 @@ operation's error status. Reads are paginated to at most 100 rows per response.
 
 ## Current boundaries
 
-- This is a trusted, single-user local app. Key scopes protect `/api/v1`; existing
-  UI routes remain local application routes without hosted user authentication.
-  Keep the preview bound to loopback; do not expose the app through a public
-  tunnel. The new API rejects nonlocal hosts and cross-origin browser requests.
+- Local previews remain loopback-only. Key scopes protect the local `/api/v1`.
+  The hosted UI and its internal API routes require the owning Sites account;
+  the scoped external API and stdio MCP still reject nonlocal hosts.
+  See [Local and hosted Pomade](hosting.md) for deployment and companion setup.
 - Search filters existing table values. It does not discover every matching
   company in a market, verify every contact, or replace Apollo/Hunter/Prospeo.
   Set up research/enrichment columns and CRM mappings in the app first.
-- Hosted accounts, tenant isolation, remote Streamable HTTP MCP, and remote
-  authentication are future work. This release does not configure a web-based
-  ChatGPT/Claude connector or publish anything.
+- Multiple hosted accounts, tenant isolation and remote Streamable HTTP MCP
+  remain future work. The private hosted installation is for its owner only;
+  it does not configure a web-based ChatGPT/Claude MCP connector.
 - Salesforce access tokens can expire. Refresh from the existing Salesforce CLI
   login, update the private binding and rebuild/restart; automatic OAuth token
   refresh inside Pomade is not implemented yet.

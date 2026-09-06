@@ -867,3 +867,15 @@ details remain editable under advanced settings, while custom requests preserve
 their explicit inputs. Receipts expose recorded rejection reasons and source
 quotes. Exhausting a chain after a recoverable provider error is distinct from
 stopping early; both retain the underlying error for review.
+
+
+## 2026-09-05 — Independent local and private hosted operation
+
+- Keep one source tree, independent local/hosted D1 data and credentials, and a
+  separate clean hosted build artifact. Hosting never replaces local state.
+- Use the existing owner-only Sites access plus a server-side owner check.
+  Keep API/MCP keys local. Hosted schedules start paused to avoid duplicate CRM
+  automation; explicitly queued manual jobs continue to run.
+- Route hosted subscription research through an outbound Mac companion and D1
+  jobs. Persist partial row progress and an acknowledged-result outbox; reuse the
+  existing isolated Codex/Playwright helper rather than exposing its local port.
