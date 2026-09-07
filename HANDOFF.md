@@ -2,37 +2,35 @@
 
 ## Finished
 
-- Released version 25 to the existing owner-private website and local server; code commit `717e47a`. Added row/action run preview for conditions, inputs/connections, provider order and request maximums.
-- Added Dropcontact named-work-email and Apollo mobile adapters with saved polling and resume; fixed Parallel's current endpoint/authentication.
-- Live 15-person benchmark: 12 accepted emails (9 Hunter + 3 Prospeo fallback); one mobile among the three original contacts.
-- Imported the HubSpot segment, joined enrichment, updated one contact in each dev CRM and verified native readback. Repeat previews were unchanged; repeat imports kept three contacts.
+- Public Apollo callback receiver is live at https://pomade-callbacks.deleteddeleted.chatgpt.site/health. It acknowledges JSON deliveries without storing, forwarding or exposing contact data through application routes.
+- Both local Pomade and the owner-private website use the server-configured callback by default. Personal custom callback overrides remain available; each account still uses its own Apollo key.
+- Added Account → Connections → Apollo → **Test Pomade callback**, including a real hosted synthetic-delivery check. The callback remains online independently of the Mac.
+- Released hosted version 27 (`0d47596`) and kept local http://localhost:8798 running. Callback service version 1 uses the isolated source export `52d6089`.
 
 ## Try It
 
-- Open [the 15-person benchmark](https://pomade.deleteddeleted.chatgpt.site/?table=e202aada-85d2-4752-98a9-af641748d2a0), or local http://localhost:8798. Select rows and an external action to see the run preview.
-- Account → Connections exposes Dropcontact and Apollo's optional public callback URL. The waterfall builder includes their presets.
-- Read `docs/live-benchmark-2026-09-07.md`; private results and table IDs are in ignored `outputs/demanddrive/2026-09-07-workflow-benchmark/manifest.json`.
+- Open https://pomade.deleteddeleted.chatgpt.site and use **Test Pomade callback** in account settings. It uses no Apollo credits.
+- When eligible Apollo access is available, save the key, leave the custom callback URL blank, and select the Apollo mobile waterfall preset. Use the background runner.
+- Self-hosting and receipt-token rotation instructions are in `services/apollo-callback/README.md`.
 
 ## Checks
 
-- All 237 focused provider, research, preview and account tests passed across 12 files.
-- Typecheck, lint, diff checks and both builds passed. Hosted version 25 is live. All 11 previous hosted sheets and seven connections remain; five benchmark sheets were added. Local storage retains 24 sheets.
-- Compiled Worker/D1 tests passed for Dropcontact and Apollo phone across pause/restart/saved-ID polling/fallback; all requests were synthetic.
-- Live Hunter/Prospeo, research, HubSpot and Salesforce checks passed as detailed in the benchmark report. Apollo People returned a Free-plan 403.
+- 59 focused application tests and four receiver tests passed; the 27 affected callback/account tests were rerun after the runtime correction. Typecheck, lint, diff checks and both application builds passed. Receiver lint has one non-blocking default-export style warning.
+- Compiled receiver, account/connection-isolation and Apollo saved-request Worker/D1 checks passed with synthetic traffic. Fixed a Workers redirect-mode incompatibility exposed by the hosted test.
+- Anonymous HTTPS callback GET/POST returned 200; wrong token and workbook routes returned 404. Private Pomade still returns 401 without sign-in.
+- Live settings callback test passed. Exact table IDs were preserved: 24 local, 16 hosted, seven hosted connections. Served assets match their respective builds. Evidence is in ignored `outputs/apollo-callback/2026-09-07/`.
 
 ## Decisions
 
-- Keep candidate quality distinct from independent verification, and account balances distinct from per-request cost.
-- Require a caller-controlled public callback URL for Apollo; retain owner-private hosting and existing synchronous email behavior.
-- Preserve raw contact data and receipts outside Git. No GitHub push or paid plan purchase.
+- Publish only the isolated acknowledgement receiver publicly; keep workbooks private and authenticated Apollo polling authoritative.
+- Use a separate receipt token, with only its digest on the receiver. No new database, Mac tunnel, paid plan or GitHub push.
 
 ## Remaining
 
-- Apollo live phone validation needs eligible API access and a public receiver; Dropcontact needs a key.
-- Fourteen core providers remain; Icypeas is next. Research citations still require review; this sample is not market-wide coverage proof.
+- Real Apollo phone enrichment still needs eligible people/phone API access and webhook-result polling permission. No live Apollo phone lookup was submitted in this task.
 
 ## Review First
 
-- `lib/dropcontact-request.ts`, `lib/apollo-phone-request.ts` and their tests.
-- `lib/run-preview.ts`, `components/run-preview.tsx` and the live benchmark report.
-- `scripts/test-enrow-worker.mjs` and the CRM evidence summaries.
+- `services/apollo-callback/worker.mjs` and its README.
+- `lib/apollo-callback.ts` and `db/account-handler.ts`.
+- `scripts/test-accounts-worker.mjs` and the saved release checks.
