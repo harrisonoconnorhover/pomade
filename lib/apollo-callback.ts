@@ -25,7 +25,8 @@ export async function checkManagedApolloCallback(
   for (const method of ['GET', 'POST']) {
     const response = await fetcher(url!, {
       method,
-      redirect: 'error',
+      // Workers supports manual redirects; reject every non-2xx below.
+      redirect: 'manual',
       signal: AbortSignal.timeout(10_000),
       ...(method === 'POST'
         ? {

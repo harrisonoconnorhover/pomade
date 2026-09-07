@@ -62,7 +62,11 @@ export default defineConfig(async ({ mode }) => {
   ) as Record<string, string>;
   const localBindingConfig = {
     main: './worker.ts',
-    compatibility_flags: ['nodejs_compat'],
+    compatibility_flags: [
+      'nodejs_compat',
+      // Probe the separate callback host through its public HTTPS route.
+      ...(hosted ? ['global_fetch_strictly_public'] : []),
+    ],
     triggers: { crons: ['* * * * *'] },
     vars: { ...localVars, POMADE_DEPLOYMENT: hosted ? 'hosted' : 'local' },
     d1_databases: d1

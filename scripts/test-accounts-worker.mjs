@@ -3,6 +3,7 @@
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { readFileSync, readdirSync } from 'node:fs';
 import assert from 'node:assert/strict';
+const callbackChecks = [];
 const mf = new Miniflare(
   convertV4MiniflareOptions({
     name: 'pomade-accounts-test',
@@ -14,8 +15,27 @@ const mf = new Miniflare(
     ].map((f) => ({ type: 'ESModule', path: 'dist-hosted/dist/server/' + f })),
     modulesRoot: 'dist-hosted/dist/server',
     compatibilityDate: '2026-09-03',
-    compatibilityFlags: ['nodejs_compat'],
+    compatibilityFlags: JSON.parse(
+      readFileSync('dist-hosted/dist/server/wrangler.json', 'utf8'),
+    ).compatibility_flags,
     d1Databases: ['DB'],
+    outboundService: async (request) => {
+      assert.equal(new URL(request.url).hostname, 'callback.example.test');
+      assert.equal(request.headers.get('authorization'), null);
+      assert.equal(request.headers.get('x-api-key'), null);
+      callbackChecks.push(request.method);
+      if (request.method === 'POST')
+        assert.deepEqual(await request.json(), {
+          status: 'success',
+          people: [],
+          total_requested_enrichments: 0,
+        });
+      return Response.json({
+        service: 'pomade-apollo-callback',
+        mode: 'acknowledge-only',
+        ...(request.method === 'POST' ? { received: true } : {}),
+      });
+    },
     bindings: {
       POMADE_DEPLOYMENT: 'hosted',
       POMADE_ACCOUNTS_ENABLED: 'true',
@@ -23,6 +43,8 @@ const mf = new Miniflare(
       POMADE_PUBLIC_ORIGIN: 'http://localhost',
       POMADE_VAULT_KEY: btoa('0123456789abcdef0123456789abcdef'),
       APOLLO_API_KEY: 'synthetic-owner-key',
+      POMADE_APOLLO_CALLBACK_URL:
+        'https://callback.example.test/apollo/synthetic-receipt-token',
       HUBSPOT_ACCESS_TOKEN: 'synthetic-owner-crm',
     },
   }),
@@ -65,6 +87,16 @@ try {
   }
   const owner = await api('owner', '/api/account');
   assert.equal(owner.account.role, 'owner');
+  assert.equal(
+    owner.connections.find((c) => c.id === 'apollo').managedCallbackConfigured,
+    true,
+  );
+  const callback = await api('owner', '/api/account', {
+    action: 'test_callback',
+    provider: 'apollo',
+  });
+  assert.match(callback.message, /received a test delivery/);
+  assert.deepEqual(callbackChecks, ['GET', 'POST']);
   const ownerTables = await api('owner', '/api/tables');
   assert.ok(ownerTables.tables.length);
   const evidence = {

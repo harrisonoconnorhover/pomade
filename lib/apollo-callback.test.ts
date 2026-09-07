@@ -63,7 +63,7 @@ describe('Apollo callback selection and readiness', () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(
       fetcher.mock.calls.every(
-        ([target, init]) => target === url && init?.redirect === 'error',
+        ([target, init]) => target === url && init?.redirect === 'manual',
       ),
     ).toBe(true);
     const request = fetcher.mock.calls[1][1]!;
@@ -80,6 +80,15 @@ describe('Apollo callback selection and readiness', () => {
       'not configured',
     );
     expect(fetcher).not.toHaveBeenCalled();
+    fetcher.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: { location: 'https://elsewhere.example.test' },
+      }),
+    );
+    await expect(
+      checkManagedApolloCallback({ POMADE_APOLLO_CALLBACK_URL: url }, fetcher),
+    ).rejects.toThrow('not reachable');
     fetcher.mockResolvedValueOnce(Response.json({}, { status: 401 }));
     await expect(
       checkManagedApolloCallback({ POMADE_APOLLO_CALLBACK_URL: url }, fetcher),
