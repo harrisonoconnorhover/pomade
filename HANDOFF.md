@@ -13,9 +13,11 @@ In **Provider waterfall**, choose a finder and its **Verify this result before a
 
 ## Checks
 
-- 244 focused tests passed across 15 files. TypeScript, lint and diff checks passed.
+- 244 focused tests passed across 15 files; the 20 waterfall tests passed again after correcting the winning-result label. TypeScript, lint and diff checks passed.
 - Built Worker/D1 tests passed for scheduled source import, inline asynchronous verification, fallback, restart/resume, simulated HubSpot write/readback, transfer recovery, reporting, cancellation and fresh runs. Existing FullEnrich and Enrow restart exercises passed. All outbound traffic intercepted.
-- Pre-release baseline: 19 local tables, 11 hosted tables, seven hosted connections; no queued/running jobs. Final release verification remains below.
+- Compiled account test passed: owner plus three synthetic friends, separate keys/data, and the new performance endpoint cannot expose another account’s results.
+- Local build passed and is running at `http://localhost:8798`. Private Sites version 24 is live at `https://pomade.deleteddeleted.chatgpt.site` from runtime commit `096cd5a`; owner-only access and environment revision 8 are unchanged.
+- Final HTTP checks passed; the served feature bundle matches the packaged build. All 19 local and 11 hosted table row/column counts and configured connection IDs, including seven hosted connections, match the baseline.
 
 ## Decisions
 
@@ -25,7 +27,6 @@ In **Provider waterfall**, choose a finder and its **Verify this result before a
 
 ## Remaining
 
-- Finish release of this change to the local server and existing owner-private Sites deployment; verify preserved data and account isolation.
 - Live provider comparison using connected keys and a small repeatable dataset.
 - Fifteen core providers remain; Dropcontact is next. This change adds workflow capabilities, not another vendor.
 - Local server/clock or hosted wakeups must run. Ambiguous provider submissions and uncertain CRM writes still need native-result review.
