@@ -1,4 +1,4 @@
-import type { WorkspaceSnapshot } from './pomade-types';
+import type { WorkspaceSnapshot, ResearchValueType } from './pomade-types';
 
 export function resizeWorkspaceColumn(
   workspace: WorkspaceSnapshot,
@@ -57,4 +57,41 @@ export function moveWorkspaceColumn(
     throw new Error('Recipe columns must keep their execution order.');
   }
   return { ...workspace, columns, updatedAt: Date.now() };
+}
+
+export function addWorkspaceDataColumn(
+  workspace: WorkspaceSnapshot,
+  input: { id: string; title: string; valueType: ResearchValueType },
+  now = Date.now(),
+): WorkspaceSnapshot {
+  const title = input.title.replace(/\s+/g, ' ').trim();
+  if (!title || title.length > 80)
+    throw new Error('Use a column name between 1 and 80 characters.');
+  if (
+    workspace.columns.some(
+      (column) => column.title.trim().toLowerCase() === title.toLowerCase(),
+    )
+  )
+    throw new Error('Another column already uses that name.');
+  if (!input.id || workspace.columns.some((column) => column.id === input.id))
+    throw new Error('That column ID is already in use.');
+  return {
+    ...workspace,
+    columns: [
+      ...workspace.columns.filter((column) => column.kind !== 'status'),
+      {
+        id: input.id,
+        title,
+        kind: 'text',
+        valueType: input.valueType,
+        width: input.valueType === 'text' ? 220 : 160,
+      },
+      ...workspace.columns.filter((column) => column.kind === 'status'),
+    ],
+    rows: workspace.rows.map((row) => ({
+      ...row,
+      values: { ...row.values, [input.id]: '' },
+    })),
+    updatedAt: now,
+  };
 }

@@ -20,7 +20,6 @@ import {
   ChevronDown,
   CirclePlay,
   Cloud,
-  Columns3,
   Database,
   Download,
   FileSpreadsheet,
@@ -38,7 +37,6 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  Rows3,
   Search,
   ShieldCheck,
   SlidersHorizontal,
@@ -48,6 +46,12 @@ import {
   Upload,
   Users,
   WandSparkles,
+  PanelLeft,
+  PanelRight,
+  AlignJustify,
+  Info,
+  X,
+  Pencil,
   Workflow,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
@@ -126,7 +130,11 @@ import {
   recalculateAutomaticFormulas,
   renderCustomFormula,
 } from '@/lib/local-recipe-engine';
-import { moveWorkspaceColumn, resizeWorkspaceColumn } from '@/lib/grid-columns';
+import {
+  addWorkspaceDataColumn,
+  moveWorkspaceColumn,
+  resizeWorkspaceColumn,
+} from '@/lib/grid-columns';
 import { createPeopleListWorkspace } from '@/lib/people-list-builder';
 import RunPreview from '@/components/run-preview';
 import type {
@@ -454,14 +462,6 @@ function providerLabel(run?: RunReceipt) {
   return 'Pomade runner';
 }
 
-function LogoMark() {
-  return (
-    <span className="logo-mark" aria-hidden="true">
-      <span>P</span>
-    </span>
-  );
-}
-
 export default function PomadeWorkspace({
   deployment,
   workspaceId,
@@ -497,8 +497,41 @@ export default function PomadeWorkspace({
   const [query, setQuery] = useState('');
   const [sortAscending, setSortAscending] = useState(true);
   const [notice, setNotice] = useState('');
+  const [toolGroup, setToolGroup] = useState<
+    'data' | 'enrich' | 'automate' | 'send' | ''
+  >('');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [compactRows, setCompactRows] = useState(false);
+  const [recipeQuery, setRecipeQuery] = useState('');
+  function toggleDensity() {
+    const next = !compactRows;
+    setCompactRows(next);
+    try {
+      localStorage.setItem('pomade:compact-rows', String(next));
+    } catch {
+      /* Keep the current session preference. */
+    }
+  }
+  function clearView() {
+    setQuery('');
+    setFilter('All');
+    setActiveSavedViewId('');
+    setSelectedRowIds([]);
+  }
+  const matchesRecipe = (...values: (string | undefined)[]) =>
+    recipeQuery
+      .trim()
+      .toLocaleLowerCase()
+      .split(/\s+/)
+      .every((word) => values.join(' ').toLocaleLowerCase().includes(word));
 
   const [addColumnOpen, setAddColumnOpen] = useState(false);
+  const [dataColumnOpen, setDataColumnOpen] = useState(false);
+  const [dataColumnName, setDataColumnName] = useState('');
+  const [dataColumnType, setDataColumnType] =
+    useState<ResearchValueType>('text');
+  const [dataColumnError, setDataColumnError] = useState('');
   const [lookupBuilderOpen, setLookupBuilderOpen] = useState(false);
   const [providerBuilderOpen, setProviderBuilderOpen] = useState(false);
   const [httpBuilderOpen, setHttpBuilderOpen] = useState(false);
@@ -693,6 +726,14 @@ export default function PomadeWorkspace({
     ])
       .then(([workspaceResponse, runsResponse]) => {
         if (cancelled) return;
+        setSidebarOpen(window.innerWidth >= 1000);
+        try {
+          setCompactRows(
+            localStorage.getItem('pomade:compact-rows') === 'true',
+          );
+        } catch {
+          /* Device preferences are optional. */
+        }
         setSavedWorkspace(workspaceResponse.workspace);
         setLoaded(true);
         setWorkspace(workspaceResponse.workspace);
@@ -956,7 +997,7 @@ export default function PomadeWorkspace({
 
   useEffect(() => {
     if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(''), 4_000);
+    const timer = window.setTimeout(() => setNotice(''), 8_000);
     return () => window.clearTimeout(timer);
   }, [notice]);
 
@@ -1346,6 +1387,38 @@ export default function PomadeWorkspace({
       void queueBackgroundRun(runTargetIds, false, [editedColumn.id]);
     } else {
       void runEnrichment(runTargetIds, false, [editedColumn.id]);
+    }
+  }
+
+  function openColumnPicker() {
+    setRecipeQuery('');
+    setAddColumnOpen(true);
+  }
+
+  function addDataColumn() {
+    if (jobLocksWorkspace) return;
+    try {
+      const id = uniqueId(
+        slugify(dataColumnName) || 'field',
+        new Set(workspace.columns.map((column) => column.id)),
+      );
+      setWorkspace(
+        addWorkspaceDataColumn(workspace, {
+          id,
+          title: dataColumnName,
+          valueType: dataColumnType,
+        }),
+      );
+      setDataColumnOpen(false);
+      setNotice(
+        `${dataColumnName.trim()} added. Start typing or paste values into your new column.`,
+      );
+    } catch (error) {
+      setDataColumnError(
+        error instanceof Error
+          ? error.message
+          : 'The column could not be added.',
+      );
     }
   }
 
@@ -1882,6 +1955,7 @@ export default function PomadeWorkspace({
       updatedAt: Date.now(),
     }));
     setActiveRowId(id);
+    setQuery('');
     setSelectedRowIds([]);
     setFilter('All');
     setActiveSavedViewId('');
@@ -2792,7 +2866,15 @@ export default function PomadeWorkspace({
 
   if (!loaded)
     return (
-      <main className="pomade-shell workbook-loading">
+      <main
+        className="pomade-shell workbook-loading"
+        aria-busy={saveState !== 'Offline'}
+      >
+        {saveState !== 'Offline' ? (
+          <LoaderCircle className="spin" aria-hidden="true" />
+        ) : (
+          <Info aria-hidden="true" />
+        )}
         <p>
           {saveState === 'Offline'
             ? 'This table could not be loaded. Your saved data has not been replaced.'
@@ -2807,28 +2889,49 @@ export default function PomadeWorkspace({
   return (
     <main className="pomade-shell">
       <header className="topbar">
-        <div className="brand-lockup">
-          <LogoMark />
-          <span className="brand-name">Pomade</span>
+        <div className="sheet-heading">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={sidebarOpen ? 'Hide navigation' : 'Show navigation'}
+            aria-expanded={sidebarOpen}
+            aria-controls="sheet-navigation"
+            onClick={() => setSidebarOpen((value) => !value)}
+          >
+            <PanelLeft />
+          </Button>
+          <div>
+            <p className="sheet-eyebrow">
+              {activeSavedView?.name ??
+                (filter === 'All'
+                  ? 'All records'
+                  : filter === 'Ready'
+                    ? 'Ready to use'
+                    : 'Needs review')}
+            </p>
+            <h1>
+              <button
+                className="workspace-name"
+                type="button"
+                onClick={openRename}
+                disabled={jobLocksWorkspace}
+                title="Rename sheet"
+              >
+                {workspace.name}
+                <Pencil aria-hidden="true" />
+              </button>
+            </h1>
+          </div>
           <span
             className="deployment-badge"
             title={
               deployment.hosted
-                ? 'Hosted tables are separate from your local tables. Scheduled automations are paused.'
-                : 'Tables saved on this Mac. Hosted tables are separate.'
+                ? 'Saved securely online. Local sheets are separate.'
+                : 'Saved on this Mac. Hosted sheets are separate.'
             }
           >
             {deployment.label}
           </span>
-          <span className="crumb">/</span>
-          <button
-            className="workspace-name"
-            type="button"
-            onClick={openRename}
-            disabled={jobLocksWorkspace}
-          >
-            {workspace.name} <ChevronDown />
-          </button>
         </div>
         <div className="topbar-actions">
           {currentRunJob ? (
@@ -2868,25 +2971,25 @@ export default function PomadeWorkspace({
               </span>
             </button>
           ) : null}
-          <span className={`sync-state sync-${saveState.toLowerCase()}`}>
+          <output
+            className={`sync-state sync-${saveState.toLowerCase()}`}
+            aria-live="polite"
+          >
             {saveState === 'Saving' ? (
               <LoaderCircle className="spin" />
             ) : (
               <Cloud />
             )}{' '}
             {saveState}
-          </span>
+          </output>
           <button
             className={`usage-pill ${connectedCount ? 'usage-pill-connected' : ''}`}
             type="button"
             onClick={openSources}
           >
             <Plug />
-            <strong>{connectedCount}/4</strong> connected
+            <strong>{connectedCount}</strong> sources
           </button>
-          <div className="avatar" aria-label="Harrison account">
-            H
-          </div>
         </div>
       </header>
       <WorkbookPlanGuide
@@ -2898,12 +3001,23 @@ export default function PomadeWorkspace({
         onRun={(columnId) => void runEnrichment(undefined, false, [columnId])}
       />
 
-      <div className="workspace-layout">
-        <aside className="sidebar">
+      <div
+        className="workspace-layout"
+        data-sidebar={sidebarOpen ? 'open' : 'closed'}
+        data-inspector={inspectorOpen ? 'open' : 'closed'}
+      >
+        <aside className="sidebar" id="sheet-navigation" hidden={!sidebarOpen}>
           <p className="sidebar-label">Workspace</p>
           <nav aria-label="Workspace navigation">
-            <button className="nav-item active" type="button">
-              <Table2 /> {workspace.name} <span>{workspace.rows.length}</span>
+            <button
+              className={`nav-item ${filter === 'All' && !activeSavedViewId ? 'active' : ''}`}
+              type="button"
+              onClick={clearView}
+              aria-current={
+                filter === 'All' && !activeSavedViewId ? 'page' : undefined
+              }
+            >
+              <Table2 /> All records <span>{workspace.rows.length}</span>
             </button>
             <button
               className="nav-item"
@@ -2920,12 +3034,12 @@ export default function PomadeWorkspace({
               <Cloud /> Background runs <span>{runJobs.length}</span>
             </button>
             <button className="nav-item" type="button" onClick={openSources}>
-              <Database /> Sources <span>{connectedCount}/4</span>
+              <Database /> Connections <span>{connectedCount}</span>
             </button>
             <button
               className="nav-item"
               type="button"
-              onClick={() => setAddColumnOpen(true)}
+              onClick={openColumnPicker}
               disabled={jobLocksWorkspace}
             >
               <Library /> Recipe library{' '}
@@ -3000,10 +3114,10 @@ export default function PomadeWorkspace({
           <button
             className="new-table"
             type="button"
-            onClick={() => setAddColumnOpen(true)}
+            onClick={openColumnPicker}
             disabled={jobLocksWorkspace}
           >
-            <Plus /> Add recipe column
+            <Plus /> Add column
           </button>
           <button
             className="engine-card"
@@ -3038,184 +3152,32 @@ export default function PomadeWorkspace({
             }}
           />
           <div className="table-toolbar">
-            <div className="toolbar-cluster">
-              <input
-                ref={fileInput}
-                className="file-input"
-                type="file"
-                accept=".csv,text/csv"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) importCsv(file);
-                  event.target.value = '';
-                }}
-              />
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={openSources}
-                disabled={jobLocksWorkspace}
-              >
-                <Upload /> Load data
-              </Button>
-              <ProviderPresetBuilder
-                key={`presets-${workspace.id}`}
-                workspace={workspace}
-                ready={canLeaveTable}
-                onAdd={(columns) => {
-                  setWorkspace((current) => ({
-                    ...current,
-                    columns: [
-                      ...current.columns.filter((c) => c.kind !== 'status'),
-                      ...columns,
-                      ...current.columns.filter((c) => c.kind === 'status'),
-                    ],
-                    schedule: current.schedule
-                      ? pauseRecipeSchedule(current.schedule)
-                      : undefined,
-                    updatedAt: Date.now(),
-                  }));
-                  setNotice(
-                    'Provider columns added. Review and run when ready.',
-                  );
-                }}
-              />
-              <ChangeSignals
-                key={`signals-${workspace.id}`}
-                workspace={workspace}
-                ready={canLeaveTable}
-                onSave={setWorkspace}
-                onOpenRow={(id) => onOpenTable(workspace.id, id)}
-              />
-              <RecipeFunctionBuilder
-                key={workspace.id}
-                workspace={workspace}
-                ready={canLeaveTable}
-                onSave={setWorkspace}
-                onAdd={(added) => {
-                  setWorkspace((current) => ({
-                    ...current,
-                    columns: [
-                      ...current.columns.filter((c) => c.kind !== 'status'),
-                      ...added,
-                      ...current.columns.filter((c) => c.kind === 'status'),
-                    ],
-                    schedule:
-                      added.some(isExternalRecipe) && current.schedule?.enabled
-                        ? pauseRecipeSchedule(current.schedule)
-                        : current.schedule,
-                    updatedAt: Date.now(),
-                  }));
-                  setNotice(
-                    'Function columns added. Review and run the function when ready.',
-                  );
-                }}
-                onRun={(ids, background) => {
-                  if (background)
-                    void queueBackgroundRun(undefined, false, ids);
-                  else void runEnrichment(undefined, false, ids);
-                }}
-              />
-              <CrmSyncBuilder
-                key={workspace.id}
-                onSave={setWorkspace}
-                workspace={workspace}
-                rowIds={handoffRowIds}
-                ready={canLeaveTable && !jobLocksWorkspace}
-              />
-              <TableTransferBuilder
-                source={workspace}
-                saved={canLeaveTable}
-                selectedRowIds={selectedRowIds}
-                onSave={setWorkspace}
-              />
-              <ApiSourceBuilder
-                key={workspace.id}
-                onSave={setWorkspace}
-                workspace={workspace}
-                disabled={jobLocksWorkspace}
-                onImport={(next, count) => {
-                  setWorkspace(next);
-                  setNotice(
-                    `${count} API rows imported. Any active schedule was paused; run recipes when ready.`,
-                  );
-                }}
-              />
-              <WebhookInbox
-                onSaveMapping={(next) => {
-                  setWorkspace(next);
-                  setNotice('Webhook source mapping updated.');
-                }}
-                workspace={workspace}
-                disabled={jobLocksWorkspace}
-                onImport={(next, count) => {
-                  setWorkspace(next);
-                  setNotice(
-                    `${count} webhook rows imported. Any active schedule was paused; run recipes when ready.`,
-                  );
-                }}
-              />
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={openCompanyListBuilder}
-                disabled={jobLocksWorkspace}
-              >
-                <Building2 /> Find companies
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={openPeopleListBuilder}
-                disabled={
-                  jobLocksWorkspace ||
-                  !selected ||
-                  (!selected.values.company?.trim() &&
-                    !selected.values.domain?.trim())
-                }
-              >
-                <Users /> Find people
-              </Button>
-              <span className="toolbar-divider" />
-              <span className="toolbar-stat">
-                <Rows3 /> {visibleRows.length} rows
-              </span>
-              <Button
-                variant="ghost"
-                onClick={() => setAddColumnOpen(true)}
-                disabled={jobLocksWorkspace}
-              >
-                <Columns3 /> {workspace.columns.length} columns
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={sortRows}
-                disabled={jobLocksWorkspace}
-              >
-                <ArrowDownUp /> Sort
-              </Button>
-              <Button
-                variant={
-                  filter === 'All' && !activeSavedView ? 'ghost' : 'secondary'
-                }
-                onClick={cycleFilter}
-              >
-                <Filter />
-                {activeSavedView?.name ??
-                  (filter === 'All' ? 'Filter' : filter)}
-              </Button>
-              <label className="toolbar-search">
-                <Search />
-                <input
-                  value={query}
-                  onChange={(event) => {
-                    setSelectedRowIds([]);
-                    setQuery(event.target.value);
-                  }}
-                  placeholder="Search rows"
-                  aria-label="Search rows"
-                />
-              </label>
+            <div className="tool-group-triggers" aria-label="Sheet tools">
+              {(
+                [
+                  { id: 'data', label: 'Add data', icon: Database },
+                  { id: 'enrich', label: 'Enrich', icon: Sparkles },
+                  { id: 'automate', label: 'Automate', icon: Workflow },
+                  { id: 'send', label: 'Send', icon: Upload },
+                ] as const
+              ).map((group) => (
+                <button
+                  type="button"
+                  key={group.id}
+                  className={toolGroup === group.id ? 'active' : ''}
+                  aria-expanded={toolGroup === group.id}
+                  aria-controls={`tools-${group.id}`}
+                  onClick={() =>
+                    setToolGroup((value) =>
+                      value === group.id ? '' : group.id,
+                    )
+                  }
+                >
+                  <group.icon aria-hidden="true" />
+                  {group.label}
+                  <ChevronDown aria-hidden="true" />
+                </button>
+              ))}
             </div>
             <div className="toolbar-cluster toolbar-actions">
               {selectedRowIds.length ? (
@@ -3225,7 +3187,7 @@ export default function PomadeWorkspace({
               ) : null}
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button variant="outline" />}>
-                  Action <ChevronDown />
+                  More <ChevronDown />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
@@ -3336,7 +3298,7 @@ export default function PomadeWorkspace({
                   recipeCount === 0
                 }
               >
-                {running ? <LoaderCircle className="spin" /> : <WandSparkles />}
+                {running ? <LoaderCircle className="spin" /> : <Play />}
                 {running
                   ? 'Running…'
                   : `Run ${runTargetIds.length} ${
@@ -3350,22 +3312,371 @@ export default function PomadeWorkspace({
             </div>
           </div>
 
+          <div className="sheet-tool-panels" hidden={!toolGroup}>
+            <section
+              id="tools-data"
+              className="sheet-tool-panel"
+              hidden={toolGroup !== 'data'}
+              aria-label="Add data"
+            >
+              <p>Import records or find your next accounts and buyers.</p>
+              <div className="sheet-tool-buttons">
+                <input
+                  ref={fileInput}
+                  className="file-input"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) importCsv(file);
+                    event.target.value = '';
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={openSources}
+                  disabled={jobLocksWorkspace}
+                >
+                  <Upload /> Load data
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={openCompanyListBuilder}
+                  disabled={jobLocksWorkspace}
+                >
+                  <Building2 /> Find companies
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={openPeopleListBuilder}
+                  disabled={
+                    jobLocksWorkspace ||
+                    !selected ||
+                    (!selected.values.company?.trim() &&
+                      !selected.values.domain?.trim())
+                  }
+                >
+                  <Users /> Find people
+                </Button>
+                <ApiSourceBuilder
+                  key={workspace.id}
+                  onSave={setWorkspace}
+                  workspace={workspace}
+                  disabled={jobLocksWorkspace}
+                  onImport={(next, count) => {
+                    setWorkspace(next);
+                    setNotice(
+                      `${count} API rows imported. Any active schedule was paused; run recipes when ready.`,
+                    );
+                  }}
+                />
+                <WebhookInbox
+                  onSaveMapping={(next) => {
+                    setWorkspace(next);
+                    setNotice('Webhook source mapping updated.');
+                  }}
+                  workspace={workspace}
+                  disabled={jobLocksWorkspace}
+                  onImport={(next, count) => {
+                    setWorkspace(next);
+                    setNotice(
+                      `${count} webhook rows imported. Any active schedule was paused; run recipes when ready.`,
+                    );
+                  }}
+                />
+              </div>
+            </section>
+            <section
+              id="tools-enrich"
+              className="sheet-tool-panel"
+              hidden={toolGroup !== 'enrich'}
+              aria-label="Enrich"
+            >
+              <p>Add the information you need, one column at a time.</p>
+              <div className="sheet-tool-buttons">
+                <ProviderPresetBuilder
+                  key={`presets-${workspace.id}`}
+                  workspace={workspace}
+                  ready={canLeaveTable}
+                  onAdd={(columns) => {
+                    setWorkspace((current) => ({
+                      ...current,
+                      columns: [
+                        ...current.columns.filter((c) => c.kind !== 'status'),
+                        ...columns,
+                        ...current.columns.filter((c) => c.kind === 'status'),
+                      ],
+                      schedule: current.schedule
+                        ? pauseRecipeSchedule(current.schedule)
+                        : undefined,
+                      updatedAt: Date.now(),
+                    }));
+                    setNotice(
+                      'Provider columns added. Review and run when ready.',
+                    );
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => setProviderBuilderOpen(true)}
+                  disabled={jobLocksWorkspace}
+                >
+                  <Workflow /> Email & phone waterfall
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={openResearchBuilder}
+                  disabled={jobLocksWorkspace}
+                >
+                  <Globe2 /> AI research
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={openColumnPicker}
+                  disabled={jobLocksWorkspace}
+                >
+                  <Library /> Recipe library
+                </Button>
+              </div>
+            </section>
+            <section
+              id="tools-automate"
+              className="sheet-tool-panel"
+              hidden={toolGroup !== 'automate'}
+              aria-label="Automate"
+            >
+              <p>Combine steps, track changes, and choose when work runs.</p>
+              <div className="sheet-tool-buttons">
+                <RecipeFunctionBuilder
+                  key={workspace.id}
+                  workspace={workspace}
+                  ready={canLeaveTable}
+                  onSave={setWorkspace}
+                  onAdd={(added) => {
+                    setWorkspace((current) => ({
+                      ...current,
+                      columns: [
+                        ...current.columns.filter((c) => c.kind !== 'status'),
+                        ...added,
+                        ...current.columns.filter((c) => c.kind === 'status'),
+                      ],
+                      schedule:
+                        added.some(isExternalRecipe) &&
+                        current.schedule?.enabled
+                          ? pauseRecipeSchedule(current.schedule)
+                          : current.schedule,
+                      updatedAt: Date.now(),
+                    }));
+                    setNotice(
+                      'Function columns added. Review and run the function when ready.',
+                    );
+                  }}
+                  onRun={(ids, background) => {
+                    if (background)
+                      void queueBackgroundRun(undefined, false, ids);
+                    else void runEnrichment(undefined, false, ids);
+                  }}
+                />
+                <ChangeSignals
+                  key={`signals-${workspace.id}`}
+                  workspace={workspace}
+                  ready={canLeaveTable}
+                  onSave={setWorkspace}
+                  onOpenRow={(id) => onOpenTable(workspace.id, id)}
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => setRecipeSettingsOpen(true)}
+                  disabled={jobLocksWorkspace}
+                >
+                  <SlidersHorizontal /> Run rules
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={openScheduleBuilder}
+                  disabled={jobLocksWorkspace || recipeCount === 0}
+                >
+                  <CalendarClock /> Schedule
+                </Button>
+              </div>
+            </section>
+            <section
+              id="tools-send"
+              className="sheet-tool-panel"
+              hidden={toolGroup !== 'send'}
+              aria-label="Send"
+            >
+              <p>
+                Move reviewed records into your CRM, another sheet, or a CSV.
+              </p>
+              <div className="sheet-tool-buttons">
+                <CrmSyncBuilder
+                  key={workspace.id}
+                  onSave={setWorkspace}
+                  workspace={workspace}
+                  rowIds={handoffRowIds}
+                  ready={canLeaveTable && !jobLocksWorkspace}
+                />
+                <TableTransferBuilder
+                  source={workspace}
+                  saved={canLeaveTable}
+                  selectedRowIds={selectedRowIds}
+                  onSave={setWorkspace}
+                />
+                <Button variant="outline" onClick={exportCsv}>
+                  <Download /> Export CSV
+                </Button>
+              </div>
+            </section>
+          </div>
+          <div className="sheet-viewbar">
+            <div className="sheet-view-controls">
+              <Button
+                variant="ghost"
+                onClick={sortRows}
+                disabled={jobLocksWorkspace}
+              >
+                <ArrowDownUp /> Sort
+              </Button>
+              <Button
+                variant={
+                  filter === 'All' && !activeSavedView ? 'ghost' : 'secondary'
+                }
+                onClick={cycleFilter}
+              >
+                <Filter />
+                {activeSavedView?.name ??
+                  (filter === 'All' ? 'Filter' : filter)}
+              </Button>
+              <label className="toolbar-search">
+                <Search />
+                <input
+                  value={query}
+                  onChange={(event) => {
+                    setSelectedRowIds([]);
+                    setQuery(event.target.value);
+                  }}
+                  placeholder="Search rows"
+                  aria-label="Search rows"
+                />
+              </label>
+              {query || filter !== 'All' || activeSavedViewId ? (
+                <Button variant="ghost" size="sm" onClick={clearView}>
+                  <X /> Clear filters
+                </Button>
+              ) : null}
+            </div>
+            <div className="sheet-view-actions">
+              <span className="view-row-count">
+                {visibleRows.length.toLocaleString()}
+                {visibleRows.length !== workspace.rows.length
+                  ? ` of ${workspace.rows.length.toLocaleString()}`
+                  : ''}{' '}
+                rows
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={openColumnPicker}
+                disabled={jobLocksWorkspace}
+              >
+                <Plus /> Add column
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={
+                  compactRows ? 'Use comfortable rows' : 'Use compact rows'
+                }
+                aria-pressed={compactRows}
+                title={compactRows ? 'Comfortable rows' : 'Compact rows'}
+                onClick={toggleDensity}
+              >
+                <AlignJustify />
+              </Button>
+              <Button
+                variant={inspectorOpen ? 'secondary' : 'ghost'}
+                size="sm"
+                aria-expanded={inspectorOpen}
+                aria-controls="record-inspector"
+                onClick={() => setInspectorOpen((value) => !value)}
+              >
+                <PanelRight /> Details
+              </Button>
+            </div>
+          </div>
+
           <div className="grid-frame">
             <PomadeDataGrid
               key={`${filter}|${query}|${visibleRows.map((row) => row.id).join('|')}`}
+              compact={compactRows}
               columns={workspace.columns}
               rows={visibleRows}
               readOnly={jobLocksWorkspace}
               onColumnResize={resizeColumn}
               onColumnsReorder={reorderColumns}
               onColumnMenu={openColumnEditor}
+              onAddColumn={openColumnPicker}
               onRowsChange={updateVisibleRows}
               onActiveRowChange={setActiveRowId}
               onSelectedRowIdsChange={updateSelectedRows}
             />
+            {!visibleRows.length ? (
+              <div className="sheet-empty-state">
+                {workspace.rows.length ? (
+                  <Search aria-hidden="true" />
+                ) : (
+                  <Table2 aria-hidden="true" />
+                )}
+                <h2>
+                  {workspace.rows.length
+                    ? 'No records match this view'
+                    : 'Your next workflow starts here'}
+                </h2>
+                <p>
+                  {workspace.rows.length
+                    ? 'Try a different search or clear your filters to see all records.'
+                    : 'Import a CSV, connect your CRM, or start with a blank row.'}
+                </p>
+                <div>
+                  {workspace.rows.length ? (
+                    <Button variant="outline" onClick={clearView}>
+                      Clear filters
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        onClick={openSources}
+                        disabled={jobLocksWorkspace}
+                      >
+                        <Upload /> Import records
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={addBlankRow}
+                        disabled={jobLocksWorkspace}
+                      >
+                        <Plus /> Add a row
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : null}
             {notice ? (
               <output className="workspace-toast">
-                <Check /> {notice}
+                <Info aria-hidden="true" />
+                <span>{notice}</span>
+                <button
+                  type="button"
+                  aria-label="Dismiss notification"
+                  onClick={() => setNotice('')}
+                >
+                  <X />
+                </button>
               </output>
             ) : null}
           </div>
@@ -3377,7 +3688,9 @@ export default function PomadeWorkspace({
               />{' '}
               {saveState === 'Offline'
                 ? 'Save failed — changes are only in this tab'
-                : 'Changes persist automatically'}
+                : saveState === 'Saving'
+                  ? 'Saving your changes…'
+                  : 'All changes saved'}
             </span>
             {saveState === 'Offline' ? (
               <button
@@ -3411,15 +3724,25 @@ export default function PomadeWorkspace({
               </button>
             ) : null}
             <span>{workspace.source?.label ?? 'Manual workspace'}</span>
-            <span>Grid by Glide Data Grid</span>
           </footer>
         </section>
 
-        <aside className="inspector">
+        <aside
+          className="inspector"
+          id="record-inspector"
+          hidden={!inspectorOpen}
+          aria-label="Record details"
+        >
           <div className="inspector-heading">
             <div>
               <p>Active record</p>
-              <h2>{selectedValues.company || 'Untitled row'}</h2>
+              <h2>
+                {selected
+                  ? selectedValues.company ||
+                    selectedValues.person ||
+                    'Selected record'
+                  : 'No record selected'}
+              </h2>
             </div>
             <span
               className={`record-status record-status-${(selectedValues.status || 'draft').toLowerCase()}`}
@@ -3427,187 +3750,208 @@ export default function PomadeWorkspace({
               {selectedValues.status || 'Draft'}
             </span>
           </div>
-          <div className="record-avatar">
-            {(selectedValues.company || '?').slice(0, 1)}
-          </div>
-          <div className="record-person">
-            <strong>{selectedValues.person || 'No person yet'}</strong>
-            <span>{selectedValues.title || 'No title'}</span>
-            {selectedValues.domain ? (
-              <a
-                href={`https://${selectedValues.domain}`}
-                target="_blank"
-                rel="noreferrer"
+          <Button
+            className="inspector-close"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Close record details"
+            onClick={() => setInspectorOpen(false)}
+          >
+            <X />
+          </Button>
+          {selected ? (
+            <>
+              <div className="record-avatar">
+                {(selectedValues.company || '?').slice(0, 1)}
+              </div>
+              <div className="record-person">
+                <strong>{selectedValues.person || 'No person yet'}</strong>
+                <span>{selectedValues.title || 'No title'}</span>
+                {selectedValues.domain ? (
+                  <a
+                    href={`https://${selectedValues.domain}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {selectedValues.domain}
+                  </a>
+                ) : null}
+              </div>
+              {selected?.apiSource ? (
+                <p>
+                  API source: {selected.apiSource.connectionId} · fetched{' '}
+                  {new Date(selected.apiSource.fetchedAt).toLocaleString()} ·
+                  batch {selected.apiSource.batchId.slice(0, 8)}
+                </p>
+              ) : null}
+              {selected?.webhookSource ? (
+                <p className="source-record-link">
+                  Webhook: {selected.webhookSource.sourceId} · received{' '}
+                  {new Date(selected.webhookSource.receivedAt).toLocaleString()}{' '}
+                  · event {selected.webhookSource.eventId.slice(0, 12)}
+                </p>
+              ) : null}
+              {selected?.sourceRecord ? (
+                <Button
+                  className="source-record-link"
+                  variant="outline"
+                  disabled={!canLeaveTable}
+                  onClick={() =>
+                    onOpenTable(
+                      selected.sourceRecord!.tableId,
+                      selected.sourceRecord!.rowId,
+                    )
+                  }
+                >
+                  Source: {selected.sourceRecord.tableName}
+                </Button>
+              ) : null}
+              <div className="record-signals">
+                <div>
+                  <span>Email</span>
+                  <strong>
+                    {selectedValues.email || selectedValues.apollo_email
+                      ? 'Present'
+                      : 'Missing'}
+                  </strong>
+                </div>
+                <div>
+                  <span>Domain</span>
+                  <strong>
+                    {selectedValues.domain ? 'Present' : 'Missing'}
+                  </strong>
+                </div>
+                <div>
+                  <span>Source</span>
+                  <strong>{selectedValues.crm_source || 'Grid'}</strong>
+                </div>
+              </div>
+              <button
+                className="apollo-action"
+                type="button"
+                onClick={openApollo}
+                disabled={!selected || jobLocksWorkspace}
               >
-                {selectedValues.domain}
-              </a>
-            ) : null}
-          </div>
-          {selected?.apiSource ? (
-            <p>
-              API source: {selected.apiSource.connectionId} · fetched{' '}
-              {new Date(selected.apiSource.fetchedAt).toLocaleString()} · batch{' '}
-              {selected.apiSource.batchId.slice(0, 8)}
+                <span>
+                  <MailCheck />
+                </span>
+                <div>
+                  <strong>Enrich with Apollo</strong>
+                  <small>Person match + verified work email</small>
+                </div>
+                <Sparkles />
+              </button>
+              <button
+                className="research-action"
+                type="button"
+                onClick={openResearchBuilder}
+                disabled={jobLocksWorkspace}
+              >
+                <span>
+                  <Globe2 />
+                </span>
+                <div>
+                  <strong>Research with AI</strong>
+                  <small>Custom prompt + cited web research</small>
+                </div>
+                <Sparkles />
+              </button>
+              <button
+                className="research-action"
+                type="button"
+                onClick={openPeopleListBuilder}
+                disabled={
+                  jobLocksWorkspace ||
+                  !selected ||
+                  (!selected.values.company?.trim() &&
+                    !selected.values.domain?.trim())
+                }
+              >
+                <span>
+                  <Users />
+                </span>
+                <div>
+                  <strong>Find people</strong>
+                  <small>Current roles at this company</small>
+                </div>
+                <Sparkles />
+              </button>
+              <button
+                className="row-run-action"
+                type="button"
+                onClick={() => selected && runEnrichment([selected.id])}
+                disabled={
+                  !selected || running || jobLocksWorkspace || recipeCount === 0
+                }
+              >
+                <Play /> Run recipes for this row
+              </button>
+              <button
+                className="row-run-action"
+                type="button"
+                onClick={openControlTowerHandoff}
+                disabled={!selected}
+              >
+                <ShieldCheck /> Prepare CRM handoff
+              </button>
+              <div className="inspector-section">
+                <div className="section-title">
+                  <span>Recipe trace</span>
+                  <span>{selectedReceipts.length} recent</span>
+                </div>
+                {selectedReceipts.length ? (
+                  <ol className="recipe-list">
+                    {selectedReceipts.map((receipt) => (
+                      <li key={receipt.id}>
+                        <span
+                          className={
+                            receipt.status === 'review' ? 'trace-review' : ''
+                          }
+                        >
+                          {receipt.status === 'review' ? <Search /> : <Check />}
+                        </span>
+                        <div>
+                          <strong>{receipt.action}</strong>
+                          <small>
+                            {receipt.status} · {receipt.durationMs} ms
+                          </small>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="empty-trace">
+                    Run this row to see every field-level result and review
+                    state.
+                  </p>
+                )}
+              </div>
+              <div className="receipt-card">
+                <div className="receipt-title">
+                  <CirclePlay />
+                  <span>Latest run</span>
+                  <strong>{latestRun ? 'Complete' : 'Waiting'}</strong>
+                </div>
+                <p>
+                  {latestRun
+                    ? `${providerLabel(latestRun)} completed ${latestRun.actionCount} actions across ${latestRun.rowCount} rows${latestRun.skippedCount ? ` and skipped ${latestRun.skippedCount} by rule` : ''}. External writes: ${latestRun.externalWrites}.`
+                    : 'Every run records its inputs, outputs, duration, and review state.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openRunReceipt(latestRun)}
+                  disabled={!latestRun}
+                >
+                  View run details →
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="inspector-empty">
+              Select a cell in your sheet to see the record, available actions,
+              and its run history.
             </p>
-          ) : null}
-          {selected?.webhookSource ? (
-            <p className="source-record-link">
-              Webhook: {selected.webhookSource.sourceId} · received{' '}
-              {new Date(selected.webhookSource.receivedAt).toLocaleString()} ·
-              event {selected.webhookSource.eventId.slice(0, 12)}
-            </p>
-          ) : null}
-          {selected?.sourceRecord ? (
-            <Button
-              className="source-record-link"
-              variant="outline"
-              disabled={!canLeaveTable}
-              onClick={() =>
-                onOpenTable(
-                  selected.sourceRecord!.tableId,
-                  selected.sourceRecord!.rowId,
-                )
-              }
-            >
-              Source: {selected.sourceRecord.tableName}
-            </Button>
-          ) : null}
-          <div className="record-signals">
-            <div>
-              <span>Email</span>
-              <strong>
-                {selectedValues.email || selectedValues.apollo_email
-                  ? 'Present'
-                  : 'Missing'}
-              </strong>
-            </div>
-            <div>
-              <span>Domain</span>
-              <strong>{selectedValues.domain ? 'Present' : 'Missing'}</strong>
-            </div>
-            <div>
-              <span>Source</span>
-              <strong>{selectedValues.crm_source || 'Grid'}</strong>
-            </div>
-          </div>
-          <button
-            className="apollo-action"
-            type="button"
-            onClick={openApollo}
-            disabled={!selected || jobLocksWorkspace}
-          >
-            <span>
-              <MailCheck />
-            </span>
-            <div>
-              <strong>Enrich with Apollo</strong>
-              <small>Person match + verified work email</small>
-            </div>
-            <Sparkles />
-          </button>
-          <button
-            className="research-action"
-            type="button"
-            onClick={openResearchBuilder}
-            disabled={jobLocksWorkspace}
-          >
-            <span>
-              <Globe2 />
-            </span>
-            <div>
-              <strong>Research with AI</strong>
-              <small>Custom prompt + cited web research</small>
-            </div>
-            <Sparkles />
-          </button>
-          <button
-            className="research-action"
-            type="button"
-            onClick={openPeopleListBuilder}
-            disabled={
-              jobLocksWorkspace ||
-              !selected ||
-              (!selected.values.company?.trim() &&
-                !selected.values.domain?.trim())
-            }
-          >
-            <span>
-              <Users />
-            </span>
-            <div>
-              <strong>Find people</strong>
-              <small>Current roles at this company</small>
-            </div>
-            <Sparkles />
-          </button>
-          <button
-            className="row-run-action"
-            type="button"
-            onClick={() => selected && runEnrichment([selected.id])}
-            disabled={
-              !selected || running || jobLocksWorkspace || recipeCount === 0
-            }
-          >
-            <Play /> Run recipes for this row
-          </button>
-          <button
-            className="row-run-action"
-            type="button"
-            onClick={openControlTowerHandoff}
-            disabled={!selected}
-          >
-            <ShieldCheck /> Prepare CRM handoff
-          </button>
-          <div className="inspector-section">
-            <div className="section-title">
-              <span>Recipe trace</span>
-              <span>{selectedReceipts.length} recent</span>
-            </div>
-            {selectedReceipts.length ? (
-              <ol className="recipe-list">
-                {selectedReceipts.map((receipt) => (
-                  <li key={receipt.id}>
-                    <span
-                      className={
-                        receipt.status === 'review' ? 'trace-review' : ''
-                      }
-                    >
-                      {receipt.status === 'review' ? <Search /> : <Check />}
-                    </span>
-                    <div>
-                      <strong>{receipt.action}</strong>
-                      <small>
-                        {receipt.status} · {receipt.durationMs} ms
-                      </small>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="empty-trace">
-                Run this row to see every field-level result and review state.
-              </p>
-            )}
-          </div>
-          <div className="receipt-card">
-            <div className="receipt-title">
-              <CirclePlay />
-              <span>Latest run</span>
-              <strong>{latestRun ? 'Complete' : 'Waiting'}</strong>
-            </div>
-            <p>
-              {latestRun
-                ? `${providerLabel(latestRun)} completed ${latestRun.actionCount} actions across ${latestRun.rowCount} rows${latestRun.skippedCount ? ` and skipped ${latestRun.skippedCount} by rule` : ''}. External writes: ${latestRun.externalWrites}.`
-                : 'Every run records its inputs, outputs, duration, and review state.'}
-            </p>
-            <button
-              type="button"
-              onClick={() => openRunReceipt(latestRun)}
-              disabled={!latestRun}
-            >
-              View run details →
-            </button>
-          </div>
+          )}
         </aside>
       </div>
 
@@ -3692,16 +4036,100 @@ export default function PomadeWorkspace({
           );
         }}
       />
-      <Dialog open={addColumnOpen} onOpenChange={setAddColumnOpen}>
+      <Dialog
+        open={addColumnOpen}
+        onOpenChange={(open) => {
+          setAddColumnOpen(open);
+          if (!open) setRecipeQuery('');
+        }}
+      >
         <DialogContent className="recipe-dialog">
           <DialogHeader>
-            <DialogTitle>Add a recipe column</DialogTitle>
+            <DialogTitle>What’s the next step?</DialogTitle>
             <DialogDescription>
-              Start from a saved function or add a new transformation or
-              research step. Results stay editable after every run.
+              Add a field, enrich a contact, or research an account. New columns
+              appear at the end of your workflow, before run status.
             </DialogDescription>
           </DialogHeader>
-          <div className="recipe-group-heading">
+          <label className="recipe-library-search">
+            <Search aria-hidden="true" />
+            <input
+              value={recipeQuery}
+              onChange={(event) => setRecipeQuery(event.target.value)}
+              placeholder="Search recipes, research, or transformations…"
+              aria-label="Search recipe library"
+            />
+          </label>
+          <div className="column-type-options">
+            <button
+              type="button"
+              hidden={
+                !matchesRecipe(
+                  'Data field text number date boolean manual blank',
+                )
+              }
+              disabled={jobLocksWorkspace}
+              onClick={() => {
+                setAddColumnOpen(false);
+                setDataColumnName('');
+                setDataColumnType('text');
+                setDataColumnError('');
+                setDataColumnOpen(true);
+              }}
+            >
+              <Table2 />
+              <strong>Data field</strong>
+              <span>Text, number, date, or true / false</span>
+              <Plus />
+            </button>
+            <button
+              type="button"
+              hidden={
+                !matchesRecipe(
+                  'Email phone mobile enrichment provider waterfall',
+                )
+              }
+              disabled={jobLocksWorkspace}
+              onClick={() => {
+                setAddColumnOpen(false);
+                setProviderBuilderOpen(true);
+              }}
+            >
+              <MailCheck />
+              <strong>Email & phone</strong>
+              <span>Find contact details with a provider waterfall</span>
+              <Plus />
+            </button>
+            <button
+              type="button"
+              hidden={
+                !matchesRecipe(
+                  'AI research web prompt company account buying signals',
+                )
+              }
+              disabled={jobLocksWorkspace}
+              onClick={openResearchBuilder}
+            >
+              <Globe2 />
+              <strong>AI research</strong>
+              <span>Ask a question and get sourced answers</span>
+              <Plus />
+            </button>
+            <button
+              type="button"
+              hidden={
+                !matchesRecipe('Formula calculate transform custom merge')
+              }
+              disabled={jobLocksWorkspace}
+              onClick={openFormulaBuilder}
+            >
+              <FunctionSquare />
+              <strong>Formula</strong>
+              <span>Calculate, combine, or clean your data</span>
+              <Plus />
+            </button>
+          </div>
+          <div className="recipe-group-heading recipe-quick-actions">
             <Button
               variant="outline"
               disabled={jobLocksWorkspace}
@@ -3756,10 +4184,46 @@ export default function PomadeWorkspace({
             Recipe files contain configuration and prompts, not table rows.
             Importing does not run a recipe.
           </p>
+          {recipeQuery &&
+          ![
+            ...RESEARCH_RECIPES.map(
+              (template) => `${template.name} ${template.description}`,
+            ),
+            ...recipeTemplates.map(
+              (template) => `${template.name} ${template.description ?? ''}`,
+            ),
+            ...recipePresets.map(
+              (preset) =>
+                `${preset.title} ${preset.description} ${preset.requires}`,
+            ),
+            'Data field text number date boolean manual blank',
+            'Email phone mobile enrichment provider waterfall',
+            'AI research web prompt company account buying signals',
+            'Formula calculate transform custom merge',
+          ].some((value) => matchesRecipe(value)) ? (
+            <div className="recipe-library-empty">
+              <Search />
+              <strong>No matching recipes</strong>
+              <p>
+                Try “email”, “hiring”, or “formula”, or create your own research
+                step.
+              </p>
+              <Button variant="outline" onClick={() => setRecipeQuery('')}>
+                Clear search
+              </Button>
+            </div>
+          ) : null}
           {recipeFileMessage ? (
             <output className="template-no-inputs">{recipeFileMessage}</output>
           ) : null}
-          <section className="recipe-group">
+          <section
+            className="recipe-group"
+            hidden={
+              !RESEARCH_RECIPES.some((template) =>
+                matchesRecipe(template.name, template.description),
+              )
+            }
+          >
             <div className="recipe-group-heading">
               <span>Buying-signal research</span>
               <small>4 reusable recipes · one research action each</small>
@@ -3770,7 +4234,9 @@ export default function PomadeWorkspace({
               provider and run only when ready.
             </p>
             <div className="template-library-list">
-              {RESEARCH_RECIPES.map((template, index) => (
+              {RESEARCH_RECIPES.filter((template) =>
+                matchesRecipe(template.name, template.description),
+              ).map((template, index) => (
                 <article key={template.id}>
                   <span className="template-library-icon" aria-hidden="true">
                     {String(index + 1).padStart(2, '0')}
@@ -3802,66 +4268,93 @@ export default function PomadeWorkspace({
             </div>
           </section>
           {recipeTemplates.length ? (
-            <section className="recipe-group template-library">
+            <section
+              className="recipe-group template-library"
+              hidden={
+                !recipeTemplates.some((template) =>
+                  matchesRecipe(template.name, template.description),
+                )
+              }
+            >
               <div className="recipe-group-heading">
                 <span>Saved functions</span>
                 <small>{recipeTemplates.length} reusable</small>
               </div>
               <div className="template-library-list">
-                {recipeTemplates.map((template) => {
-                  const outputCount = template.column.outputFields?.length ?? 1;
-                  return (
-                    <article key={template.id}>
-                      <span className="template-library-icon">
-                        <Library />
-                      </span>
-                      <div>
-                        <strong>{template.name}</strong>
-                        <small>
-                          {template.description ||
-                            `${template.column.title} recipe`}
-                        </small>
-                        <em>
-                          {template.inputs.length} input
-                          {template.inputs.length === 1 ? '' : 's'} →{' '}
-                          {outputCount} output{outputCount === 1 ? '' : 's'}
-                          {template.column.outputCardinality === 'list'
-                            ? ` · up to ${template.column.listLimit ?? 10} rows`
-                            : ''}
-                        </em>
-                      </div>
-                      <button
-                        className="template-use-button"
-                        type="button"
-                        onClick={() => openTemplateUse(template)}
-                      >
-                        Use
-                      </button>
-                      <button
-                        className="template-delete-button"
-                        type="button"
-                        aria-label={`Export ${template.name}`}
-                        title="Export recipe file"
-                        onClick={() => downloadRecipe(template)}
-                      >
-                        <Download />
-                      </button>
-                      <button
-                        className="template-delete-button"
-                        type="button"
-                        aria-label={`Delete ${template.name}`}
-                        onClick={() => deleteRecipeTemplate(template)}
-                      >
-                        <Trash2 />
-                      </button>
-                    </article>
-                  );
-                })}
+                {recipeTemplates
+                  .filter((template) =>
+                    matchesRecipe(template.name, template.description),
+                  )
+                  .map((template) => {
+                    const outputCount =
+                      template.column.outputFields?.length ?? 1;
+                    return (
+                      <article key={template.id}>
+                        <span className="template-library-icon">
+                          <Library />
+                        </span>
+                        <div>
+                          <strong>{template.name}</strong>
+                          <small>
+                            {template.description ||
+                              `${template.column.title} recipe`}
+                          </small>
+                          <em>
+                            {template.inputs.length} input
+                            {template.inputs.length === 1 ? '' : 's'} →{' '}
+                            {outputCount} output{outputCount === 1 ? '' : 's'}
+                            {template.column.outputCardinality === 'list'
+                              ? ` · up to ${template.column.listLimit ?? 10} rows`
+                              : ''}
+                          </em>
+                        </div>
+                        <button
+                          className="template-use-button"
+                          type="button"
+                          disabled={jobLocksWorkspace}
+                          onClick={() => openTemplateUse(template)}
+                        >
+                          Use
+                        </button>
+                        <button
+                          className="template-delete-button"
+                          type="button"
+                          aria-label={`Export ${template.name}`}
+                          title="Export recipe file"
+                          onClick={() => downloadRecipe(template)}
+                        >
+                          <Download />
+                        </button>
+                        <button
+                          className="template-delete-button"
+                          type="button"
+                          aria-label={`Delete ${template.name}`}
+                          onClick={() => deleteRecipeTemplate(template)}
+                        >
+                          <Trash2 />
+                        </button>
+                      </article>
+                    );
+                  })}
               </div>
             </section>
           ) : null}
           {(['Transform', 'Research'] as const).map((group) => (
-            <section className="recipe-group" key={group}>
+            <section
+              className="recipe-group"
+              key={group}
+              hidden={
+                !recipePresets.some(
+                  (preset) =>
+                    preset.group === group &&
+                    matchesRecipe(
+                      preset.title,
+                      preset.description,
+                      preset.requires,
+                    ),
+                )
+              }
+            >
               <div className="recipe-group-heading">
                 <span>{group}</span>
                 <small>
@@ -3872,11 +4365,20 @@ export default function PomadeWorkspace({
               </div>
               <div className="recipe-presets">
                 {recipePresets
-                  .filter((preset) => preset.group === group)
+                  .filter(
+                    (preset) =>
+                      preset.group === group &&
+                      matchesRecipe(
+                        preset.title,
+                        preset.description,
+                        preset.requires,
+                      ),
+                  )
                   .map((preset) => (
                     <button
                       key={`${preset.recipe}-${preset.title}`}
                       type="button"
+                      disabled={jobLocksWorkspace}
                       onClick={() =>
                         preset.recipe === 'custom-formula'
                           ? openFormulaBuilder()
@@ -3915,6 +4417,72 @@ export default function PomadeWorkspace({
               </div>
             </section>
           ))}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dataColumnOpen} onOpenChange={setDataColumnOpen}>
+        <DialogContent className="data-column-dialog">
+          <DialogHeader>
+            <DialogTitle>Add a data field</DialogTitle>
+            <DialogDescription>
+              A blank column for values you type, paste, or import.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="data-column-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              addDataColumn();
+            }}
+          >
+            <label>
+              Column name
+              <input
+                value={dataColumnName}
+                onChange={(event) => {
+                  setDataColumnName(event.target.value);
+                  setDataColumnError('');
+                }}
+                maxLength={80}
+                placeholder="e.g. Target region"
+                required
+              />
+            </label>
+            <label>
+              Value type
+              <select
+                value={dataColumnType}
+                onChange={(event) =>
+                  setDataColumnType(event.target.value as ResearchValueType)
+                }
+              >
+                <option value="text">Text</option>
+                <option value="number">Number</option>
+                <option value="date">Date</option>
+                <option value="boolean">True / false</option>
+              </select>
+            </label>
+            {dataColumnError ? (
+              <p className="template-error" role="alert">
+                {dataColumnError}
+              </p>
+            ) : null}
+            <div className="data-column-actions">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDataColumnOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!dataColumnName.trim() || jobLocksWorkspace}
+              >
+                <Plus /> Add column
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -4943,8 +5511,19 @@ export default function PomadeWorkspace({
               <strong>{pendingListRowLimit}</strong>
             </div>
           </div>
-          <RunPreview workspace={workspace} rowIds={pendingRunRowIds} columnIds={pendingRunColumnIds} research={researchStatus} />
-          {pendingWebResearchColumns.some(hasAsyncProvider) && <p className="research-safety">Background providers save each request ID and wait for its result before continuing the waterfall. Resume checks that saved request without submitting it again.</p>}
+          <RunPreview
+            workspace={workspace}
+            rowIds={pendingRunRowIds}
+            columnIds={pendingRunColumnIds}
+            research={researchStatus}
+          />
+          {pendingWebResearchColumns.some(hasAsyncProvider) && (
+            <p className="research-safety">
+              Background providers save each request ID and wait for its result
+              before continuing the waterfall. Resume checks that saved request
+              without submitting it again.
+            </p>
+          )}
           {pendingResearchActionCount > pendingResearchActionLimit ? (
             <p className="research-warning" role="alert">
               {pendingRunMode === 'background'

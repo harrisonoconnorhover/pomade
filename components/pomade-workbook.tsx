@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Copy, Plus, Table2 } from 'lucide-react';
+import { Copy, Plus, LoaderCircle } from 'lucide-react';
+import SheetSwitcher from './sheet-switcher';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -68,7 +69,7 @@ export default function PomadeWorkbook({
     [],
   );
   function openTable(id: string, rowId = '') {
-    if (!ready || creating) return;
+    if (!ready || creating || (id === activeId && rowId === focusRowId)) return;
     if (!tables.some((table) => table.id === id)) {
       setError('The source table is unavailable.');
       return;
@@ -137,74 +138,87 @@ export default function PomadeWorkbook({
   return (
     <div className="pomade-workbook">
       <nav className="workbook-bar" aria-label="Workbook tables">
-        <Table2 size={18} />
-        <label htmlFor="active-table">Tables</label>
-        <select
-          id="active-table"
-          value={activeId}
-          disabled={!ready || creating}
-          onChange={(event) => openTable(event.target.value)}
-        >
-          {!activeId ? <option value="">Loading tables…</option> : null}
-          {tables.map((table) => (
-            <option key={table.id} value={table.id}>
-              {table.name} · {table.rowCount} rows
-            </option>
-          ))}
-        </select>
-        <Button
-          variant="outline"
-          disabled={!ready || creating}
-          onClick={() => startCreate('empty')}
-        >
-          <Plus /> New table
-        </Button>
-        <Button
-          variant="outline"
-          disabled={!ready || creating}
-          onClick={() => startCreate('duplicate')}
-        >
-          <Copy /> Duplicate
-        </Button>
-        <WorkbookPromptBuilder
-          disabled={!ready || creating}
-          onBusy={setCreating}
-          onCreated={(added) => {
-            setTables((current) => [
-              ...current.filter(
-                (table) => !added.some((item) => item.id === table.id),
-              ),
-              ...added,
-            ]);
-            setActiveId(added[0].id);
-            setFocusRowId('');
-            setReady(false);
-            const url = new URL(window.location.href);
-            url.searchParams.set('table', added[0].id);
-            url.searchParams.delete('row');
-            window.history.replaceState(null, '', url);
-          }}
-        />
-        <WorkbookTemplateBuilder
+        <div className="workbook-brand">
+          <span className="logo-mark" aria-hidden="true">
+            <span>P</span>
+          </span>
+          <span className="brand-name">Pomade</span>
+        </div>
+        <span className="workbook-separator" aria-hidden="true" />
+        <SheetSwitcher
           tables={tables}
+          activeId={activeId}
           disabled={!ready || creating}
-          onBusy={setCreating}
-          onCreated={(added) => {
-            setTables((current) => [...current, ...added]);
-            setActiveId(added[0].id);
-            setFocusRowId('');
-            setReady(false);
-            const url = new URL(window.location.href);
-            url.searchParams.set('table', added[0].id);
-            url.searchParams.delete('row');
-            window.history.replaceState(null, '', url);
-          }}
+          onSelect={openTable}
         />
-        <span>
-          {ready ? `${tables.length} tables` : 'Loading or saving table…'}
+        <div className="workbook-create-actions">
+          <Button
+            variant="outline"
+            disabled={!ready || creating}
+            onClick={() => startCreate('empty')}
+          >
+            <Plus /> New table
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!ready || creating}
+            onClick={() => startCreate('duplicate')}
+          >
+            <Copy /> Duplicate
+          </Button>
+          <WorkbookPromptBuilder
+            disabled={!ready || creating}
+            onBusy={setCreating}
+            onCreated={(added) => {
+              setTables((current) => [
+                ...current.filter(
+                  (table) => !added.some((item) => item.id === table.id),
+                ),
+                ...added,
+              ]);
+              setActiveId(added[0].id);
+              setFocusRowId('');
+              setReady(false);
+              const url = new URL(window.location.href);
+              url.searchParams.set('table', added[0].id);
+              url.searchParams.delete('row');
+              window.history.replaceState(null, '', url);
+            }}
+          />
+          <WorkbookTemplateBuilder
+            tables={tables}
+            disabled={!ready || creating}
+            onBusy={setCreating}
+            onCreated={(added) => {
+              setTables((current) => [...current, ...added]);
+              setActiveId(added[0].id);
+              setFocusRowId('');
+              setReady(false);
+              const url = new URL(window.location.href);
+              url.searchParams.set('table', added[0].id);
+              url.searchParams.delete('row');
+              window.history.replaceState(null, '', url);
+            }}
+          />
+        </div>
+        <span className="workbook-table-count">
+          {ready ? (
+            `${tables.length} sheets`
+          ) : (
+            <>
+              <LoaderCircle className="spin" size={14} /> Updating…
+            </>
+          )}
         </span>
         {deployment.hosted ? <AccountSettings /> : null}
-        {error && !mode ? <output>{error}</output> : null}
+        {error && !mode ? (
+          <output className="workbook-error" role="alert">
+            {error}
+            <Button variant="ghost" onClick={() => window.location.reload()}>
+              Reload
+            </Button>
+          </output>
+        ) : null}
       </nav>
       {activeId ? (
         <PomadeWorkspace
@@ -216,7 +230,25 @@ export default function PomadeWorkbook({
           onOpenTable={openTable}
           onCopyRows={(ids) => startCreate('linked', ids)}
         />
-      ) : null}
+      ) : (
+        <main className="workbook-starting" aria-busy={!error}>
+          <span className="logo-mark" aria-hidden="true">
+            <span>P</span>
+          </span>
+          <h1>
+            {error ? 'Unable to open your workbook' : 'Opening your workbook'}
+          </h1>
+          <p>
+            {error ||
+              'Your sheets and saved workflows will be ready in a moment.'}
+          </p>
+          {error ? (
+            <Button onClick={() => window.location.reload()}>Try again</Button>
+          ) : (
+            <LoaderCircle className="spin" aria-hidden="true" />
+          )}
+        </main>
+      )}
       <Dialog
         open={Boolean(mode)}
         onOpenChange={(open) => {

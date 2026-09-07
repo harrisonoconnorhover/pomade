@@ -1101,3 +1101,10 @@ The receiver accepts bounded JSON at a separate random-token URL and discards it
 Share only the acknowledgement URL through `POMADE_APOLLO_CALLBACK_URL`; preserve per-user `APOLLO_WEBHOOK_URL` overrides and private API keys. Do not silently replace an invalid custom receiver. The settings test probes only the installation-owned endpoint with empty synthetic data, never user-entered URLs or real contacts. Publish service source separately through a Git subtree export; keep it maintained in this repository and keep GitHub untouched.
 
 The deployed settings check exposed Workers rejecting `redirect: 'error'` despite Node accepting it. Use manual redirects and reject non-2xx responses, matching existing provider requests. Exercise the callback settings action in the compiled Worker test. Hosted builds also enable Cloudflare's documented `global_fetch_strictly_public` flag so same-zone callbacks use the public HTTPS route.
+
+
+## 2026-09-07 — Make the sheet the main working surface
+
+Group existing controls into Add data, Enrich, Automate and Send shelves, keeping the run button and row controls in view. Shelves keep their builders mounted so opening another tool does not discard a draft. Searchable sheet navigation replaces the long native selector; details and navigation can collapse without reducing workbook capability. Row density is an optional device preference, independent of saved data.
+
+Use Glide's real trailing element for the permanent Add column rail. It is interface chrome, never a saved or exported column. Right-click and the rail open the same searchable picker for ordinary typed fields, formulas, research and provider waterfalls. Preserve the existing execution order: new steps append before run status. Configuration does not trigger provider requests. Newly added columns scroll into view; existing rows and recipe definitions stay intact. Keep both deployment modes and the private hosted audience unchanged.
