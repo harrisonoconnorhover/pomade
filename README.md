@@ -129,7 +129,7 @@ rollups are supported as described below; portable lookup export remains pending
 
 See the [Clay contact-provider tracker](docs/clay-contact-provider-tracker.md) for
 email finders, phone sources, verification services, evidence links, and Pomade gaps.
-Contact-provider development can proceed without keys. **Provider waterfall → Quick setup** now offers 22 presets across Apollo, Hunter, Prospeo, LeadMagic, Findymail, People Data Labs, ContactOut, Upcell, ZeroBounce, BounceBan and Trestle. Save a setup before connecting its keys; no enrichment runs until you explicitly run the column. Six new account connections use the existing personal credential vault. New adapters are tested with synthetic responses, with live account checks still pending. See the [provider tracker](docs/clay-contact-provider-tracker.md) for exact capabilities, source contracts and remaining work.
+Contact-provider development can proceed without keys. **Provider waterfall → Quick setup** now offers 25 presets across Apollo, Hunter, Prospeo, LeadMagic, Findymail, People Data Labs, ContactOut, Upcell, ZeroBounce, BounceBan, Trestle and Enrow. Save a setup before connecting its keys; no enrichment runs until you explicitly run the column. Provider connections use the existing personal credential vault. New adapters are tested with synthetic responses, with live account checks still pending. See the [provider tracker](docs/clay-contact-provider-tracker.md) for exact capabilities, source contracts and remaining work.
 
 ## Research buying signals
 
@@ -355,9 +355,13 @@ Open **Provider waterfall** to configure one to four HTTP provider requests in o
 
 Choose email/phone format-only acceptance or an explicit verified provider status. Finder and verifier are separate operations: use an independent verifier in another action column bound to the found email/phone. Unknown and rejected statuses fall through; account errors, pending checks and rate limits stop by default. Adding a preset does not silently weaken an existing verification rule. A valid phone is not proof of ownership, mobile line type or recent activity.
 
-Run the waterfall like another recipe. The first acceptable result stops further requests. Each attempt records result, elapsed time and unknown cost; synthetic tests never establish real billing. Winner and final status appear beside the result. Unrecovered errors stop jobs and schedules. Run limits include every possible step. Same-installation templates remap inputs and outputs; portable export still needs connection remapping. Existing local value-selection waterfalls make no provider calls.
+Run the waterfall like another recipe. The first acceptable result stops further requests. Each attempt records result, elapsed time and unknown cost; synthetic tests never establish real billing. Winner and final status appear beside the result. Unrecovered errors stop jobs and schedules. Run limits include every possible provider submission; asynchronous result checks are separate and recorded in receipts. Same-installation templates remap inputs and outputs; portable export still needs connection remapping. Existing local value-selection waterfalls make no provider calls.
 
-See [the maintained provider tracker](docs/clay-contact-provider-tracker.md) for current adapters and asynchronous lifecycle gaps.
+Enrow email finding, existing-email verification and phone finding run in the background automatically. Connect your Enrow key in **Account → Connections**, or set `ENROW_API_KEY` locally. Pomade saves the search ID before returning a waiting state. Later ticks poll that ID, reuse completed waterfall steps, and only start fallback providers after a completed miss. Email acceptance requires `qualification=valid`; phone lookup requires `found` plus international format, without claiming ownership or reachability. Result GETs consume no Enrow credits; receipts separate them from the submit response's reported charge.
+
+Pause and resume preserve the same search. A 30-minute wait pauses for review; **Resume** continues checking the original ID. Changed inputs require a new run. If the submit response is lost before its ID is saved, automatic resubmission stops; check Enrow's request history before deliberately starting a fresh run. Background and workbook runs support these presets; single-pass schedules refuse them before making any source or CRM requests. Live provider access is still untested.
+
+See [the maintained provider tracker](docs/clay-contact-provider-tracker.md) for current adapters and remaining lifecycle gaps.
 
 ## Import lists from APIs
 

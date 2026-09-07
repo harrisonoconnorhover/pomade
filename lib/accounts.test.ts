@@ -220,6 +220,7 @@ describe('private accounts', () => {
     ['contactout', 'CONTACTOUT_API_KEY'],
     ['upcell', 'UPCELL_API_KEY'],
     ['bounceban', 'BOUNCEBAN_API_KEY'],
+    ['enrow', 'ENROW_API_KEY'],
   ])(
     'isolates %s through save and disconnect without owner fallback',
     async (provider, key) => {
@@ -291,6 +292,11 @@ describe('private accounts', () => {
       )
         .bind('same', 'same', 'queued', '[]', 1, 1)
         .run();
+      await scoped.DB.prepare(
+        'INSERT INTO waterfall_progress VALUES (?,?,?,?,?,?)',
+      )
+        .bind('same', 'same', 'same-job', 'inputs', 'private-search-' + i, 1)
+        .run();
       await scoped.DB.prepare('INSERT INTO crm_sync_runs VALUES (?,?,?,?,?,?)')
         .bind('same', 'same', 'hubspot', 'preview', 'private ' + i, 1)
         .run();
@@ -319,6 +325,11 @@ describe('private accounts', () => {
           'SELECT prompt FROM research_requests',
         ).first(),
       ).toMatchObject({ prompt: 'prompt ' + i });
+      expect(
+        await scopes[i].DB.prepare(
+          'SELECT state FROM waterfall_progress',
+        ).first(),
+      ).toMatchObject({ state: 'private-search-' + i });
       expect(
         await scopes[i].DB.prepare('SELECT plan FROM crm_sync_runs').first(),
       ).toMatchObject({ plan: 'private ' + i });

@@ -1,4 +1,10 @@
 import {
+  ENROW_CONNECTION,
+  EnrowPendingError,
+  EnrowSubmissionUnknownError,
+} from './enrow';
+import { executeEnrowRequest, type EnrowContext } from './enrow-request';
+import {
   normalizeContactProviderResponse,
   validateContactProviderRequest,
 } from './contact-provider-contracts';
@@ -350,6 +356,7 @@ export async function executeHttpRecipe(
   column: PomadeColumn,
   connections: HttpConnection[],
   fetchImpl: typeof fetch = fetch,
+  enrowContext?: EnrowContext,
 ) {
   const row = workspace.rows.find((candidate) => candidate.id === rowId);
   const config = column.http;
@@ -359,6 +366,9 @@ export async function executeHttpRecipe(
   let status = 'Complete';
   let failure: string | undefined;
   let sent = false;
+  let pending = false;
+  let stopWaterfall = false;
+  let credits: number | null | undefined;
   const values = Object.fromEntries(
     config.outputs.map((output) => [output.outputColumnId, '']),
   );
@@ -368,85 +378,105 @@ export async function executeHttpRecipe(
   try {
     if (!connection) throw new Error('HTTP connection is not configured.');
     const request = prepareHttpRequest(column, row, connection);
-    let response: Response;
-    if (connection.requestDelayMs)
-      await new Promise((resolve) =>
-        setTimeout(resolve, connection.requestDelayMs),
-      );
-    try {
-      sent = true;
-      response = await fetchImpl(request.url, {
-        ...request.init,
-        signal: AbortSignal.timeout(connection.requestTimeoutMs ?? 15_000),
-      });
-    } catch {
-      throw new Error('Request failed or timed out; it was not retried.');
-    }
-    if (connection.id === 'pomade_hunter' && response.status === 202) {
-      await response.body?.cancel();
-      throw new Error(
-        'Hunter verification is still pending. Run this verification again later; no fallback was automatically started.',
-      );
-    }
-    if (connection.id === 'pomade_hunter' && response.status === 222) {
-      await response.body?.cancel();
-      throw new Error(
-        'Hunter could not complete the SMTP check. Try this verification again later.',
-      );
-    }
     let data: unknown;
     let providerMiss = false;
-    if (
-      response.status === 404 &&
-      ((connection.id === 'pomade_pdl_people' &&
-        new URL(request.url).pathname === '/v5/person/enrich') ||
-        (connection.id === 'pomade_contactout' &&
-          new URL(request.url).pathname === '/v1/people/linkedin'))
-    ) {
-      await response.body?.cancel();
-      data = {};
-      providerMiss = true;
-      status = 'No matching contact record';
-    }
-    if (connection.id === 'pomade_prospeo' && response.status === 400) {
-      data = await boundedJson(response);
-      const code = jsonPath(data, 'error_code');
-      if (code === 'NO_MATCH') {
-        providerMiss = true;
-        status = 'No matching verified record';
-      } else {
-        const reason =
-          typeof code === 'string' && /^[A-Z_]{1,60}$/.test(code)
-            ? code
-            : 'request rejected';
-        throw new Error(`Prospeo: ${reason}`);
+    if (connection.id === ENROW_CONNECTION) {
+      if (!enrowContext)
+        throw new Error(
+          'Run Enrow in the background so its search ID can be saved and resumed.',
+        );
+      data = await executeEnrowRequest(
+        request,
+        enrowContext,
+        async (url, init) => {
+          sent = true;
+          return fetchImpl(url, {
+            ...init,
+            signal: AbortSignal.timeout(connection.requestTimeoutMs ?? 15_000),
+          });
+        },
+        boundedJson,
+      );
+      credits = 0; // Only the submit response reports charged credits; result GETs are free.
+    } else {
+      let response: Response;
+      if (connection.requestDelayMs)
+        await new Promise((resolve) =>
+          setTimeout(resolve, connection.requestDelayMs),
+        );
+      try {
+        sent = true;
+        response = await fetchImpl(request.url, {
+          ...request.init,
+          signal: AbortSignal.timeout(connection.requestTimeoutMs ?? 15_000),
+        });
+      } catch {
+        throw new Error('Request failed or timed out; it was not retried.');
       }
-    }
-    if (!response.ok && !providerMiss) {
-      await response.body?.cancel();
-      throw new Error(
-        `HTTP ${response.status}${response.status >= 300 && response.status < 400 ? ' — redirect refused' : ''}`,
-      );
-    }
-    if (!providerMiss)
-      data = normalizeContactProviderResponse(
-        connection.id,
-        new URL(request.url),
-        await boundedJson(response),
-      );
-    if (connection.id === 'pomade_zerobounce' && jsonPath(data, 'error'))
-      throw new Error(
-        'ZeroBounce rejected the request. Check the API key, credits, and request inputs.',
-      );
-    // Findymail documents application errors even with an HTTP 200 response.
-    // Never treat account/credit failures as a miss and silently spend on fallback.
-    if (connection.id === 'pomade_findymail' && jsonPath(data, 'error')) {
-      const reason = jsonPath(data, 'error');
-      throw new Error(
-        reason === 'Not enough credits' || reason === 'Subscription is paused'
-          ? `Findymail: ${reason}`
-          : 'Findymail rejected the request. Check the account and request inputs.',
-      );
+      if (connection.id === 'pomade_hunter' && response.status === 202) {
+        await response.body?.cancel();
+        throw new Error(
+          'Hunter verification is still pending. Run this verification again later; no fallback was automatically started.',
+        );
+      }
+      if (connection.id === 'pomade_hunter' && response.status === 222) {
+        await response.body?.cancel();
+        throw new Error(
+          'Hunter could not complete the SMTP check. Try this verification again later.',
+        );
+      }
+      if (
+        response.status === 404 &&
+        ((connection.id === 'pomade_pdl_people' &&
+          new URL(request.url).pathname === '/v5/person/enrich') ||
+          (connection.id === 'pomade_contactout' &&
+            new URL(request.url).pathname === '/v1/people/linkedin'))
+      ) {
+        await response.body?.cancel();
+        data = {};
+        providerMiss = true;
+        status = 'No matching contact record';
+      }
+      if (connection.id === 'pomade_prospeo' && response.status === 400) {
+        data = await boundedJson(response);
+        const code = jsonPath(data, 'error_code');
+        if (code === 'NO_MATCH') {
+          providerMiss = true;
+          status = 'No matching verified record';
+        } else {
+          const reason =
+            typeof code === 'string' && /^[A-Z_]{1,60}$/.test(code)
+              ? code
+              : 'request rejected';
+          throw new Error(`Prospeo: ${reason}`);
+        }
+      }
+      if (!response.ok && !providerMiss) {
+        await response.body?.cancel();
+        throw new Error(
+          `HTTP ${response.status}${response.status >= 300 && response.status < 400 ? ' — redirect refused' : ''}`,
+        );
+      }
+      if (!providerMiss)
+        data = normalizeContactProviderResponse(
+          connection.id,
+          new URL(request.url),
+          await boundedJson(response),
+        );
+      if (connection.id === 'pomade_zerobounce' && jsonPath(data, 'error'))
+        throw new Error(
+          'ZeroBounce rejected the request. Check the API key, credits, and request inputs.',
+        );
+      // Findymail documents application errors even with an HTTP 200 response.
+      // Never treat account/credit failures as a miss and silently spend on fallback.
+      if (connection.id === 'pomade_findymail' && jsonPath(data, 'error')) {
+        const reason = jsonPath(data, 'error');
+        throw new Error(
+          reason === 'Not enough credits' || reason === 'Subscription is paused'
+            ? `Findymail: ${reason}`
+            : 'Findymail rejected the request. Check the account and request inputs.',
+        );
+      }
     }
     if (config.preset === 'apollo-company' || config.preset === 'pdl-company') {
       const expected = new URL(request.url).searchParams.get(
@@ -488,7 +518,23 @@ export async function executeHttpRecipe(
       status = `Missing response fields: ${missing.join(', ')}`;
   } catch (error) {
     status = error instanceof Error ? error.message : 'HTTP request failed.';
-    failure = status;
+    pending = error instanceof EnrowPendingError;
+    stopWaterfall =
+      error instanceof EnrowSubmissionUnknownError ||
+      enrowContext?.progress.state.requests[enrowContext.index]?.phase ===
+        'submitting';
+    if (pending) {
+      credits = (error as EnrowPendingError).credits;
+      for (const output of config.outputs)
+        values[output.outputColumnId] = row.values[output.outputColumnId] ?? '';
+    } else {
+      failure = status;
+      if (
+        connection?.id === ENROW_CONNECTION &&
+        enrowContext?.progress.state.requests[enrowContext.index]?.requestId
+      )
+        credits = 0;
+    }
   }
   values[config.statusColumnId] = status;
   const receipt: ActionReceipt = {
@@ -503,12 +549,15 @@ export async function executeHttpRecipe(
     after: values[column.id] ?? '',
     outputValues: values,
     error: failure,
+    pending: pending || undefined,
+    stopWaterfall: stopWaterfall || undefined,
+    httpRequestCount: sent ? 1 : 0,
     provider: sent
       ? config.preset === 'apollo-company'
         ? 'apollo'
         : 'http'
       : 'local',
-    creditsConsumed: sent ? null : 0,
+    creditsConsumed: credits !== undefined ? credits : sent ? null : 0,
     evidence: [
       `Connection: ${connection?.label ?? config.connectionId}`,
       `Method: ${config.method}`,

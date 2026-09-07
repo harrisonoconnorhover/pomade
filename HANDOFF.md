@@ -2,40 +2,36 @@
 
 ## Finished
 
-- Added 16 contact presets, bringing the total to 22 across 11 providers. New connections: Findymail, ZeroBounce, Trestle, ContactOut, Upcell and BounceBan. Extended Hunter, LeadMagic and People Data Labs.
-- Added five independent email verifiers and Trestle phone validity. Finder/verification statuses stay separate; PDL availability flags are not contact values.
-- Presets can be saved before keys are connected. The builder shows required input mappings and preserves an existing verification rule when adding fallback steps.
-- Missing keys and malformed verifier inputs make no provider call. Documented misses fall through; account, pending and partial-result errors stop by default. Credential vault isolation covers each new connection.
-- Updated the sourced provider tracker and README. Committed provider-sized slices; no GitHub publishing or new accounts.
+- Added Enrow email finding, existing-email verification, and phone finding: 25 contact presets across 12 providers, configurable before adding keys.
+- Enrow runs submit once, save the vendor search ID, and poll in the existing background runner. Pausing or restarting preserves the same request. Completed waterfall steps are reused.
+- Pending searches stop downstream work and fallback providers until results arrive. Unknown submission outcomes stop for review; result-check errors retain the ID for Resume.
+- Personal Enrow keys and waterfall progress use account isolation. Receipts show waiting, saved-step reuse, HTTP requests per pass, and submission credits separately from result checks.
 
 ## Try It
 
-- Open **Provider waterfall → Quick setup**, select a preset, then map its required input columns. Remove the extra blank attempt for a single lookup.
-- Save the setup now. Connect the provider later in hosted **Account**, or use the documented environment variable locally and rebuild/restart.
-- Verify an existing lookup result by adding a separate verifier action column bound to that email/phone column. Choose explicit verified acceptance when combining compatible providers.
+Open **Provider waterfall → Quick setup** and choose an Enrow preset. Map name/domain, email, or LinkedIn profile. Save without a key; connect your key in **Account → Connections** when available, or set `ENROW_API_KEY` locally. Run automatically queues background work. After a 30-minute wait or polling error, **Background runs → Resume** checks the same search ID.
 
 ## Checks
 
-- 136 focused provider, waterfall, HTTP, account-isolation and reusable-template tests passed using synthetic responses.
-- Typecheck, lint, local build, hosted build and diff whitespace checks passed.
-- Private version 20 is live (runtime commit `2be7674`). Local and hosted HTTP checks passed; the hosted JavaScript bundle matches the packaged build.
-- All 19 local tables, 11 hosted tables and seven configured hosted connections were preserved. Six new connection forms are present and unconnected. No queued/running jobs were interrupted.
-- No live vendor lookups, API-key provisioning, credit use, purchases or browser visual QA.
+- 170 tests passed across 10 focused files: Enrow, contact presets, waterfall, HTTP, accounts, pipeline, schedules, templates, workbook runner, and usage.
+- TypeScript, lint, hosted build and diff checks passed.
+- Disposable Worker with persistent D1 passed submit, pending pipeline, pause, process restart, saved-ID polling, earlier-step reuse, completed-miss fallback and downstream execution. All outbound traffic was intercepted; no vendor calls.
+- Local build and private-site release verification remain the release step. Currently deployed version: 20.
 
 ## Decisions
 
-- Never invent verification fields or confuse person-match confidence with verified contact data.
-- Use synchronous endpoints in this batch. Pending requests are not no-match responses; no automatic billable resubmission.
-- Preserve local use, private hosting and per-account credentials. Keep unimplemented connectors out of runnable presets.
+- Reuse existing background jobs; add no queue, webhook receiver, SDK or paid infrastructure.
+- Bind saved progress to the job, row, action and inputs. Changed inputs require a new run. A missing submission ID requires checking Enrow history before deliberately starting fresh.
+- Email requires valid status; phone requires found status plus international format. Phone ownership and reachability are not claimed.
 
 ## Remaining
 
-- Live account entitlement, latency, incremental match quality and actual credit usage need later API-key testing.
-- Durable submit/poll/resume handling for Enrow and FullEnrich; Apollo phone callbacks also remain.
-- Other providers and phone activity/ownership/line-type controls remain listed in the tracker. This batch does not complete all Clay integrations.
+- Live Enrow account/key, phone entitlement and actual billing checks.
+- Enrow is supported in background/workbook runs; single-pass schedules refuse it before external side effects.
+- Next provider: FullEnrich, after confirming its own submit/result contract. Apollo phone callbacks remain separate work.
 
 ## Review First
 
-- `lib/contact-provider-presets.ts` and `components/provider-waterfall-builder.tsx`.
-- `lib/contact-provider-contracts.ts` and `lib/contact-provider-presets.test.ts`.
-- `docs/clay-contact-provider-tracker.md` and the per-provider tests in `lib/accounts.test.ts`.
+- `lib/enrow-request.ts` and `db/waterfall-progress.ts`: submission ambiguity and resume.
+- `lib/provider-waterfall.ts`: saved steps, pending and fallback.
+- `scripts/test-enrow-worker.mjs`: real process-restart exercise.

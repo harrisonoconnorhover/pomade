@@ -1,3 +1,5 @@
+import { ENROW_CONNECTION, hasAsyncProvider } from './enrow';
+import { WaterfallProgress } from '../db/waterfall-progress';
 import {
   executeHttpRecipe,
   createHttpColumns,
@@ -123,6 +125,7 @@ export async function executeProviderWaterfall(
   column: PomadeColumn,
   connections: HttpConnection[],
   fetcher: typeof fetch = fetch,
+  execution?: { db: D1Database; id: string },
 ) {
   const config = column.providerWaterfall;
   const row = workspace.rows.find((r) => r.id === rowId);
@@ -130,11 +133,40 @@ export async function executeProviderWaterfall(
     throw new Error('Provider waterfall configuration is incomplete.');
   validateAcceptance(config);
   const started = Date.now();
+  const asynchronous = hasAsyncProvider(column);
+  if (
+    asynchronous &&
+    !execution &&
+    connections.some((c) => c.id === ENROW_CONNECTION)
+  )
+    throw new Error(
+      'Run Enrow in the background so its search ID can be saved and resumed.',
+    );
+  const progress =
+    asynchronous && execution
+      ? await WaterfallProgress.open(execution.db, {
+          executionId: execution.id,
+          workspaceId: workspace.id,
+          rowId,
+          columnId: column.id,
+          fingerprint: JSON.stringify([
+            config,
+            column.inputBindings,
+            providerInputFields(config)
+              .sort()
+              .map((key) => [
+                key,
+                row.values[column.inputBindings?.[key] ?? key] ?? '',
+              ]),
+          ]),
+        })
+      : undefined;
   const attempts: ActionReceipt[] = [];
   let value = '',
     winner = '',
     error: string | undefined;
   let stoppedEarly = false;
+  let pending = false;
   for (const [index, step] of config.steps.entries()) {
     const label =
       connections.find((c) => c.id === step.connectionId)?.label ||
@@ -169,14 +201,25 @@ export async function executeProviderWaterfall(
         statusColumnId: config.statusColumnId,
       },
     };
-    const result = await executeHttpRecipe(
-      workspace,
-      rowId,
-      virtual,
-      connections,
-      fetcher,
-    );
-    const receipt = result.receipt;
+    const saved = progress?.state.attempts[index];
+    const receipt = saved
+      ? { ...saved, cached: true, creditsConsumed: 0, httpRequestCount: 0 }
+      : (
+          await executeHttpRecipe(
+            workspace,
+            rowId,
+            virtual,
+            connections,
+            fetcher,
+            progress ? { progress, index } : undefined,
+          )
+        ).receipt;
+    if (receipt.pending) {
+      attempts.push(receipt);
+      pending = true;
+      error = undefined;
+      break;
+    }
     const candidate = receipt.after.trim();
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate);
     const phone = candidate.replace(/[\s().-]/g, '');
@@ -214,6 +257,15 @@ export async function executeProviderWaterfall(
             : 'Verification was missing or did not meet the configured status rule.',
     ];
     attempts.push(receipt);
+    if (
+      progress &&
+      !saved &&
+      (!receipt.error ||
+        (config.continueOnError &&
+          !receipt.stopWaterfall &&
+          receipt.error !== 'HTTP 451'))
+    )
+      await progress.saveAttempt(index, receipt);
     if (accepted) {
       value = config.accept.includes('phone') ? phone : candidate;
       winner = label;
@@ -222,7 +274,11 @@ export async function executeProviderWaterfall(
     }
     if (receipt.error) {
       error = receipt.error;
-      if (!config.continueOnError || receipt.error === 'HTTP 451') {
+      if (
+        receipt.stopWaterfall ||
+        !config.continueOnError ||
+        receipt.error === 'HTTP 451'
+      ) {
         stoppedEarly = true;
         break;
       }
@@ -230,15 +286,20 @@ export async function executeProviderWaterfall(
   }
   const providerErrors = attempts.filter((attempt) => attempt.error).length;
   const values = {
-    [column.id]: value,
-    [config.winnerColumnId]: winner,
-    [config.statusColumnId]: winner
-      ? `Accepted after ${attempts.length} ${attempts.length === 1 ? 'attempt' : 'attempts'}`
-      : stoppedEarly
-        ? `Stopped: ${error}`
-        : error
-          ? `All providers tried; no acceptable value. ${providerErrors} provider ${providerErrors === 1 ? 'error' : 'errors'}.`
-          : 'No provider returned an acceptable value',
+    [column.id]: pending ? (row.values[column.id] ?? '') : value,
+    [config.winnerColumnId]: pending
+      ? (row.values[config.winnerColumnId] ?? '')
+      : winner,
+    [config.statusColumnId]: pending
+      ? (attempts.at(-1)?.outputValues?.[config.statusColumnId] ??
+        'Waiting for Enrow')
+      : winner
+        ? `Accepted after ${attempts.length} ${attempts.length === 1 ? 'attempt' : 'attempts'}`
+        : stoppedEarly
+          ? `Stopped: ${error}`
+          : error
+            ? `All providers tried; no acceptable value. ${providerErrors} provider ${providerErrors === 1 ? 'error' : 'errors'}.`
+            : 'No provider returned an acceptable value',
   };
   const sent = attempts.some((a) => a.provider === 'http');
   const receipt: ActionReceipt = {
@@ -250,15 +311,22 @@ export async function executeProviderWaterfall(
     status: winner ? 'passed' : 'review',
     durationMs: Date.now() - started,
     before: row.values[column.id] ?? '',
-    after: value,
+    after: values[column.id],
+    pending: pending || undefined,
+    httpRequestCount: attempts.reduce(
+      (sum, a) => sum + (a.httpRequestCount ?? 0),
+      0,
+    ),
     outputValues: values,
     provider: sent ? 'http' : 'local',
-    creditsConsumed: sent ? null : 0,
+    creditsConsumed: attempts.some((a) => a.creditsConsumed === null)
+      ? null
+      : attempts.reduce((sum, a) => sum + (a.creditsConsumed ?? 0), 0),
     error,
     attempts,
     evidence: attempts.map(
       (a) =>
-        `${a.action}: ${a.error ?? (a.status === 'passed' ? 'accepted' : 'no acceptable result')}`,
+        `${a.action}: ${a.pending ? 'waiting for result' : (a.error ?? (a.status === 'passed' ? 'accepted' : 'no acceptable result'))}`,
     ),
   };
   return {

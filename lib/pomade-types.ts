@@ -67,7 +67,11 @@ export type HttpProviderStep = {
   pathTemplate: string;
   bodyTemplate?: string;
   responsePath: string;
-  verification?: { path: string; acceptedValues: string[]; revealedPath?: string };
+  verification?: {
+    path: string;
+    acceptedValues: string[];
+    revealedPath?: string;
+  };
 };
 export type ProviderWaterfall = {
   steps: HttpProviderStep[];
@@ -298,6 +302,8 @@ export type ActionReceipt = {
   researchModel?: string;
   reasoningEffort?: string;
   pending?: boolean;
+  stopWaterfall?: boolean;
+  httpRequestCount?: number;
   attempts?: ActionReceipt[];
   id: string;
   rowId: string;

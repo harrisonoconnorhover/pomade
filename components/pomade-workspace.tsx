@@ -1,5 +1,7 @@
 'use client';
 
+import { hasAsyncProvider } from '@/lib/enrow';
+
 import {
   RESEARCH_RECIPES,
   prepareResearchRecipe,
@@ -1119,6 +1121,9 @@ export default function PomadeWorkspace({
   const scheduledExternalColumns = scheduleColumnIds
     ? webResearchColumns.filter((c) => scheduleColumnIds.includes(c.id))
     : webResearchColumns;
+  if (scheduledExternalColumns.some(hasAsyncProvider))
+    scheduleScopeError =
+      'Enrow needs a background or workbook run so it can wait for results. Single-pass schedules are not supported yet.';
   const scheduledResearchActionCount = countMaximumExternalActions(
     scheduleSourceEnabled && workspace.apiSourceRefresh
       ? [
@@ -2260,12 +2265,14 @@ export default function PomadeWorkspace({
   ) {
     if (running || rowIds.length === 0) return;
     if (
-      deployment.hosted &&
       workspace.columns.some(
         (column) =>
-          column.recipe === 'web-research' &&
-          (column.researchProvider ?? researchStatus?.provider) === 'codex' &&
-          (!columnIds || columnIds.includes(column.id)),
+          (!columnIds || columnIds.includes(column.id)) &&
+          (hasAsyncProvider(column) ||
+            (deployment.hosted &&
+              column.recipe === 'web-research' &&
+              (column.researchProvider ?? researchStatus?.provider) ===
+                'codex')),
       )
     )
       return queueBackgroundRun(rowIds, confirmExternalResearch, columnIds);
@@ -4736,6 +4743,15 @@ export default function PomadeWorkspace({
               ? ' The active schedule will pause until you approve its new provider scope.'
               : ''}
           </p>
+          {pendingWebResearchColumns.some(hasAsyncProvider) && (
+            <p className="research-safety">
+              Enrow also needs status checks after each submission. Pomade saves
+              its search ID, waits without starting fallback providers, and
+              resumes automatically. Enrow does not charge credits for these
+              result checks. After 30 minutes of waiting, use Resume to keep
+              checking the same search.
+            </p>
+          )}
           <div className="research-confirm-actions">
             <Button variant="outline" onClick={() => setCompanyListOpen(false)}>
               Cancel
@@ -4861,7 +4877,11 @@ export default function PomadeWorkspace({
               <strong>{pendingWebResearchColumns.length}</strong>
             </div>
             <div>
-              <span>Maximum requests</span>
+              <span>
+                {pendingWebResearchColumns.some(hasAsyncProvider)
+                  ? 'Maximum provider submissions'
+                  : 'Maximum requests'}
+              </span>
               <strong>{pendingResearchActionCount}</strong>
             </div>
             <div>
@@ -5465,16 +5485,27 @@ export default function PomadeWorkspace({
                         <div className="receipt-attempt" key={attempt.id}>
                           <p>
                             {attempt.action} ·{' '}
-                            {attempt.status === 'passed'
-                              ? 'accepted'
-                              : attempt.error
-                                ? 'provider error'
-                                : 'not accepted'}{' '}
-                            · {attempt.error || attempt.after || 'No result'} ·{' '}
-                            {attempt.durationMs} ms ·{' '}
+                            {attempt.pending
+                              ? 'waiting for result'
+                              : attempt.status === 'passed'
+                                ? 'accepted'
+                                : attempt.error
+                                  ? 'provider error'
+                                  : 'not accepted'}{' '}
+                            ·{' '}
+                            {attempt.error ||
+                              (attempt.pending
+                                ? 'Search in progress'
+                                : attempt.after) ||
+                              'No result'}{' '}
+                            · {attempt.durationMs} ms ·{' '}
                             {attempt.creditsConsumed == null
                               ? 'cost unknown'
                               : `${attempt.creditsConsumed} credits`}
+                            {attempt.cached ? ' · saved step reused' : ''}
+                            {attempt.httpRequestCount !== undefined
+                              ? ` · ${attempt.httpRequestCount} HTTP request${attempt.httpRequestCount === 1 ? '' : 's'} this pass`
+                              : ''}
                           </p>
                           {attempt.evidence?.length ? (
                             <ul>

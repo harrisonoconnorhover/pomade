@@ -4,6 +4,12 @@ let schemaReady = false;
 
 export async function ensureDatabaseSchema(db: D1Database) {
   await db.batch([
+    db.prepare(`CREATE TABLE IF NOT EXISTS waterfall_progress (
+      id TEXT PRIMARY KEY NOT NULL,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      execution_id TEXT NOT NULL, fingerprint TEXT NOT NULL, state TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`),
     db.prepare(
       `CREATE TABLE IF NOT EXISTS research_companion (id INTEGER PRIMARY KEY NOT NULL, ready INTEGER NOT NULL, browser_available INTEGER NOT NULL, updated_at INTEGER NOT NULL, models TEXT, models_updated_at INTEGER)`,
     ),

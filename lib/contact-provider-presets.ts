@@ -1,3 +1,4 @@
+import { ENROW_CONNECTION } from './enrow';
 import {
   emailProviderStep,
   emailVerificationStep,
@@ -48,6 +49,59 @@ export type ContactProviderPreset = {
   step: (bindings: ContactBindings) => HttpProviderStep;
 };
 export const CONTACT_PROVIDER_PRESETS: ContactProviderPreset[] = [
+  {
+    id: 'enrow-email',
+    label: 'Enrow · find verified email',
+    provider: 'Enrow',
+    connectionId: ENROW_CONNECTION,
+    inputs: ['person', 'domain'],
+    accept: 'verified-email',
+    note: 'Runs in the background. Saves the search ID and checks for a result without submitting the same lookup again. Live API access still needs validation.',
+    step: ({ person, domain }) => ({
+      connectionId: ENROW_CONNECTION,
+      method: 'POST',
+      pathTemplate: '/email/find/single',
+      bodyTemplate: JSON.stringify({
+        fullname: `{{${person}}}`,
+        company_domain: `{{${domain}}}`,
+      }),
+      responsePath: 'email',
+      verification: { path: 'qualification', acceptedValues: ['valid'] },
+    }),
+  },
+  {
+    id: 'enrow-verify',
+    label: 'Enrow · verify existing email',
+    provider: 'Enrow',
+    connectionId: ENROW_CONNECTION,
+    inputs: ['email'],
+    accept: 'verified-email',
+    note: 'Background email verification. Accepts only a valid result for the submitted email. Status checks do not submit another verification.',
+    step: ({ email }) => ({
+      connectionId: ENROW_CONNECTION,
+      method: 'POST',
+      pathTemplate: '/email/verify/single',
+      bodyTemplate: JSON.stringify({ email: `{{${email}}}` }),
+      responsePath: 'email',
+      verification: { path: 'qualification', acceptedValues: ['valid'] },
+    }),
+  },
+  {
+    id: 'enrow-phone',
+    label: 'Enrow · find phone (format only)',
+    provider: 'Enrow',
+    connectionId: ENROW_CONNECTION,
+    inputs: ['profile'],
+    accept: 'phone',
+    note: 'Background phone search from LinkedIn. Requires found status and an international number. This does not verify ownership or current reachability. Phone access and pricing depend on the account.',
+    step: ({ profile }) => ({
+      connectionId: ENROW_CONNECTION,
+      method: 'POST',
+      pathTemplate: '/phone/single',
+      bodyTemplate: JSON.stringify({ linkedin_url: `{{${profile}}}` }),
+      responsePath: 'number',
+    }),
+  },
   {
     id: 'hunter',
     label: 'Hunter · find verified email',

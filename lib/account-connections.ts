@@ -24,6 +24,12 @@ const api = (
 });
 export const CONNECTIONS: ConnectionDefinition[] = [
   api(
+    'enrow',
+    'Enrow',
+    'ENROW_API_KEY',
+    'Background email finding, email verification and phone finding. Search IDs are saved for polling and resume. Tested with sample responses; live access and phone entitlement still need validation.',
+  ),
+  api(
     'apollo',
     'Apollo',
     'APOLLO_API_KEY',

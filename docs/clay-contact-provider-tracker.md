@@ -31,7 +31,7 @@ lead to the current actions supporting each row.
 | [People Data Labs](https://www.clay.com/integrations/data-provider/people-data-labs) | Work*; personal | Mobile | Company plus work-email, personal-email and mobile presets implemented. Person presets are fixture-tested; revealed contact fields depend on the plan. |
 | [LeadMagic](https://www.clay.com/integrations/data-provider/leadmagic) | Work; personal | Mobile | Work-email, mobile-by-work-email and independent email verification presets implemented; fixture-tested, live access pending. |
 | [Findymail](https://www.clay.com/integrations/data-provider/findymail) | Work | Mobile | Email lookup, US phone lookup and independent email verification implemented and fixture-tested. Finder outputs use format-only acceptance; the verifier requires `verified=true`. No live account test. |
-| [Enrow](https://www.clay.com/integrations/data-provider/enrow) | Work | Mobile | Direct API reviewed: async-first submit plus result polling/webhook. Needs durable provider-result handling; no runnable preset yet. |
+| [Enrow](https://www.clay.com/integrations/data-provider/enrow) | Work | Mobile | Email finder, verifier and phone finder implemented with durable submit/poll/resume. Sample-response tested; live API access pending. Phone acceptance is format-only after found status. |
 | [Dropcontact](https://www.clay.com/integrations/data-provider/dropcontact) | Work | — | Planned. Confirm current direct API request/result lifecycle before wiring. |
 | [Icypeas](https://www.clay.com/integrations/data-provider/icypeas) | Work | — | Planned. Includes email verification and domain email discovery. |
 | [Datagma](https://www.clay.com/integrations/data-provider/datagma) | Work | Mobile | Planned. Clay phone lookup accepts profile or email identifiers. |
@@ -61,7 +61,7 @@ Useful action-level checks: [Apollo](https://www.clay.com/integrations/action/en
 
 A found address/number and a verified address/number are different outcomes.
 Verification can test deliverability, line type, activity or association with a
-person; those are not interchangeable. Pomade now has five independent email-verifier presets (Hunter, LeadMagic, Findymail, ZeroBounce and BounceBan) and Trestle phone validity. Connect a verifier as a separate action column using the lookup result as its input; a waterfall step still performs one request.
+person; those are not interchangeable. Pomade now has six independent email-verifier presets (Hunter, LeadMagic, Findymail, ZeroBounce, BounceBan and Enrow) and Trestle phone validity. Connect a verifier as a separate action column using the lookup result as its input; lookup-to-verifier chains still use separate columns. Enrow steps submit once and poll their saved search IDs.
 
 | Service / Clay source | Documented role | Pomade gap |
 |---|---|---|
@@ -71,7 +71,7 @@ person; those are not interchangeable. Pomade now has five independent email-ver
 | [Enrichley](https://www.clay.com/integrations/data-provider/enrichley) | Email validation | Verifier adapter |
 | [Hunter](https://www.clay.com/integrations/data-provider/hunter) | Email validation in addition to discovery | Independent verifier implemented; valid-only, pending responses stop. |
 | [Findymail](https://www.clay.com/integrations/data-provider/findymail) | Email validation in addition to discovery | Findymail finder and verifier presets implemented; fixture-tested, live access pending. |
-| [Enrow](https://www.clay.com/integrations/data-provider/enrow) | Work-email validation | Finder plus verifier adapters |
+| [Enrow](https://www.clay.com/integrations/data-provider/enrow) | Work-email validation | Finder and verifier implemented with saved search IDs and background result polling. Live access pending. |
 | [Icypeas](https://www.clay.com/integrations/data-provider/icypeas) | Email verification | Finder plus verifier adapters |
 | [LeadMagic](https://www.clay.com/integrations/data-provider/leadmagic) | Email validation in addition to discovery | Independent verifier implemented; requires email_status=valid. |
 | [Trestle](https://www.clay.com/integrations/data-provider/trestle) | Phone validation and contact verification | Phone validity preset implemented with same-number matching. Ownership and activity/line-type filtering remain separate. |
@@ -147,7 +147,7 @@ unversioned routes and different status descriptions. No new key or plan purchas
 
 ## Next development order
 
-1. Build durable submit/poll/resume handling for [Enrow](https://enrow.io/en/api) and [FullEnrich](https://docs.fullenrich.com/api/v2/general/webhooks), including saved provider request IDs and no duplicate billable submission after interruptions. Apollo phone callbacks need this lifecycle too. These can be developed against synthetic contracts without a key; they are not implemented by this batch.
+1. Add [FullEnrich](https://docs.fullenrich.com/api/v2/general/webhooks) using its documented result lifecycle. Enrow now supplies the first durable submit/poll/resume implementation. Apollo phone callbacks still need their own callback contract and handling; a polling adapter does not implement webhooks.
 2. Continue the tracker in provider-sized slices: inspect exact request/response contracts for Dropcontact, Icypeas, Datagma, Wiza, BetterContact, Forager, Firmable, RocketReach, SMARTe, ZoomInfo and Bytemine. Keep placeholders out of the runnable UI. Public marketing alone is not an API contract.
 3. Add the remaining phone type/activity/ownership checks and email verifiers. ClearoutPhone's public API reference could not be read in this run (403/JS-only); obtain the actual schema before coding it. Do not confuse `debounce.cc` with the Clay-listed `debounce.io` service.
 4. Once keys are available, measure extra acceptable matches after earlier providers, real latency, entitlements and credits. The one-to-four step limit is unchanged. Synthetic passing tests do not establish coverage, live billing, or deliverability.
@@ -183,3 +183,11 @@ Added [mobile enrichment](https://api.upcell.io/docs/dataenrichment/enrich-conta
 ### BounceBan (September 7, 2026)
 
 Added its [documented synchronous waterfall endpoint](https://github.com/bounceban-com/skill-email-verification/blob/main/single-verification.md) on `api-waterfall.bounceban.com` with raw Authorization authentication, regular mode and a 30-second vendor timeout. Accepts `result=deliverable` only after `status=success`. Risky/unknown/undeliverable results are misses; pending responses, HTTP 408 and account errors stop by default. No automatic resubmission. The vendor documents no extra charge for retrying the same waterfall email within 30 minutes; this was not tested live and is not a billing guarantee from Pomade.
+
+## Enrow: durable asynchronous contact enrichment
+
+The current API reference documents [email submission](https://docs.enrow.io/api-reference/email-finder/find-single), [email result polling](https://docs.enrow.io/api-reference/email-finder/get-single-result), [verification](https://docs.enrow.io/api-reference/email-verifier/verify-single), [verification results](https://docs.enrow.io/api-reference/email-verifier/get-single-verification), [phone submission](https://docs.enrow.io/api-reference/phone/find-single), and [phone results](https://docs.enrow.io/api-reference/phone/get-single-result). Pomade uses full name + domain for email, an existing email for verification, and LinkedIn URL for phone. Authentication is `x-api-key`; optional demographic, company-info, and webhook fields are omitted. The site's linked OpenAPI file was an unrelated template, so these endpoint references supply the contract.
+
+Account-scoped progress saves the background job, input/configuration fingerprint, completed waterfall attempts and vendor search ID. Later ticks issue GETs for that ID; an unfinished search never triggers fallback. Known input/auth/credit/rate-limit submission rejections stop by default and allow manual resume. An ambiguous submission stays blocked to prevent duplicate billing. Result-check errors retain the ID for resume. After 30 minutes, the job asks for review and Resume keeps checking the same search. A new job is a deliberate fresh lookup. Regular single-pass schedules cannot use these presets yet; background and workbook runs can.
+
+Email success requires the returned `qualification=valid`; the verifier also checks the returned email against its input. Phone `found` means located, not verified ownership or reachability. Unrecognized statuses and mismatched returned profiles stop for review. `invalid`/`not_found` are completed misses. HTTP 202 or `ongoing` is pending. Receipts distinguish submit credits from uncharged result checks; no hard-coded phone price is claimed because the marketing page and API reference disagree. All behavior has been developed using synthetic records, without a vendor key or live contact request.

@@ -1,3 +1,4 @@
+import { ENROW_CONNECTION } from './enrow';
 import { httpConnections, type HttpConnection } from './http-enrichment';
 import {
   LEADMAGIC_CONNECTION,
@@ -25,11 +26,13 @@ export function configuredHttpConnections(env: {
   CONTACTOUT_API_KEY?: string;
   UPCELL_API_KEY?: string;
   BOUNCEBAN_API_KEY?: string;
+  ENROW_API_KEY?: string;
   PROSPEO_API_KEY?: string;
   PDL_API_KEY?: string;
 }): HttpConnection[] {
   const custom = httpConnections(env.POMADE_HTTP_CONNECTIONS);
   const reserved = [
+    ENROW_CONNECTION,
     LEADMAGIC_CONNECTION,
     FINDYMAIL_CONNECTION,
     ZEROBOUNCE_CONNECTION,
@@ -49,6 +52,14 @@ export function configuredHttpConnections(env: {
       'Built-in provider connection IDs are reserved. Rename the custom connection.',
     );
   const connections: HttpConnection[] = [...custom];
+  if (env.ENROW_API_KEY?.trim())
+    connections.push({
+      id: ENROW_CONNECTION,
+      label: 'Enrow',
+      origin: 'https://api.enrow.io',
+      methods: ['GET', 'POST'],
+      headers: { 'x-api-key': env.ENROW_API_KEY.trim() },
+    });
   if (env.APOLLO_API_KEY?.trim())
     connections.push(
       {

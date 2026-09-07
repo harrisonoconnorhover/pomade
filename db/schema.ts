@@ -296,3 +296,14 @@ export const accountCredentials = sqliteTable(
     ),
   ],
 );
+
+export const waterfallProgress = sqliteTable('waterfall_progress', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  executionId: text('execution_id').notNull(),
+  fingerprint: text('fingerprint').notNull(),
+  state: text('state').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});

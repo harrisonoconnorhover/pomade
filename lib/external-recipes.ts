@@ -6,6 +6,7 @@ export function isExternalRecipe(column: PomadeColumn) {
     column.recipe === 'http-waterfall'
   );
 }
+// Counts provider submissions; asynchronous result checks are reported separately.
 // Conditions may change after an earlier provider result. Consent covers the maximum, not stale row values.
 export function countMaximumExternalActions(
   rows: PomadeRow[],

@@ -1,3 +1,4 @@
+import { hasAsyncProvider } from '@/lib/enrow';
 import {
   readResearchDefaults,
   readResearchModels,
@@ -222,6 +223,18 @@ export async function POST(request: Request) {
     )
       ? configuredHttpConnections(env)
       : [];
+    const executionId =
+      new URL(request.url).hostname === 'pomade.internal'
+        ? (body as { executionId?: string }).executionId
+        : undefined;
+    if (externalColumns.some(hasAsyncProvider) && !executionId)
+      return Response.json(
+        {
+          error:
+            'Run Enrow in the background. Scheduled Enrow recipes need a workbook background run.',
+        },
+        { status: 409 },
+      );
     const research = researchConfiguration(env);
     if (
       externalColumns.some(
@@ -275,6 +288,8 @@ export async function POST(request: Request) {
             rowId,
             column,
             connections,
+            fetch,
+            executionId ? { db, id: executionId } : undefined,
           );
         if (column.recipe === 'http-api')
           return executeHttpRecipe(

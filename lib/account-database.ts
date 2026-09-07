@@ -6,6 +6,7 @@ export const ACCOUNT_TABLES = [
   'runs',
   'provider_cache',
   'run_jobs',
+  'waterfall_progress',
   'webhook_events',
   'webhook_imports',
   'api_source_batches',

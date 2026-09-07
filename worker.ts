@@ -1,3 +1,4 @@
+import { hasAsyncProvider } from './lib/enrow';
 import { withEnv } from 'cloudflare:workers';
 import {
   accountsEnabled,
@@ -138,6 +139,16 @@ export async function runDueSchedules(
       claimedCount += 1;
       // Resolve recipe membership before making any scheduled source requests.
       const columnIds = scheduledColumnIds(claimed);
+      if (
+        claimed.columns.some(
+          (column) =>
+            hasAsyncProvider(column) &&
+            (!columnIds || columnIds.includes(column.id)),
+        )
+      )
+        throw new Error(
+          'Enrow recipes need a background or workbook run. Single-pass schedules cannot wait for their results.',
+        );
       const source = claimed.schedule?.beforeRunSource;
       if (source) {
         validateApiSourceRefresh(claimed, source);
@@ -348,7 +359,7 @@ async function failRunJob(env: Cloudflare.Env, jobId: string, error: string) {
     .run();
 }
 
-async function waitForCompanion(
+async function waitForExternalResult(
   env: Cloudflare.Env,
   job: RunJobRecord,
   columnIds: string[] | undefined,
@@ -447,7 +458,7 @@ export async function runQueuedJobs(
         (!connection.ready ||
           (env.POMADE_CODEX_BROWSER === 'true' && !connection.browserAvailable))
       ) {
-        await waitForCompanion(
+        await waitForExternalResult(
           env,
           job,
           columnIds,
@@ -464,6 +475,7 @@ export async function runQueuedJobs(
             rowIds: [rowId],
             columnIds,
             confirmExternalResearch: job.confirm_external_research === 1,
+            executionId: job.id,
           }),
         }),
         env,
@@ -491,11 +503,11 @@ export async function runQueuedJobs(
               (!columnIds || columnIds.includes(column.id)),
           )
           .map((column) => column.id);
-        await waitForCompanion(
+        await waitForExternalResult(
           env,
           job,
           scoped.slice(scoped.indexOf(pending.columnId)),
-          'Waiting for research on your Mac.',
+          pending.evidence?.at(-1) || 'Waiting for an external result.',
           result.run.id,
         );
         continue;
