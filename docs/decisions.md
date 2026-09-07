@@ -1036,3 +1036,18 @@ The existing citation/review mechanism applies but does not independently verify
 model claims. These recipes are snapshots, not new automatic monitors. The friends
 beta remains optional preparation: no email addresses or invitations are required
 for the current single-user release.
+
+
+## 2026-09-07 — Contact provider inventory and LeadMagic adapters
+
+Track Clay's currently documented finders, validators, personal/hashed identifiers,
+and conflicting older marketing claims separately. Provider catalog presence is
+not proof of inclusion in a particular default waterfall or of direct API access.
+Keep documentation-only providers out of runnable presets.
+
+Use current LeadMagic versioned endpoints with existing HTTP waterfall machinery.
+Only accept its explicit valid email status; mobile-by-work-email has no documented
+verification field and must stay format-only. Configure keys through the existing
+per-account vault and local environment. Test mapping, fallthrough, error stops,
+and credential isolation using synthetic responses; do not claim live coverage or
+billing validation without an account. No migration or new service is required.

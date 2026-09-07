@@ -42,6 +42,12 @@ export const CONNECTIONS: ConnectionDefinition[] = [
     'Verified email and mobile numbers.',
   ),
   api(
+    'leadmagic',
+    'LeadMagic',
+    'LEADMAGIC_API_KEY',
+    'Email and mobile lookup presets. Tested with sample responses; live API access is not yet verified. Mobile lookups do not include independent phone verification.',
+  ),
+  api(
     'pdl',
     'People Data Labs',
     'PDL_API_KEY',

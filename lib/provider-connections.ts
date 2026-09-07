@@ -1,5 +1,6 @@
 import { httpConnections, type HttpConnection } from './http-enrichment';
 import {
+  LEADMAGIC_CONNECTION,
   APOLLO_COMPANY_CONNECTION,
   APOLLO_PEOPLE_CONNECTION,
   HUNTER_CONNECTION,
@@ -10,11 +11,13 @@ export function configuredHttpConnections(env: {
   POMADE_HTTP_CONNECTIONS?: string;
   APOLLO_API_KEY?: string;
   HUNTER_API_KEY?: string;
+  LEADMAGIC_API_KEY?: string;
   PROSPEO_API_KEY?: string;
   PDL_API_KEY?: string;
 }): HttpConnection[] {
   const custom = httpConnections(env.POMADE_HTTP_CONNECTIONS);
   const reserved = [
+    LEADMAGIC_CONNECTION,
     APOLLO_COMPANY_CONNECTION,
     APOLLO_PEOPLE_CONNECTION,
     HUNTER_CONNECTION,
@@ -68,6 +71,14 @@ export function configuredHttpConnections(env: {
       origin: 'https://api.prospeo.io',
       methods: ['POST'],
       headers: { 'X-KEY': env.PROSPEO_API_KEY.trim() },
+    });
+  if (env.LEADMAGIC_API_KEY?.trim())
+    connections.push({
+      id: LEADMAGIC_CONNECTION,
+      label: 'LeadMagic',
+      origin: 'https://api.leadmagic.io',
+      methods: ['POST'],
+      headers: { 'X-API-Key': env.LEADMAGIC_API_KEY.trim() },
     });
   return connections;
 }

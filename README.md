@@ -125,6 +125,15 @@ time. A later formula can use the returned values in the same run. Lookups can
 be saved as templates inside this workbook. Contains matching and numeric
 rollups are supported as described below; portable lookup export remains pending.
 
+## Contact-provider roadmap
+
+See the [Clay contact-provider tracker](docs/clay-contact-provider-tracker.md) for
+email finders, phone sources, verification services, evidence links, and Pomade gaps.
+The new LeadMagic email/mobile presets can be developed and fixture-tested without
+a key. To run them later, connect LeadMagic in **Account** on the hosted site or
+set `LEADMAGIC_API_KEY` locally; use **Provider waterfall → Quick setup**. Mobile
+lookup is explicitly format-only, not independent ownership verification.
+
 ## Research buying signals
 
 Open **Recipe library → Buying-signal research**, choose **Use**, map the company

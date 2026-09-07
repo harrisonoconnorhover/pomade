@@ -212,6 +212,46 @@ describe('private accounts', () => {
       ).members,
     ).toBeUndefined();
   });
+  it('isolates the new LeadMagic key through save and disconnect without owner fallback', async () => {
+    const { db } = database(),
+      env = environment(db);
+    env.LEADMAGIC_API_KEY = 'owner-leadmagic';
+    await initializeAccounts(env);
+    const a = await inviteAccount(db, 'leadmagic-a@example.test');
+    const b = await inviteAccount(db, 'leadmagic-b@example.test');
+    expect(
+      (await accountEnvironment(env, a)).LEADMAGIC_API_KEY,
+    ).toBeUndefined();
+    const saved = await handleAccount(
+      request(a.email, a.email, {
+        action: 'save',
+        provider: 'leadmagic',
+        values: { LEADMAGIC_API_KEY: 'member-leadmagic' },
+      }),
+      env,
+      a,
+    );
+    expect(saved.status).toBe(200);
+    expect(await saved.text()).not.toContain('member-leadmagic');
+    expect((await accountEnvironment(env, a)).LEADMAGIC_API_KEY).toBe(
+      'member-leadmagic',
+    );
+    expect(
+      (await accountEnvironment(env, b)).LEADMAGIC_API_KEY,
+    ).toBeUndefined();
+    const disconnected = await handleAccount(
+      request(a.email, a.email, {
+        action: 'disconnect',
+        provider: 'leadmagic',
+      }),
+      env,
+      a,
+    );
+    expect(disconnected.status).toBe(200);
+    expect(
+      (await accountEnvironment(env, a)).LEADMAGIC_API_KEY,
+    ).toBeUndefined();
+  });
   it('isolates every data table, including identical IDs, caches, settings, research, jobs, and CRM plans', async () => {
     const { db, sql } = database(),
       env = environment(db);

@@ -14,6 +14,8 @@ import {
 } from '@/lib/provider-waterfall';
 import {
   emailProviderStep,
+  leadMagicMobileStep,
+  LEADMAGIC_CONNECTION,
   prospeoMobileStep,
   HUNTER_CONNECTION,
   PROSPEO_CONNECTION,
@@ -26,11 +28,21 @@ import type {
   HttpProviderStep,
   ProviderWaterfall,
 } from '@/lib/pomade-types';
-type EmailProvider = Parameters<typeof emailProviderStep>[0] | 'prospeo-mobile';
-const presetStep = (provider: EmailProvider, person: string, domain: string) =>
+type EmailProvider =
+  | Parameters<typeof emailProviderStep>[0]
+  | 'prospeo-mobile'
+  | 'leadmagic-mobile';
+const presetStep = (
+  provider: EmailProvider,
+  person: string,
+  domain: string,
+  email: string,
+) =>
   provider === 'prospeo-mobile'
     ? prospeoMobileStep(person, domain)
-    : emailProviderStep(provider, person, domain);
+    : provider === 'leadmagic-mobile'
+      ? leadMagicMobileStep(email)
+      : emailProviderStep(provider, person, domain);
 type StepDraft = HttpProviderStep & { quickSetup?: EmailProvider };
 const blank = (): StepDraft => ({
   connectionId: '',
@@ -65,6 +77,12 @@ export default function ProviderWaterfallBuilder({
   );
   const [domainColumn, setDomainColumn] = useState(
     inputColumns.some((column) => column.id === 'domain') ? 'domain' : '',
+  );
+  const [emailColumn, setEmailColumn] = useState(
+    inputColumns.some((column) => column.id === 'email') ? 'email' : '',
+  );
+  const emailInputReady = inputColumns.some(
+    (column) => column.id === emailColumn,
   );
   const presetInputsReady =
     [personColumn, domainColumn].every((id) =>
@@ -116,9 +134,21 @@ export default function ProviderWaterfallBuilder({
   let columns: PomadeColumn[] | undefined;
   let validation = '';
   try {
-    if (steps.some((step) => step.quickSetup) && !presetInputsReady)
+    if (
+      steps.some(
+        (step) => step.quickSetup && step.quickSetup !== 'leadmagic-mobile',
+      ) &&
+      !presetInputsReady
+    )
       throw new Error(
         'Choose separate name and website columns for the presets.',
+      );
+    if (
+      steps.some((step) => step.quickSetup === 'leadmagic-mobile') &&
+      !emailInputReady
+    )
+      throw new Error(
+        'Choose a work email column for LeadMagic mobile lookup.',
       );
     columns = createProviderWaterfall(workspace, {
       id,
@@ -147,14 +177,19 @@ export default function ProviderWaterfallBuilder({
       ),
     );
   }
-  function updatePresetInputs(person: string, domain: string) {
+  function updatePresetInputs(
+    person: string,
+    domain: string,
+    email = emailColumn,
+  ) {
     setPersonColumn(person);
     setDomainColumn(domain);
+    setEmailColumn(email);
     setSteps((current) =>
       current.map((step) =>
         step.quickSetup
           ? {
-              ...presetStep(step.quickSetup, person, domain),
+              ...presetStep(step.quickSetup, person, domain, email),
               quickSetup: step.quickSetup,
             }
           : step,
@@ -212,6 +247,22 @@ export default function ProviderWaterfallBuilder({
               </select>
             </label>
           </div>
+          <label>
+            Work email (for LeadMagic mobile)
+            <select
+              value={emailColumn}
+              onChange={(e) =>
+                updatePresetInputs(personColumn, domainColumn, e.target.value)
+              }
+            >
+              <option value="">Choose a column</option>
+              {inputColumns.map((column) => (
+                <option key={column.id} value={column.id}>
+                  {column.title}
+                </option>
+              ))}
+            </select>
+          </label>
           <p>
             Choose work email or mobile. Prospeo mobile lookup uses up to 10
             credits for a verified result, and no credits for no match.
@@ -221,8 +272,8 @@ export default function ProviderWaterfallBuilder({
           <output>Checking available providers…</output>
         ) : !connections.length ? (
           <p>
-            No provider connections are available. Add a provider key in your
-            local settings and restart Pomade.
+            No provider connections are available. Add a key in Account on the
+            hosted site, or in your local server settings and restart Pomade.
           </p>
         ) : null}
         {!loading && error ? (
@@ -246,7 +297,7 @@ export default function ProviderWaterfallBuilder({
               <select
                 aria-label={`Provider preset ${index + 1}`}
                 value={step.quickSetup ?? ''}
-                disabled={loading || !presetInputsReady}
+                disabled={loading}
                 onChange={(e) => {
                   if (e.target.value) {
                     const provider = e.target.value as EmailProvider;
@@ -258,6 +309,7 @@ export default function ProviderWaterfallBuilder({
                                 provider,
                                 personColumn,
                                 domainColumn,
+                                emailColumn,
                               ),
                               quickSetup: provider,
                             }
@@ -267,7 +319,9 @@ export default function ProviderWaterfallBuilder({
                     setAccept(
                       provider === 'prospeo-mobile'
                         ? 'verified-phone'
-                        : 'verified-email',
+                        : provider === 'leadmagic-mobile'
+                          ? 'phone'
+                          : 'verified-email',
                     );
                   } else edit(index, {});
                 }}
@@ -276,6 +330,7 @@ export default function ProviderWaterfallBuilder({
                 <option
                   value="hunter"
                   disabled={
+                    !presetInputsReady ||
                     !connections.some((c) => c.id === HUNTER_CONNECTION)
                   }
                 >
@@ -284,6 +339,7 @@ export default function ProviderWaterfallBuilder({
                 <option
                   value="apollo"
                   disabled={
+                    !presetInputsReady ||
                     !connections.some((c) => c.id === APOLLO_PEOPLE_CONNECTION)
                   }
                 >
@@ -292,6 +348,7 @@ export default function ProviderWaterfallBuilder({
                 <option
                   value="prospeo-mobile"
                   disabled={
+                    !presetInputsReady ||
                     !connections.some((c) => c.id === PROSPEO_CONNECTION)
                   }
                 >
@@ -300,16 +357,49 @@ export default function ProviderWaterfallBuilder({
                 <option
                   value="prospeo"
                   disabled={
+                    !presetInputsReady ||
                     !connections.some((c) => c.id === PROSPEO_CONNECTION)
                   }
                 >
                   Prospeo verified email
                 </option>
+                <option
+                  value="leadmagic"
+                  disabled={
+                    !presetInputsReady ||
+                    !connections.some((c) => c.id === LEADMAGIC_CONNECTION)
+                  }
+                >
+                  LeadMagic verified email
+                  {!connections.some((c) => c.id === LEADMAGIC_CONNECTION)
+                    ? ' · API key needed'
+                    : ''}
+                </option>
+                <option
+                  value="leadmagic-mobile"
+                  disabled={
+                    !emailInputReady ||
+                    !connections.some((c) => c.id === LEADMAGIC_CONNECTION)
+                  }
+                >
+                  LeadMagic mobile · format only
+                  {!connections.some((c) => c.id === LEADMAGIC_CONNECTION)
+                    ? ' · API key needed'
+                    : ''}
+                </option>
               </select>
             </label>
+            {step.quickSetup?.startsWith('leadmagic') ? (
+              <p>
+                LeadMagic presets are tested with sample responses; live access
+                still needs validation. Mobile lookup checks number format only
+                and does not establish ownership or reachability.
+              </p>
+            ) : null}
             {!presetInputsReady ? (
               <p>
-                Choose separate name and website columns above to use a preset.
+                Name and website are required for email/Prospeo presets;
+                LeadMagic mobile uses the work email column.
               </p>
             ) : null}
             <details

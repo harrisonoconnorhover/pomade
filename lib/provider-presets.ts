@@ -3,14 +3,27 @@ import { createHttpColumns } from './http-enrichment';
 import type { HttpProviderStep, WorkspaceSnapshot } from './pomade-types';
 export const APOLLO_COMPANY_CONNECTION = 'pomade_apollo_company';
 export const APOLLO_PEOPLE_CONNECTION = 'pomade_apollo_people';
+export const LEADMAGIC_CONNECTION = 'pomade_leadmagic';
 export const PROSPEO_CONNECTION = 'pomade_prospeo';
 export const HUNTER_CONNECTION = 'pomade_hunter';
 export const PDL_COMPANY_CONNECTION = 'pomade_pdl_company';
 export function emailProviderStep(
-  provider: 'hunter' | 'apollo' | 'prospeo',
+  provider: 'hunter' | 'apollo' | 'prospeo' | 'leadmagic',
   person = 'person',
   domain = 'domain',
 ): HttpProviderStep {
+  if (provider === 'leadmagic')
+    return {
+      connectionId: LEADMAGIC_CONNECTION,
+      method: 'POST',
+      pathTemplate: '/v1/people/email-finder',
+      bodyTemplate: JSON.stringify({
+        full_name: `{{${person}}}`,
+        domain: `{{${domain}}}`,
+      }),
+      responsePath: 'email',
+      verification: { path: 'status', acceptedValues: ['valid'] },
+    };
   if (provider === 'prospeo')
     return {
       connectionId: PROSPEO_CONNECTION,
@@ -204,4 +217,16 @@ export function createProspeoMobileColumns(
     accept: 'verified-phone',
     continueOnError: false,
   });
+}
+
+// The documented response has no verification/ownership flag. Use phone-format
+// acceptance; do not promote a successful lookup to verified-phone.
+export function leadMagicMobileStep(email = 'email'): HttpProviderStep {
+  return {
+    connectionId: LEADMAGIC_CONNECTION,
+    method: 'POST',
+    pathTemplate: '/v1/people/mobile-finder',
+    bodyTemplate: JSON.stringify({ work_email: `{{${email}}}` }),
+    responsePath: 'mobile_number',
+  };
 }

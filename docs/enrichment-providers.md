@@ -1,5 +1,10 @@
 # Enrichment providers
 
+For the current Clay comparison and provider backlog, see
+[the contact-provider tracker](clay-contact-provider-tracker.md), checked September 7, 2026.
+LeadMagic work-email/mobile adapters are now fixture-tested; a live key and account
+check are still needed. The September 5 results below remain historical observations.
+
 Checked 2026-09-05. Start with existing Apollo for company data and Parallel for
 public-source research. Codex subscription research is now another local option;
 Hunter and Prospeo free accounts are connected for verified work email. Provider fields are observations/estimates,
