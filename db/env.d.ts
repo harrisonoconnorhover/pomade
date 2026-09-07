@@ -1,6 +1,9 @@
 declare namespace Cloudflare {
   interface Env {
     DB: D1Database;
+    POMADE_ACCOUNTS_ENABLED?: string;
+    POMADE_VAULT_KEY?: string;
+    POMADE_ACCOUNT_ID?: string;
     POMADE_DEPLOYMENT?: string;
     POMADE_OWNER_EMAIL?: string;
     POMADE_OWNER_TOKEN_SHA256?: string;

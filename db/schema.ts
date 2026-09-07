@@ -263,3 +263,36 @@ export const crmRefreshes = sqliteTable(
   },
   (table) => [index('idx_crm_refreshes_due').on(table.status, table.nextRunAt)],
 );
+
+// Global identity and encrypted connection metadata. Workbook data stays private
+// in the member table namespace; the owner keeps the existing table names.
+export const pomadeAccounts = sqliteTable('pomade_accounts', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  subject: text('subject').unique(),
+  role: text('role').notNull(),
+  status: text('status').notNull(),
+  dataPrefix: text('data_prefix').notNull().unique(),
+  schemaVersion: integer('schema_version').notNull().default(0),
+  vaultMigrated: integer('vault_migrated').notNull().default(0),
+  companionHash: text('companion_hash').unique(),
+  createdAt: integer('created_at').notNull(),
+});
+export const accountCredentials = sqliteTable(
+  'account_credentials',
+  {
+    accountId: text('account_id')
+      .notNull()
+      .references(() => pomadeAccounts.id),
+    provider: text('provider').notNull(),
+    payload: text('payload').notNull(),
+    label: text('label').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_account_credentials_account_provider').on(
+      table.accountId,
+      table.provider,
+    ),
+  ],
+);

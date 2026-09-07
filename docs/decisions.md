@@ -981,3 +981,34 @@ coalescing and existing database leases. This adds no scheduler service or new
 credentials. The UI states that either the website or companion must remain
 active; missed refreshes catch up. Keep the native scheduled handler for
 self-hosting, but do not claim unattended Sites timer delivery.
+
+
+## 2026-09-07 — Invite-only friends beta
+
+Keep the current private Sites social sign-in. Its trusted stable user ID binds
+an allowed email on first sign-in. Pomade membership and the private Sites
+visitor list are separate gates; adding a Pomade account does not send an email
+or change the website audience. Three active/invited members plus the owner is
+the initial limit. Direct Google OAuth and CRM OAuth application registration
+are outside this first token-based connection release.
+
+Give each member a complete namespace of the existing 17 D1 data tables. Keep
+the owner's original names and records unchanged. The central accountDatabase
+adapter rewrites application-owned SQL identifiers, including indexes, triggers,
+foreign keys, and qualified columns; user values remain bound parameters. This
+is a small-beta storage choice, not an arbitrary SQL sandbox. New data tables
+must be added to ACCOUNT_TABLES, ensureDatabaseSchema, and migration coverage;
+bump ACCOUNT_SCHEMA_VERSION when member schemas need an upgrade. Worker withEnv
+carries the scoped DB and credentials across route handlers and background work.
+The real Worker test verifies concurrent routing, in addition to SQLite tests.
+
+Encrypt personal connection values with AES-256-GCM, random nonces, and the
+account/provider as authenticated context. Back up the vault key separately from
+the database; never rotate it without re-encrypting saved values. Import owner
+environment credentials once. Clear every personal provider/CRM/research setting
+before loading a member's values. Disconnect must not recover an environment
+fallback. Clear provider caches after key changes; CRM replacement also removes
+pending previews and stops queued workflows/refreshes. In-flight requests can
+finish when access is revoked; later requests and cron selection reject the
+account. Existing owner companion remains owner-scoped; member research uses
+personal Parallel/Gemini keys until individual companion onboarding is added.

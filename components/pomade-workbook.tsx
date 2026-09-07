@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import PomadeWorkspace from './pomade-workspace';
+import AccountSettings from './account-settings';
 import WorkbookTemplateBuilder from './workbook-template-builder';
 import WorkbookPromptBuilder from './workbook-prompt-builder';
 import {
@@ -202,6 +203,7 @@ export default function PomadeWorkbook({
         <span>
           {ready ? `${tables.length} tables` : 'Loading or saving table…'}
         </span>
+        {deployment.hosted ? <AccountSettings /> : null}
         {error && !mode ? <output>{error}</output> : null}
       </nav>
       {activeId ? (

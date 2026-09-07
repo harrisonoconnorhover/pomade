@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import { ensureDatabase } from '@/db/ensure';
 import { createSampleWorkspace } from '@/lib/sample-workspace';
 import {
@@ -10,7 +11,14 @@ import type { WorkspaceSnapshot } from '@/lib/pomade-types';
 
 export async function GET() {
   const db = await ensureDatabase();
-  const sample = createSampleWorkspace();
+  const sample =
+    env.POMADE_ACCOUNT_ID && env.POMADE_ACCOUNT_ID !== 'owner'
+      ? createTable({
+          id: DEFAULT_TABLE_ID,
+          name: 'My first table',
+          mode: 'empty',
+        })
+      : createSampleWorkspace();
   await db
     .prepare(`INSERT OR IGNORE INTO workspaces (id, name, snapshot, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?)`)

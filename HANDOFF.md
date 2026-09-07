@@ -2,39 +2,38 @@
 
 ## Finished
 
-- Added **Run workbook** with linked-sheet progress, pause/resume/cancel, scoped routing, request limits, and saved checkpoints. The three-company workflow completed locally and on the private website.
-- Added saved CRM source refresh, daily/weekly schedules, membership labels, and Salesforce session renewal. Live refresh returned three HubSpot segment contacts and 17 Salesforce dev-account companies.
-- Added Prospeo verified-mobile presets and provider balance cards. Three contact lookups found one verified mobile; 90 free Prospeo credits remain. Results are in both installations.
-- Added per-column ChatGPT/Parallel/Gemini selection and fixed Parallel structured-list responses.
-- Improved the compact workbook guide, linked-sheet navigation, refresh controls, and provider settings. Local startup includes the scheduler; authenticated website polling and the existing Mac companion also wake hosted work.
+- Added an invite-only hosted beta for the owner and three friends. Each account has private tables, templates, history, caches, research, jobs, and CRM refreshes.
+- Added **Account** with encrypted personal API keys, HubSpot/Salesforce token connections, read-access checks, replacement/disconnect controls, and owner-only allow/revoke controls.
+- Preserved owner table IDs and imported existing hosted credentials into the encrypted vault once. Missing member keys never fall back to owner credentials.
+- Scoped background work and the existing owner research companion to the correct account. CRM replacement clears pending previews and stops queued work/refreshes.
 
 ## Try It
 
-- Open the [hosted assignment accounts](https://pomade.deleteddeleted.chatgpt.site/?table=plan_1e1de86e-67ad-4871-b0b8-42702c08874f_accounts) or [local workbook](http://localhost:8798/?table=plan_8d5f4538-b463-4193-a677-9c798a2ad155_requests). Expand **Steps and linked sheets** to navigate the run.
-- On CRM-imported sheets, use **Refresh now** or **Refresh settings**. Use **Provider presets → Prospeo · verified mobile**, and **Research with** in column settings.
-- `npm start -- --port 8798` starts the local server and scheduler. The existing ChatGPT helper and hosted companion remain running.
+- Open [Pomade](https://pomade.deleteddeleted.chatgpt.site) → **Account**. Add personal connections or allow a friend’s sign-in email.
+- Add that same email to the private Sites visitor list before they open the website. No friends have been invited yet; their addresses are still needed.
+- The local version remains at http://localhost:8798. Detailed setup is in `docs/friends-beta.md`.
 
 ## Checks
 
-- 62 distinct focused tests passed, plus typecheck, lint, local/hosted builds, script syntax, and diff whitespace checks. Browser visual QA was not performed.
-- Live hosted pause/resume preserved the same job and request reservation. Automatic hosted CRM refreshes completed and saved their next daily times. Salesforce renewal passed with an expired access token.
-- Both workbook runs finished with three accounts held for Review and zero released buyer rows. Completion means processing finished, not that research claims are independently verified.
-- Private release is owner-only. Detailed private results are ignored under `outputs/workflow-polish/`.
+- 27 focused tests passed: accounts, deployment authorization, background wakeups, workbook execution, and Salesforce renewal.
+- Built Worker passed a disposable four-account HTTP test: concurrent identity/credential isolation, empty onboarding, other-user table rejection, private job lists, member admin denial, disconnect, and revoke.
+- Typecheck, lint, local and hosted builds, script syntax, and diff whitespace checks passed. No browser visual QA performed.
+- Before release: 11 hosted tables and 19 local tables. Post-deployment preservation and live CRM checks will be recorded after publication.
 
 ## Decisions
 
-- Reuse existing queues and CRM identities; preserve enrichment and departed source records.
-- Daily refresh is enabled only for the two hosted dev CRM sheets. Local copies remain manual.
-- Use existing free allowances and saved account authorizations; no purchases, topups, outreach, public publishing, or GitHub pushes.
+- Reuse private Sites ChatGPT sign-in; direct Google sign-in is not implemented. Pomade membership and the host’s visitor list are separate gates.
+- Use isolated namespaces for the 17 existing data tables; preserve the owner’s names. AES-GCM protects stored keys; keep the vault key backup private and do not rotate it without re-encryption.
+- No purchases, outreach, public publishing, or GitHub pushes.
 
 ## Remaining
 
-- Hosted automatic work needs Pomade open or the Mac companion active. Missed refreshes catch up; native unattended Sites timers were not observed.
-- Review research evidence and resolve the three accounts' qualification gaps before using results for outreach.
-- Brief-to-CRM setup, native sequence enrollment, and broader provider coverage remain separate improvements.
+- Obtain friends’ email addresses, allow them in Pomade, and add them as private-site visitors.
+- One-click CRM OAuth consent and personal Mac companion onboarding are separate work. Friends currently connect CRM tokens and use their own Parallel/Gemini keys.
+- Hosted background work needs that person’s website open; the existing owner companion wakes owner work. Native unattended Sites timers remain unverified.
 
 ## Review First
 
-- `db/workbook-runner.ts` and `lib/workbook-run.test.ts`.
-- `lib/crm-refresh.ts`, `lib/salesforce-auth.ts`, and their tests.
-- `worker.ts`, `components/workbook-plan-guide.tsx`, and `components/crm-refresh-panel.tsx`.
+- `db/accounts.ts`, `lib/account-database.ts`, and `worker.ts`.
+- `db/account-handler.ts`, `lib/credential-vault.ts`, and `components/account-settings.tsx`.
+- `lib/accounts.test.ts`, `scripts/test-accounts-worker.mjs`, and `docs/friends-beta.md`.

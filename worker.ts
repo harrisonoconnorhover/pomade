@@ -1,3 +1,12 @@
+import { withEnv } from 'cloudflare:workers';
+import {
+  accountsEnabled,
+  accountEnvironment,
+  resolveAccount,
+  AccountError,
+  type PomadeAccount,
+} from './db/accounts';
+import { handleAccount } from './db/account-handler';
 import { createBackgroundWakeup } from './lib/background-wakeup';
 import { salesforceRenewalEnvironment } from '@/lib/salesforce-auth';
 import {
@@ -542,35 +551,57 @@ async function runBackgroundWork(
 
 // Sites may not deliver native cron events. Existing owner-page polling and
 // the outbound Mac connection also advance due work, without a paid scheduler.
-const requestWakeup = createBackgroundWakeup();
+const requestWakeups = new Map<
+  string,
+  ReturnType<typeof createBackgroundWakeup>
+>();
 function wakeHostedWork(env: Cloudflare.Env, ctx: ExecutionContext) {
-  const pending = requestWakeup(() => runBackgroundWork(Date.now(), env, ctx));
+  const id = env.POMADE_ACCOUNT_ID ?? 'local';
+  const requestWakeup = requestWakeups.get(id) ?? createBackgroundWakeup();
+  requestWakeups.set(id, requestWakeup);
+  const pending = requestWakeup(
+    () =>
+      withEnv(env, () =>
+        runBackgroundWork(Date.now(), env, ctx),
+      ) as Promise<void>,
+  );
   if (pending) ctx.waitUntil(pending);
 }
 
 export default {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext) {
+    if (accountsEnabled(env)) {
+      try {
+        const account = await resolveAccount(request, env);
+        const scoped = await accountEnvironment(env, account);
+        return privateResponse(
+          (await withEnv(scoped, async () => {
+            if (new URL(request.url).pathname === '/api/account')
+              return handleAccount(request, env, account);
+            return dispatchRequest(request, scoped, ctx);
+          })) as Response,
+        );
+      } catch (error) {
+        if (!(error instanceof AccountError))
+          console.error('Pomade account request failed.');
+        return privateResponse(
+          Response.json(
+            {
+              error:
+                error instanceof AccountError
+                  ? error.message
+                  : 'Account request failed. Please try again.',
+            },
+            { status: error instanceof AccountError ? error.status : 503 },
+          ),
+        );
+      }
+    }
     const denied = await authorizeDeployment(request, env);
     if (denied) return denied;
-    if (
-      env.POMADE_DEPLOYMENT === 'hosted' &&
-      new URL(request.url).pathname === '/api/companion'
-    ) {
-      const response = await handleCompanion(request, env.DB);
-      if (response.ok) wakeHostedWork(env, ctx);
-      return response;
-    }
-    const response = await app.fetch(request, env, ctx);
-    if (
-      env.POMADE_DEPLOYMENT === 'hosted' &&
-      response.ok &&
-      request.method === 'GET' &&
-      ['/api/jobs', '/api/workbook-runs', '/api/crm-refresh'].includes(
-        new URL(request.url).pathname,
-      )
-    )
-      wakeHostedWork(env, ctx);
-    return response;
+    if (new URL(request.url).pathname === '/api/account')
+      return privateResponse(Response.json({ enabled: false }));
+    return dispatchRequest(request, env, ctx);
   },
   scheduled(
     controller: ScheduledController,
@@ -578,6 +609,60 @@ export default {
     ctx: ExecutionContext,
   ) {
     controller.noRetry();
-    ctx.waitUntil(runBackgroundWork(controller.scheduledTime, env, ctx));
+    ctx.waitUntil(
+      (async () => {
+        if (!accountsEnabled(env))
+          return runBackgroundWork(controller.scheduledTime, env, ctx);
+        const accounts = await env.DB.prepare(
+          "SELECT * FROM pomade_accounts WHERE status='active'",
+        ).all<PomadeAccount>();
+        for (const account of accounts.results) {
+          try {
+            const scoped = await accountEnvironment(env, account);
+            await withEnv(scoped, () =>
+              runBackgroundWork(controller.scheduledTime, scoped, ctx),
+            );
+          } catch {
+            console.error('Account background work failed.');
+          }
+        }
+      })(),
+    );
   },
 } satisfies ExportedHandler<Cloudflare.Env>;
+
+function privateResponse(response: Response) {
+  const headers = new Headers(response.headers);
+  headers.set('Cache-Control', 'private, no-store');
+  headers.set('Vary', 'Cookie, oai-authenticated-user-id');
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+async function dispatchRequest(
+  request: Request,
+  env: Cloudflare.Env,
+  ctx: ExecutionContext,
+) {
+  if (
+    env.POMADE_DEPLOYMENT === 'hosted' &&
+    new URL(request.url).pathname === '/api/companion'
+  ) {
+    const response = await handleCompanion(request, env.DB);
+    if (response.ok) wakeHostedWork(env, ctx);
+    return response;
+  }
+  const response = await app.fetch(request, env, ctx);
+  if (
+    env.POMADE_DEPLOYMENT === 'hosted' &&
+    response.ok &&
+    request.method === 'GET' &&
+    ['/api/jobs', '/api/workbook-runs', '/api/crm-refresh'].includes(
+      new URL(request.url).pathname,
+    )
+  )
+    wakeHostedWork(env, ctx);
+  return response;
+}

@@ -4314,3 +4314,121 @@ button {
   color: #7c8670;
   line-height: 1.5;
 }
+
+.account-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-width: 760px;
+  max-height: 88dvh;
+  overflow-y: auto;
+}
+.account-intro,
+.account-people p,
+.account-connection-form p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #637055;
+}
+.account-connections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.account-connections article,
+.account-connection-form,
+.account-people {
+  border: 1px solid #d8decd;
+  border-radius: 9px;
+  padding: 16px;
+}
+.account-connection-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+}
+.account-connection-title span {
+  margin-left: auto;
+  color: #637055;
+  font-size: 11px;
+}
+.account-connections article p {
+  color: #637055;
+  line-height: 1.5;
+  font-size: 12px;
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.account-connection-form,
+.account-people form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.account-connection-form label,
+.account-people label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.account-connection-form input,
+.account-people input {
+  border: 1px solid #d8decd;
+  border-radius: 5px;
+  padding: 10px;
+  width: 100%;
+  background: white;
+}
+.account-people ul {
+  list-style: none;
+  padding: 0;
+  margin-top: 14px;
+}
+.account-people li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid #e5e8de;
+  font-size: 13px;
+}
+.account-people li strong {
+  overflow-wrap: anywhere;
+}
+.account-people li small {
+  display: block;
+  margin-top: 3px;
+  color: #637055;
+}
+.account-error,
+.account-notice {
+  padding: 12px;
+  border-radius: 6px;
+  line-height: 1.5;
+  font-size: 13px;
+}
+.account-error {
+  background: #fff0ec;
+  color: #953d2a;
+}
+.account-notice {
+  background: #f1f5e8;
+  color: #435b24;
+}
+.account-signout {
+  justify-self: start;
+  font-size: 13px;
+  text-decoration: underline;
+}
+@media (max-width: 600px) {
+  .account-connections {
+    grid-template-columns: 1fr;
+  }
+}

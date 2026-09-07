@@ -6,7 +6,7 @@ import { versionedWorkspaceStatements } from '@/db/workspace-store';
 import { createSampleWorkspace } from '@/lib/sample-workspace';
 import type { WorkspaceSnapshot } from '@/lib/pomade-types';
 
-import { DEFAULT_TABLE_ID, isTableId } from '@/lib/workbook';
+import { DEFAULT_TABLE_ID, isTableId, createTable } from '@/lib/workbook';
 
 function isWorkspaceSnapshot(value: unknown): value is WorkspaceSnapshot {
   if (!value || typeof value !== 'object') return false;
@@ -47,7 +47,14 @@ export async function GET(request: Request) {
 
   if (tableId !== DEFAULT_TABLE_ID)
     return Response.json({ error: 'Table not found.' }, { status: 404 });
-  const workspace = createSampleWorkspace();
+  const workspace =
+    env.POMADE_ACCOUNT_ID && env.POMADE_ACCOUNT_ID !== 'owner'
+      ? createTable({
+          id: DEFAULT_TABLE_ID,
+          name: 'My first table',
+          mode: 'empty',
+        })
+      : createSampleWorkspace();
   await saveWorkspace(workspace);
   return Response.json({ workspace });
 }
