@@ -18,8 +18,8 @@
 
 - 136 focused provider, waterfall, HTTP, account-isolation and reusable-template tests passed using synthetic responses.
 - Typecheck, lint, local build, hosted build and diff whitespace checks passed.
-- Pre-release: no queued/running jobs; 19 local tables, 11 hosted tables and seven hosted configured connections recorded for preservation checks.
-- Private deployment and post-release HTTP/asset checks are in progress.
+- Private version 20 is live (runtime commit `2be7674`). Local and hosted HTTP checks passed; the hosted JavaScript bundle matches the packaged build.
+- All 19 local tables, 11 hosted tables and seven configured hosted connections were preserved. Six new connection forms are present and unconnected. No queued/running jobs were interrupted.
 - No live vendor lookups, API-key provisioning, credit use, purchases or browser visual QA.
 
 ## Decisions
