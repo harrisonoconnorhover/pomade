@@ -73,3 +73,21 @@ Copy tables through the authenticated table APIs, using new table IDs and
 remapping references when needed. Preserve existing hosted tables. Do not copy
 active jobs, leases, webhook routing, or local API keys into the hosted database.
 Hosted schema changes are applied through the checked-in Drizzle migrations.
+
+
+## Apollo public callbacks
+
+The separate service in `services/apollo-callback` is published publicly; the main
+Pomade site stays owner-only. It only acknowledges delivery and discards the
+payload. It has no connection to workbook databases or CRM credentials. Configure
+`POMADE_APOLLO_CALLBACK_URL` as a server-only installation default on both local
+and hosted Pomade. Account-specific `APOLLO_WEBHOOK_URL` can override it.
+
+The public receiver runs independently of the Mac. Pomade saves the original
+Apollo request ID and retrieves completed results using that user's Apollo key.
+If Pomade is asleep, reopening/resuming the existing job checks the same request;
+it does not submit another lookup. Apollo retains pollable results for up to 30
+days. Eligible phone API access and webhook-result polling permission remain
+required. The account settings' **Test Pomade callback** uses synthetic data and
+no Apollo credits. See the service README for deployment, token rotation and
+self-hosting instructions.

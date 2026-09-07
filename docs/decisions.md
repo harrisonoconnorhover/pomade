@@ -1090,3 +1090,12 @@ Reuse the existing conditions, provider presets and request ceiling in a row/act
 Dropcontact qualification identifies a named work email, so strict verified-email acceptance needs a separate verifier. Its balance cannot establish a per-operation cost. Apollo mobile uses a separate connection from synchronous email so existing email workflows stay synchronous. The phone connection requires a caller-controlled public HTTPS callback URL; a private Sites address is not an eligible receiver. Reuse saved polling state rather than introduce a public relay or change the site's audience. Preserve Apollo request IDs as exact strings and leave provider-native waterfalls off.
 
 The live benchmark exposed an outdated Parallel endpoint/header. Use the current official Chat API path and `x-api-key`; retain the prior failed receipts. Source-linked leadership research is checked against company pages before contact enrichment. Raw contact data and CRM receipts stay in ignored outputs and private tables; the repository report contains aggregate results only.
+
+
+## 2026-09-07 — Public Apollo acknowledgement with private result polling
+
+The requested callback support supersedes the earlier bring-your-own-receiver-only decision. Deploy a dependency-free acknowledgement Worker from `services/apollo-callback` as a separate public Sites project. Preserve the main Pomade project and its owner-only audience. This uses the existing hosting service, without opening a Mac port, adding a database or buying a provider plan.
+
+The receiver accepts bounded JSON at a separate random-token URL and discards it without application payload logs, storage or forwarding. It holds only a receipt-token digest and cannot access Pomade accounts, tables or CRM credentials. An unsolicited callback cannot change enrichment output. The authenticated Apollo result-polling endpoint remains the source of data, using the saved request/person ID and each account's own key. Polling availability is a concrete requirement, not an optional fallback.
+
+Share only the acknowledgement URL through `POMADE_APOLLO_CALLBACK_URL`; preserve per-user `APOLLO_WEBHOOK_URL` overrides and private API keys. Do not silently replace an invalid custom receiver. The settings test probes only the installation-owned endpoint with empty synthetic data, never user-entered URLs or real contacts. Publish service source separately through a Git subtree export; keep it maintained in this repository and keep GitHub untouched.

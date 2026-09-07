@@ -151,7 +151,7 @@ unversioned routes and different status descriptions. No new key or plan purchas
 
 The 10 remaining discovery providers are **Icypeas, Datagma, Wiza, Forager, BetterContact, Firmable, RocketReach, SMARTe, ZoomInfo and Bytemine**. The four additional validator-only providers are **Debounce, Enrichley, SureConnect and ClearoutPhone**. Icypeas verification is another capability of the same provider, not another vendor.
 
-Continue with **Icypeas**, inspecting exact request/response contracts one provider at a time. Keep placeholders out of the runnable UI. ClearoutPhone's public API reference could not be read in the earlier run (403/JS-only); obtain the actual schema before coding it. Do not confuse `debounce.cc` with the Clay-listed `debounce.io` service. Apollo mobile now polls the documented webhook-result endpoint, but still needs a public callback receiver and eligible account access. Pomade does not expose a new public webhook receiver.
+Continue with **Icypeas**, inspecting exact request/response contracts one provider at a time. Keep placeholders out of the runnable UI. ClearoutPhone's public API reference could not be read in the earlier run (403/JS-only); obtain the actual schema before coding it. Do not confuse `debounce.cc` with the Clay-listed `debounce.io` service. Apollo mobile polls the documented webhook-result endpoint and now has a separate public acknowledgement receiver in `services/apollo-callback`. The main Pomade website stays private. Eligible account access and live phone validation remain outstanding.
 
 ### Workflow improvements implemented (September 7, 2026)
 

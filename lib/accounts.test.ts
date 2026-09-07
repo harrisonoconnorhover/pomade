@@ -17,6 +17,7 @@ import {
 } from '../db/accounts';
 import { handleAccount } from '../db/account-handler';
 import { sha256 } from './deployment';
+import { configuredHttpConnections } from './provider-connections';
 import { ensureDatabaseSchema } from '../db/ensure';
 const open: DatabaseSync[] = [];
 function database() {
@@ -535,4 +536,88 @@ describe('connection encryption and database boundaries', () => {
       }),
     ).toThrow('client ID');
   });
+});
+
+it('shares only the stateless receiver default while retaining each account’s own Apollo key', async () => {
+  const { db } = database(),
+    env = environment(db);
+  env.POMADE_APOLLO_CALLBACK_URL =
+    'https://callback.example.test/apollo/private-receipt-token';
+  await initializeAccounts(env);
+  const owner = await resolveAccount(request('owner@example.test'), env);
+  await inviteAccount(db, 'friend@example.test');
+  const member = await resolveAccount(request('friend@example.test'), env);
+  let scoped = await accountEnvironment(env, member);
+  expect(scoped.POMADE_APOLLO_CALLBACK_URL).toBe(
+    env.POMADE_APOLLO_CALLBACK_URL,
+  );
+  expect(scoped.APOLLO_API_KEY).toBeUndefined();
+  expect(configuredHttpConnections(scoped).map((c) => c.id)).not.toContain(
+    'pomade_apollo_phone',
+  );
+  await handleAccount(
+    request(member.email, member.email, {
+      action: 'save',
+      provider: 'apollo',
+      values: { APOLLO_API_KEY: 'friend-key' },
+    }),
+    env,
+    member,
+  );
+  scoped = await accountEnvironment(env, member);
+  expect(
+    configuredHttpConnections(scoped).find(
+      (c) => c.id === 'pomade_apollo_phone',
+    )?.headers,
+  ).toEqual({ 'x-api-key': 'friend-key' });
+  expect((await accountEnvironment(env, owner)).APOLLO_API_KEY).not.toBe(
+    'friend-key',
+  );
+  const response = await handleAccount(request(member.email), env, member);
+  const data = (await response.json()) as {
+    connections: { id: string; managedCallbackConfigured?: boolean }[];
+  };
+  expect(
+    data.connections.find((c) => c.id === 'apollo')?.managedCallbackConfigured,
+  ).toBe(true);
+  expect(JSON.stringify(data)).not.toMatch(/friend-key|private-receipt-token/);
+});
+
+it('tests public delivery from account settings before an Apollo key is connected', async () => {
+  const { db } = database(),
+    env = environment(db);
+  env.POMADE_APOLLO_CALLBACK_URL =
+    'https://callback.example.test/apollo/receipt-token';
+  await initializeAccounts(env);
+  await inviteAccount(db, 'test-friend@example.test');
+  const member = await resolveAccount(request('test-friend@example.test'), env);
+  const probe = vi
+    .spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(
+      Response.json({
+        service: 'pomade-apollo-callback',
+        mode: 'acknowledge-only',
+      }),
+    )
+    .mockResolvedValueOnce(
+      Response.json({
+        service: 'pomade-apollo-callback',
+        mode: 'acknowledge-only',
+        received: true,
+      }),
+    );
+  const response = await handleAccount(
+    request(member.email, member.email, {
+      action: 'test_callback',
+      provider: 'apollo',
+    }),
+    env,
+    member,
+  );
+  expect(response.status).toBe(200);
+  expect(await response.text()).toContain('No Apollo credits');
+  expect(probe).toHaveBeenCalledTimes(2);
+  expect(
+    (await accountEnvironment(env, member)).APOLLO_API_KEY,
+  ).toBeUndefined();
 });

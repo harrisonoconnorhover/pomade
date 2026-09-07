@@ -485,7 +485,7 @@ safe recipe runner       CRM reads/writes        provider reads
 Pomade is a polished working vertical slice, not a complete Clay replacement.
 The grid, CSV and CRM source workflow, scoped recipe execution, grounded AI web
 research, bounded Apollo batch enrichment, persistence, cache, receipts, and
-Control Tower handoff and direct mapped CRM writes are real. Apollo mobile now has a background submit/poll adapter, requiring a public callback URL and eligible API access. Shared-sheet collaboration and always-on CRM synchronization are not complete. The 2026-09-05 three-company assignment completed live Parallel
+Control Tower handoff and direct mapped CRM writes are real. Apollo mobile has a background submit/poll adapter and a separate public acknowledgement receiver (see `services/apollo-callback/README.md`). Both local and private hosted Pomade can use it; eligible Apollo phone and result-polling API access is still required. Shared-sheet collaboration and always-on CRM synchronization are not complete. The 2026-09-05 three-company assignment completed live Parallel
 research, Apollo company enrichment and company/contact round trips through both
 dev CRMs. People Enrichment returned a Free-plan access restriction from Apollo.
 

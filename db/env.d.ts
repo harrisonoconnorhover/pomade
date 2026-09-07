@@ -26,6 +26,7 @@ declare namespace Cloudflare {
     FULLENRICH_API_KEY?: string;
     DROPCONTACT_API_KEY?: string;
     APOLLO_WEBHOOK_URL?: string;
+    POMADE_APOLLO_CALLBACK_URL?: string;
     PROSPEO_API_KEY?: string;
     POMADE_RESEARCH_PROVIDER?: string;
     POMADE_CODEX_URL?: string;

@@ -44,12 +44,12 @@ export const CONNECTIONS: ConnectionDefinition[] = [
   {
     id: 'apollo',
     name: 'Apollo',
-    help: 'Company and person enrichment. Mobile lookups also require people/phone and webhook-result API access, plus a public HTTPS callback URL you control. Pomade retrieves saved results by polling; an owner-private Sites URL cannot receive Apollo callbacks.',
+    help: 'Company and person enrichment. Mobile lookups require people/phone and webhook-result API access. Leave the callback URL blank to use this installation’s Pomade callback when configured, or enter your own public HTTPS receiver. Pomade retrieves results through your Apollo key.',
     fields: [
       { key: 'APOLLO_API_KEY', label: 'API key', required: true },
       {
         key: 'APOLLO_WEBHOOK_URL',
-        label: 'Public HTTPS callback URL (optional; required for mobile)',
+        label: 'Custom public HTTPS callback URL (optional override)',
       },
     ],
   },

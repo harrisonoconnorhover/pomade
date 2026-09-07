@@ -15,6 +15,7 @@ import type { ConnectionDefinition } from '@/lib/account-connections';
 type Account = { id: string; email: string; role: string; status: string };
 type Connection = ConnectionDefinition & {
   configured: boolean;
+  managedCallbackConfigured?: boolean;
   label?: string;
   updatedAt?: number;
 };
@@ -156,6 +157,13 @@ export default function AccountSettings() {
                     {selected.name}
                   </h3>
                   <p>{selected.help}</p>
+                  {selected.id === 'apollo' ? (
+                    <p>
+                      {selected.managedCallbackConfigured
+                        ? 'Pomade’s public callback is configured. Leave the custom URL blank to use it.'
+                        : 'No shared callback is configured. Enter a custom public receiver to use mobile lookups.'}
+                    </p>
+                  ) : null}
                   {selected.id === 'hubspot' || selected.id === 'salesforce' ? (
                     <p>
                       Changing a CRM connection stops queued work and pauses
@@ -217,6 +225,12 @@ export default function AccountSettings() {
                         </span>
                       </div>
                       <p>{c.configured ? c.label : c.help}</p>
+                      {c.id === 'apollo' && c.managedCallbackConfigured ? (
+                        <p>
+                          Pomade callback configured. An eligible Apollo key is
+                          still required for mobile lookups.
+                        </p>
+                      ) : null}
                       <div className="account-actions">
                         <Button
                           size="sm"
@@ -232,6 +246,21 @@ export default function AccountSettings() {
                         >
                           {c.configured ? 'Replace connection' : 'Connect'}
                         </Button>
+                        {c.id === 'apollo' && c.managedCallbackConfigured ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy}
+                            onClick={() =>
+                              void action({
+                                action: 'test_callback',
+                                provider: 'apollo',
+                              })
+                            }
+                          >
+                            Test Pomade callback
+                          </Button>
+                        ) : null}
                         {c.configured &&
                         (c.id === 'hubspot' || c.id === 'salesforce') ? (
                           <Button

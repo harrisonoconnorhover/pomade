@@ -4,6 +4,8 @@ import {
   connectionValues,
 } from '@/lib/account-connections';
 import { sealCredentials } from '@/lib/credential-vault';
+import { validApolloCallback } from '@/lib/apollo-phone';
+import { checkManagedApolloCallback } from '@/lib/apollo-callback';
 import { readCrmSource } from '@/lib/crm-sources';
 import { salesforceRenewalEnvironment } from '@/lib/salesforce-auth';
 import { versionedWorkspaceStatements } from './workspace-store';
@@ -44,6 +46,13 @@ export async function handleAccount(
         return {
           ...c,
           configured: !!connection,
+          ...(c.id === 'apollo'
+            ? {
+                managedCallbackConfigured: validApolloCallback(
+                  env.POMADE_APOLLO_CALLBACK_URL?.trim(),
+                ),
+              }
+            : {}),
           label: connection?.label,
           updatedAt: connection?.updated_at,
         };
@@ -100,6 +109,16 @@ export async function handleAccount(
     connectionDefinition(provider);
   } catch {
     throw new AccountError('Choose a supported connection.');
+  }
+  if (body.action === 'test_callback' && provider === 'apollo') {
+    try {
+      return Response.json({ message: await checkManagedApolloCallback(env) });
+    } catch {
+      throw new AccountError(
+        'The Pomade callback could not receive a test delivery. Check the callback service and installation settings; no Apollo lookup was submitted.',
+        502,
+      );
+    }
   }
   if (!['save', 'disconnect', 'test'].includes(body.action ?? ''))
     throw new AccountError('Choose a connection action.');

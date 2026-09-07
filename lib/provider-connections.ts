@@ -1,5 +1,6 @@
 import { DROPCONTACT_CONNECTION } from './dropcontact';
-import { APOLLO_PHONE_CONNECTION, validApolloCallback } from './apollo-phone';
+import { APOLLO_PHONE_CONNECTION } from './apollo-phone';
+import { apolloCallbackUrl } from './apollo-callback';
 import { FULLENRICH_CONNECTION } from './fullenrich';
 import { ENROW_CONNECTION } from './enrow';
 import { httpConnections, type HttpConnection } from './http-enrichment';
@@ -22,6 +23,7 @@ export function configuredHttpConnections(env: {
   POMADE_HTTP_CONNECTIONS?: string;
   APOLLO_API_KEY?: string;
   APOLLO_WEBHOOK_URL?: string;
+  POMADE_APOLLO_CALLBACK_URL?: string;
   DROPCONTACT_API_KEY?: string;
   HUNTER_API_KEY?: string;
   LEADMAGIC_API_KEY?: string;
@@ -69,17 +71,15 @@ export function configuredHttpConnections(env: {
       methods: ['POST', 'GET'],
       headers: { 'X-Access-Token': env.DROPCONTACT_API_KEY.trim() },
     });
-  if (
-    env.APOLLO_API_KEY?.trim() &&
-    validApolloCallback(env.APOLLO_WEBHOOK_URL?.trim())
-  )
+  const callbackUrl = apolloCallbackUrl(env);
+  if (env.APOLLO_API_KEY?.trim() && callbackUrl)
     connections.push({
       id: APOLLO_PHONE_CONNECTION,
       label: 'Apollo mobile enrichment',
       origin: 'https://api.apollo.io',
       methods: ['POST', 'GET'],
       headers: { 'x-api-key': env.APOLLO_API_KEY.trim() },
-      callbackUrl: env.APOLLO_WEBHOOK_URL!.trim(),
+      callbackUrl,
     });
   if (env.FULLENRICH_API_KEY?.trim())
     connections.push({

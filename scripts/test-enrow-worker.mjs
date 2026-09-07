@@ -82,7 +82,7 @@ const options = {
     ENROW_API_KEY: 'synthetic-key',
     DROPCONTACT_API_KEY: 'synthetic-key',
     APOLLO_API_KEY: 'synthetic-key',
-    APOLLO_WEBHOOK_URL: 'https://callback.example.test/apollo',
+    POMADE_APOLLO_CALLBACK_URL: 'https://callback.example.test/apollo',
     FULLENRICH_API_KEY: 'synthetic-key',
     POMADE_HTTP_CONNECTIONS: JSON.stringify({
       fixture: {
