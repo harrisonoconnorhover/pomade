@@ -3554,7 +3554,7 @@ export default function PomadeWorkspace({
                   key={workspace.id}
                   onSave={setWorkspace}
                   workspace={workspace}
-                  rowIds={handoffRowIds}
+                  rowIds={runTargetIds}
                   ready={canLeaveTable && !jobLocksWorkspace}
                 />
                 <TableTransferBuilder

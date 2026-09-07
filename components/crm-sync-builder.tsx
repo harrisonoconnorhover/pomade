@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { ArrowRight, Search, RefreshCw, CheckCircle2 } from 'lucide-react';
 import type { CrmField } from '@/lib/crm-fields';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +43,8 @@ export default function CrmSyncBuilder({
     error: string;
   }>({ key: '', fields: [], error: '' });
   const [mappingId, setMappingId] = useState('');
+  const [propertyQuery, setPropertyQuery] = useState('');
+  const [fieldRevision, setFieldRevision] = useState(0);
   const [mappingName, setMappingName] = useState('');
   const [notice, setNotice] = useState('');
   const [copyIssues, setCopyIssues] = useState<string[]>([]);
@@ -91,7 +94,7 @@ export default function CrmSyncBuilder({
     objectType: 'company',
     mapping: {},
   });
-  const fieldKey = `${config.provider}/${config.objectType}`;
+  const fieldKey = `${config.provider}/${config.objectType}/${fieldRevision}`;
   const fieldsLoading = fieldResult.key !== fieldKey;
   const nativeFields = fieldsLoading ? [] : fieldResult.fields;
   const fieldsError = fieldsLoading ? '' : fieldResult.error;
@@ -158,6 +161,7 @@ export default function CrmSyncBuilder({
       ),
     );
     setMappingId('');
+    setPropertyQuery('');
     setMappingName(
       `${provider === 'hubspot' ? 'HubSpot' : 'Salesforce'} ${objectType}`,
     );
@@ -205,6 +209,20 @@ export default function CrmSyncBuilder({
       ...Object.keys(config.fieldSchema ?? {}),
     ]),
   ];
+  const availableFields = nativeFields
+    .filter(
+      (field) =>
+        !fields.includes(field.name) &&
+        `${field.label} ${field.name}`
+          .toLowerCase()
+          .includes(propertyQuery.trim().toLowerCase()),
+    )
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const rowNames = workspace.rows
+    .filter((row) => rowIds.includes(row.id))
+    .slice(0, 3)
+    .map((row) => row.values.company || row.values.person || 'Unnamed record');
+  const mappedCount = Object.values(config.mapping).filter(Boolean).length;
   return (
     <>
       <Button
@@ -230,18 +248,34 @@ export default function CrmSyncBuilder({
           if (!busy) setOpen(value);
         }}
       >
-        <DialogContent className="sources-dialog">
+        <DialogContent className="sources-dialog crm-sync-dialog">
           <DialogHeader>
             <DialogTitle>Write selected rows to CRM</DialogTitle>
             <DialogDescription>
-              Preview 1–25 selected rows, or the visible rows when none are
-              selected. Blank cells are skipped. Match companies by
-              domain/website and people by email. Without email, map first and
-              last name plus company website (HubSpot) or AccountId
-              (Salesforce). Existing CRM record IDs take priority.
+              Choose a destination, match your columns to CRM fields, then
+              review the exact changes. Blank cells are skipped.
             </DialogDescription>
           </DialogHeader>
-          <label>
+          <div className="crm-sync-scope">
+            <span>
+              <strong>{rowIds.length}</strong>{' '}
+              {rowIds.length === 1 ? 'record' : 'records'} in scope
+            </span>
+            <span>
+              <strong>{mappedCount}</strong> mapped fields
+            </span>
+            <p>
+              {rowNames.join(' · ')}
+              {rowIds.length > 3 ? ` · +${rowIds.length - 3} more` : ''}
+            </p>
+          </div>
+          {rowIds.length > 25 ? (
+            <p role="alert" className="crm-sync-warning">
+              Select 25 rows or fewer in the sheet before previewing CRM
+              changes.
+            </p>
+          ) : null}
+          <label className="crm-saved-mapping">
             Saved mapping
             <select
               value={mappingId}
@@ -266,6 +300,7 @@ export default function CrmSyncBuilder({
             <label>
               CRM
               <select
+                aria-label="CRM"
                 disabled={busy}
                 value={config.provider}
                 onChange={(e) => {
@@ -280,6 +315,7 @@ export default function CrmSyncBuilder({
             <label>
               Object
               <select
+                aria-label="Object"
                 disabled={busy}
                 value={config.objectType}
                 onChange={(e) =>
@@ -321,47 +357,97 @@ export default function CrmSyncBuilder({
               </select>
             </label>
           </div>
-          <label>
-            Add a CRM property or custom field
-            <select
-              disabled={fieldsLoading || busy}
-              value=""
-              onChange={(e) => {
-                const field = nativeFields.find(
-                  (f) => f.name === e.target.value,
-                );
-                if (field) {
-                  setConfig({
-                    ...config,
-                    fieldSchema: { ...config.fieldSchema, [field.name]: field },
-                  });
-                  setPlan(undefined);
-                }
-              }}
-            >
-              <option value="">
-                {fieldsLoading
-                  ? 'Loading CRM fields…'
-                  : 'Choose a property, score, tag or owner field'}
-              </option>
-              {nativeFields
-                .filter((f) => !fields.includes(f.name))
-                .map((f) => (
-                  <option key={f.name} value={f.name}>
-                    {f.label} ({f.name}) · {f.type}
+          <section
+            className="crm-add-property"
+            aria-label="Find CRM properties"
+          >
+            <div className="crm-mapping-heading">
+              <strong>Map your fields</strong>
+              <small>
+                Pomade column <ArrowRight size={12} /> CRM property
+              </small>
+            </div>
+            <label className="crm-property-search">
+              <Search size={16} />
+              <input
+                aria-label="Search CRM properties"
+                placeholder="Find a property, score, tag, or owner…"
+                value={propertyQuery}
+                onChange={(event) => setPropertyQuery(event.target.value)}
+              />
+            </label>
+            <label className="crm-property-select">
+              Add a CRM property or custom field
+              <select
+                aria-label="Add a CRM property or custom field"
+                disabled={fieldsLoading || busy}
+                value=""
+                onChange={(event) => {
+                  const field = nativeFields.find(
+                    (item) => item.name === event.target.value,
+                  );
+                  if (field) {
+                    setConfig({
+                      ...config,
+                      fieldSchema: {
+                        ...config.fieldSchema,
+                        [field.name]: field,
+                      },
+                    });
+                    setPlan(undefined);
+                    setPropertyQuery('');
+                  }
+                }}
+              >
+                <option value="">
+                  {fieldsLoading
+                    ? 'Loading CRM fields…'
+                    : availableFields.length
+                      ? `${availableFields.length} properties available`
+                      : propertyQuery
+                        ? 'No properties match this search'
+                        : 'All available properties are already listed'}
+                </option>
+                {availableFields.map((field) => (
+                  <option key={field.name} value={field.name}>
+                    {field.label} ({field.name}) · {field.type}
                   </option>
                 ))}
-            </select>
-          </label>
-          {fieldsError ? <p role="alert">{fieldsError}</p> : null}
-          <div className="lookup-fields">
+              </select>
+            </label>
+            {fieldsError ? (
+              <div className="crm-field-error">
+                <p role="alert">{fieldsError}</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setFieldRevision((value) => value + 1)}
+                >
+                  <RefreshCw />
+                  Retry fields
+                </Button>
+              </div>
+            ) : null}
+          </section>
+          <div className="crm-field-mappings">
             {fields.map((field) => (
               <label key={field}>
-                {field}
-                {config.fieldSchema?.[field]
-                  ? ` · ${config.fieldSchema[field].type}`
-                  : ''}
+                <span>
+                  <strong>
+                    {(
+                      nativeFields.find((item) => item.name === field) ??
+                      config.fieldSchema?.[field]
+                    )?.label ?? field}
+                  </strong>
+                  <small>
+                    {field}
+                    {config.fieldSchema?.[field]
+                      ? ` · ${config.fieldSchema[field].type}`
+                      : ''}
+                  </small>
+                </span>
                 <select
+                  aria-label={`Map ${field}`}
                   disabled={busy}
                   value={config.mapping[field] || ''}
                   onChange={(e) => {
@@ -402,46 +488,46 @@ export default function CrmSyncBuilder({
               </label>
             ))}
           </div>
-          <div className="lookup-fields">
-            <label>
-              Mapping name
-              <input
-                value={mappingName}
-                maxLength={80}
-                disabled={busy || !ready}
-                onChange={(e) => setMappingName(e.target.value)}
-                placeholder="e.g. HubSpot account research"
-              />
-            </label>
-            <Button disabled={busy || !ready} onClick={saveMapping}>
-              {mappingId ? 'Save mapping changes' : 'Save mapping'}
-            </Button>
-            {mappingId ? (
-              <Button
-                variant="outline"
-                disabled={busy || !ready}
-                onClick={() => {
-                  onSave(removeCrmMapping(workspace, mappingId));
-                  setMappingId('');
-                  setPlan(undefined);
-                  setError('');
-                  setNotice(
-                    'Saved mapping removed. Table values and CRM records are unchanged.',
-                  );
-                }}
-              >
-                Remove saved mapping
+          <details className="crm-save-mapping">
+            <summary>Save these field choices for reuse</summary>
+            <div className="lookup-fields">
+              <label>
+                Mapping name
+                <input
+                  value={mappingName}
+                  maxLength={80}
+                  disabled={busy || !ready}
+                  onChange={(e) => setMappingName(e.target.value)}
+                  placeholder="e.g. HubSpot account research"
+                />
+              </label>
+              <Button disabled={busy || !ready} onClick={saveMapping}>
+                {mappingId ? 'Save mapping changes' : 'Save mapping'}
               </Button>
-            ) : null}
-          </div>
+              {mappingId ? (
+                <Button
+                  variant="outline"
+                  disabled={busy || !ready}
+                  onClick={() => {
+                    onSave(removeCrmMapping(workspace, mappingId));
+                    setMappingId('');
+                    setPlan(undefined);
+                    setError('');
+                    setNotice(
+                      'Saved mapping removed. Table values and CRM records are unchanged.',
+                    );
+                  }}
+                >
+                  Remove saved mapping
+                </Button>
+              ) : null}
+            </div>
+          </details>
           <p>
-            Saved mappings keep field choices for this table. Each preview uses
-            your current row selection.
-          </p>
-          <p>
-            {rowIds.length} rows in this selection. Only mapped nonblank fields
-            are written. Salesforce contacts need LastName, and leads also need
-            Company. Account and company records need a name.
+            Companies match by domain or website; people match by email.
+            Existing CRM IDs take priority. Salesforce contacts need LastName;
+            leads also need Company. Name-only matching requires company website
+            (HubSpot) or AccountId (Salesforce).
           </p>
           <Button
             disabled={busy || !ready || !rowIds.length || rowIds.length > 25}
@@ -462,38 +548,107 @@ export default function CrmSyncBuilder({
             </details>
           ) : null}
           {plan ? (
-            <section>
-              <strong>
-                {plan.config.provider} {plan.config.objectType} · Batch:{' '}
-                {plan.status}
-              </strong>
+            <section
+              className="crm-plan-review"
+              aria-label="CRM changes to review"
+            >
+              <div className="crm-plan-heading">
+                <strong>
+                  {plan.status === 'complete' ? (
+                    <>
+                      <CheckCircle2 size={18} />
+                      CRM changes verified
+                    </>
+                  ) : (
+                    'Review these changes'
+                  )}
+                </strong>
+                <span>
+                  {plan.config.provider === 'hubspot'
+                    ? 'HubSpot'
+                    : 'Salesforce'}{' '}
+                  · {plan.config.objectType}
+                </span>
+              </div>
+              <div className="crm-plan-counts">
+                {(['create', 'update', 'unchanged', 'review'] as const).map(
+                  (action) => (
+                    <span key={action} data-action={action}>
+                      <strong>
+                        {
+                          plan.actions.filter((item) => item.action === action)
+                            .length
+                        }
+                      </strong>
+                      {action === 'create'
+                        ? 'to create'
+                        : action === 'update'
+                          ? 'to update'
+                          : action === 'review'
+                            ? 'need review'
+                            : 'unchanged'}
+                    </span>
+                  ),
+                )}
+              </div>
+              {plan.status === 'preview' &&
+              workspace.revision !== plan.revision ? (
+                <p role="alert" className="crm-sync-warning">
+                  This sheet changed after preview. Preview CRM changes again
+                  before writing.
+                </p>
+              ) : null}
               {plan.actions.map((a) => (
-                <details key={a.rowId}>
+                <details
+                  key={a.rowId}
+                  className="crm-change-record"
+                  open={plan.actions.length === 1 || a.action === 'review'}
+                >
                   <summary>
-                    {a.label}: {a.action} · {a.status}
-                    {a.nativeId ? ' · ' + a.nativeId : ''}
+                    <strong>{a.label}</strong>
+                    <span data-status={a.status}>
+                      {a.action === 'create'
+                        ? 'Create new'
+                        : a.action === 'update'
+                          ? 'Update existing'
+                          : a.action === 'review'
+                            ? 'Needs review'
+                            : 'No change'}{' '}
+                      · {a.status}
+                    </span>
                   </summary>
-                  <p>{a.message}</p>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Field</th>
-                        <th>Before</th>
-                        <th>After</th>
-                        <th>Returned</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(a.properties).map(([f, v]) => (
-                        <tr key={f}>
-                          <td>{f}</td>
-                          <td>{a.before[f] || '—'}</td>
-                          <td>{v}</td>
-                          <td>{a.observed?.[f] || '—'}</td>
+                  {a.message ? <p>{a.message}</p> : null}
+                  {a.nativeId ? (
+                    <small className="crm-record-id">
+                      CRM record ID: {a.nativeId}
+                    </small>
+                  ) : null}
+                  <div className="crm-change-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Field</th>
+                          {a.action !== 'create' ? <th>Before</th> : null}
+                          <th>New value</th>
+                          {a.observed ? <th>Verified value</th> : null}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {Object.entries(a.properties).map(([f, v]) => (
+                          <tr key={f}>
+                            <td>{plan.config.fieldSchema?.[f]?.label ?? f}</td>
+                            {a.action !== 'create' ? (
+                              <td>{a.before[f] || '—'}</td>
+                            ) : null}
+                            <td>{v}</td>
+                            {a.observed ? (
+                              <td>{a.observed[f] || '—'}</td>
+                            ) : null}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </details>
               ))}
               {plan.actions.some(
@@ -509,6 +664,7 @@ export default function CrmSyncBuilder({
               ) : null}
               {plan.status === 'preview' ? (
                 <Button
+                  className="crm-confirm-write"
                   disabled={
                     busy ||
                     !ready ||
