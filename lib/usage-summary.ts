@@ -28,6 +28,21 @@ export function summarizeRecentUsage(runs: RunReceipt[]): RecentUsageSummary {
   const providerReceipts = receipts
     .flatMap((receipt) => receipt.attempts ?? [receipt])
     .filter(isProviderAction);
+  const knownCosts = new Set(
+    providerReceipts
+      .filter((r) => r.operationId && r.creditsReported)
+      .map((r) => r.operationId),
+  );
+  const unknownCosts = new Set<string>();
+  for (const r of providerReceipts) {
+    if (r.cached) continue;
+    if (
+      r.operationId
+        ? !knownCosts.has(r.operationId)
+        : typeof r.creditsConsumed !== 'number'
+    )
+      unknownCosts.add(r.operationId ?? r.id);
+  }
   const providerActions: RecentUsageSummary['providerActions'] = {};
   for (const receipt of providerReceipts) {
     const provider = receipt.provider as
@@ -55,10 +70,7 @@ export function summarizeRecentUsage(runs: RunReceipt[]): RecentUsageSummary {
           : 0),
       0,
     ),
-    unreportedProviderActionCount: providerReceipts.filter(
-      (receipt) =>
-        !receipt.cached && typeof receipt.creditsConsumed !== 'number',
-    ).length,
+    unreportedProviderActionCount: unknownCosts.size,
     providerActions,
   };
 }

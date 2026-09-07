@@ -1,3 +1,8 @@
+import {
+  contactVerifierStep,
+  CONTACT_VERIFIER_PRESETS,
+  WATERFALL_CANDIDATE_INPUT,
+} from './contact-provider-presets';
 import { ASYNC_PROVIDER_CONNECTIONS, hasAsyncProvider } from './async-provider';
 import { WaterfallProgress } from '../db/waterfall-progress';
 import {
@@ -28,18 +33,38 @@ function validateAcceptance(
     ].includes(config.accept)
   )
     throw new Error('Choose an acceptance rule.');
+  for (const step of config.steps) {
+    if (!step.verifier) continue;
+    contactVerifierStep(step.verifier.presetId);
+    const verifier = CONTACT_VERIFIER_PRESETS.find(
+      (p) => p.id === step.verifier!.presetId,
+    )!;
+    if (
+      config.accept === 'nonempty' ||
+      config.accept.includes('phone') !== verifier.accept.includes('phone')
+    )
+      throw new Error(
+        'The verifier must match the waterfall’s email or phone acceptance rule.',
+      );
+  }
   if (
     verifiedAcceptance(config.accept) &&
-    config.steps.some(
-      (step) =>
-        !step.verification?.path?.trim() ||
-        !/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/.test(step.verification.path) ||
-        !step.verification.acceptedValues?.length ||
-        step.verification.acceptedValues.length > 8 ||
-        step.verification.acceptedValues.some(
+    config.steps.some((step) => {
+      const check = step.verifier
+        ? contactVerifierStep(step.verifier.presetId)
+        : step;
+      return (
+        !check.verification?.path?.trim() ||
+        !/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/.test(
+          check.verification.path,
+        ) ||
+        !check.verification.acceptedValues?.length ||
+        check.verification.acceptedValues.length > 8 ||
+        check.verification.acceptedValues.some(
           (value) => typeof value !== 'string' || !value.trim(),
-        ),
-    )
+        )
+      );
+    })
   )
     throw new Error(
       'Each provider needs a verification status path and its accepted verified statuses.',
@@ -134,10 +159,14 @@ export async function executeProviderWaterfall(
   validateAcceptance(config);
   const started = Date.now();
   const asynchronous = hasAsyncProvider(column);
+  const allRequests = config.steps.flatMap((step) => [
+    step,
+    ...(step.verifier ? [contactVerifierStep(step.verifier.presetId)] : []),
+  ]);
   if (
     asynchronous &&
     !execution &&
-    config.steps.some(
+    allRequests.some(
       (step) =>
         ASYNC_PROVIDER_CONNECTIONS.includes(step.connectionId) &&
         connections.some((c) => c.id === step.connectionId),
@@ -146,41 +175,62 @@ export async function executeProviderWaterfall(
     throw new Error(
       'Run asynchronous providers in the background so their request IDs can be saved and resumed.',
     );
-  const progress =
-    asynchronous && execution
-      ? await WaterfallProgress.open(execution.db, {
-          executionId: execution.id,
-          workspaceId: workspace.id,
-          rowId,
-          columnId: column.id,
-          fingerprint: JSON.stringify([
-            config,
-            column.inputBindings,
-            providerInputFields(config)
-              .sort()
-              .map((key) => [
-                key,
-                row.values[column.inputBindings?.[key] ?? key] ?? '',
-              ]),
-          ]),
-        })
-      : undefined;
+  const operationScope = execution?.id ?? crypto.randomUUID();
+  // Persist all background waterfalls: a verifier error must not repeat its finder.
+  const progress = execution
+    ? await WaterfallProgress.open(execution.db, {
+        executionId: execution.id,
+        workspaceId: workspace.id,
+        rowId,
+        columnId: column.id,
+        fingerprint: JSON.stringify([
+          config,
+          column.inputBindings,
+          providerInputFields(config)
+            .sort()
+            .map((key) => [
+              key,
+              row.values[column.inputBindings?.[key] ?? key] ?? '',
+            ]),
+        ]),
+      })
+    : undefined;
   const attempts: ActionReceipt[] = [];
-  let value = '',
-    winner = '',
-    error: string | undefined;
-  let stoppedEarly = false;
-  let pending = false;
-  for (const [index, step] of config.steps.entries()) {
+  const phoneNumber = (value: string) => value.replace(/[\s().-]/g, '');
+  const shaped = (candidate: string) =>
+    config.accept === 'nonempty'
+      ? Boolean(candidate)
+      : config.accept.includes('email')
+        ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate)
+        : /^\+[1-9]\d{6,14}$/.test(phoneNumber(candidate));
+  const sameContact = (a: string, b: string) =>
+    config.accept.includes('phone')
+      ? phoneNumber(a) === phoneNumber(b)
+      : a.toLowerCase() === b.toLowerCase();
+  const verificationId = `${column.id}__verification`,
+    revealedId = `${column.id}__revealed`;
+  async function attempt(
+    step: HttpProviderStep,
+    index: number,
+    verify: boolean,
+    candidate?: string,
+  ) {
+    const key = verify ? `v${index}` : index;
     const label =
       connections.find((c) => c.id === step.connectionId)?.label ||
       step.connectionId;
-    const verificationId = `${column.id}__verification`;
-    const revealedId = `${column.id}__revealed`;
+    const checkStatus =
+      verify || (verifiedAcceptance(config!.accept) && !step.verifier);
     const virtual: PomadeColumn = {
       ...column,
       recipe: 'http-api',
-      title: `${index + 1}. ${label}`,
+      title: `${index + 1}. ${label}${verify ? ' · verify candidate' : ''}`,
+      inputBindings: {
+        ...column.inputBindings,
+        ...(verify
+          ? { [WATERFALL_CANDIDATE_INPUT]: WATERFALL_CANDIDATE_INPUT }
+          : {}),
+      },
       http: {
         ...step,
         outputs: [
@@ -193,7 +243,7 @@ export async function executeProviderWaterfall(
                 },
               ]
             : []),
-          ...(verifiedAcceptance(config.accept)
+          ...(checkStatus
             ? [
                 {
                   path: step.verification!.path,
@@ -202,93 +252,171 @@ export async function executeProviderWaterfall(
               ]
             : []),
         ],
-        statusColumnId: config.statusColumnId,
+        statusColumnId: config!.statusColumnId,
       },
     };
-    const saved = progress?.state.attempts[index];
-    const receipt = saved
+    const saved = progress?.state.attempts[key];
+    const input = verify
+      ? {
+          ...workspace,
+          rows: workspace.rows.map((r) =>
+            r.id === rowId
+              ? {
+                  ...r,
+                  values: {
+                    ...r.values,
+                    [WATERFALL_CANDIDATE_INPUT]: candidate!,
+                  },
+                }
+              : r,
+          ),
+        }
+      : workspace;
+    const receipt: ActionReceipt = saved
       ? { ...saved, cached: true, creditsConsumed: 0, httpRequestCount: 0 }
       : (
           await executeHttpRecipe(
-            workspace,
+            input,
             rowId,
             virtual,
             connections,
             fetcher,
-            progress ? { progress, index } : undefined,
+            progress ? { progress, index: key } : undefined,
           )
         ).receipt;
-    if (receipt.pending) {
-      attempts.push(receipt);
-      pending = true;
-      error = undefined;
-      break;
-    }
-    const candidate = receipt.after.trim();
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate);
-    const phone = candidate.replace(/[\s().-]/g, '');
-    const isPhone = /^\+[1-9]\d{6,14}$/.test(phone);
-    const shapeMatches =
-      config.accept === 'nonempty'
-        ? Boolean(candidate)
-        : config.accept.includes('email')
-          ? isEmail
-          : isPhone;
-    const verification = receipt.outputValues?.[verificationId]?.trim() ?? '';
+    receipt.operationId = `${operationScope}:${rowId}:${column.id}:${key}`;
+    receipt.operationRole = verify ? 'verification' : 'lookup';
+    receipt.waterfallStep = index;
+    receipt.providerConnectionId = step.connectionId;
+    receipt.providerLabel = label;
+    const value = receipt.after.trim();
+    const status = receipt.outputValues?.[verificationId]?.trim() ?? '';
     const verified =
-      !verifiedAcceptance(config.accept) ||
+      !checkStatus ||
       step.verification!.acceptedValues.some(
-        (value) => value.trim().toLowerCase() === verification.toLowerCase(),
+        (v) => v.trim().toLowerCase() === status.toLowerCase(),
       );
     const revealed =
       !step.verification?.revealedPath ||
       receipt.outputValues?.[revealedId]?.trim().toLowerCase() === 'true';
-    const accepted = !receipt.error && shapeMatches && verified && revealed;
+    if (
+      verify &&
+      !receipt.pending &&
+      !receipt.error &&
+      shaped(value) &&
+      !sameContact(candidate!, value)
+    ) {
+      receipt.error =
+        'Verifier returned a different contact value; results withheld.';
+      receipt.stopWaterfall = true;
+    }
+    const accepted =
+      !receipt.pending &&
+      !receipt.error &&
+      shaped(value) &&
+      verified &&
+      revealed;
+    receipt.outcome = receipt.pending
+      ? 'pending'
+      : receipt.error
+        ? 'error'
+        : accepted
+          ? step.verifier
+            ? 'candidate'
+            : 'accepted'
+          : 'rejected';
     receipt.status = accepted ? 'passed' : 'review';
     receipt.evidence = [
       ...(receipt.evidence ?? []),
-      ...(verifiedAcceptance(config.accept)
+      ...(checkStatus
         ? [
-            `Provider verification: ${verification || 'missing'} (${step.verification!.path}); observed ${new Date(started).toISOString()}`,
+            `Provider verification: ${status || 'missing'} (${step.verification!.path})`,
           ]
         : []),
-      accepted
-        ? 'Accepted; later providers skipped.'
+      receipt.pending
+        ? 'Waiting for result; later providers have not started.'
         : receipt.error
           ? 'Technical error.'
-          : !shapeMatches
-            ? 'Missing or invalid result format.'
-            : 'Verification was missing or did not meet the configured status rule.',
+          : accepted
+            ? step.verifier
+              ? 'Candidate found; verification is required.'
+              : 'Accepted; later providers skipped.'
+            : 'Missing, invalid or rejected contact value.',
     ];
     attempts.push(receipt);
     if (
       progress &&
       !saved &&
+      !receipt.pending &&
       (!receipt.error ||
-        (config.continueOnError &&
+        (config!.continueOnError &&
           !receipt.stopWaterfall &&
           receipt.error !== 'HTTP 451'))
     )
-      await progress.saveAttempt(index, receipt);
-    if (accepted) {
-      value = config.accept.includes('phone') ? phone : candidate;
-      winner = label;
+      await progress.saveAttempt(key, receipt);
+    return { receipt, value, accepted, label };
+  }
+  let value = '',
+    winner = '',
+    error: string | undefined,
+    pending = false,
+    stoppedEarly = false;
+  for (const [index, step] of config.steps.entries()) {
+    const found = await attempt(step, index, false);
+    let result = found;
+    if (found.accepted && step.verifier) {
+      result = await attempt(
+        contactVerifierStep(step.verifier.presetId),
+        index,
+        true,
+        found.value,
+      );
+      found.receipt.outcome = result.accepted
+        ? 'accepted'
+        : result.receipt.pending || result.receipt.error
+          ? 'candidate'
+          : 'rejected';
+      found.receipt.status = result.accepted ? 'passed' : 'review';
+      found.receipt.evidence = [
+        ...(found.receipt.evidence ?? []),
+        result.accepted
+          ? `Accepted after verification by ${result.label}.`
+          : result.receipt.pending
+            ? `Waiting for verification by ${result.label}.`
+            : result.receipt.error
+              ? 'Verification needs attention.'
+              : `Rejected by ${result.label}; try the next finder.`,
+      ];
+    }
+    if (result.receipt.pending) {
+      pending = true;
       error = undefined;
       break;
     }
-    if (receipt.error) {
-      error = receipt.error;
+    if (result.accepted) {
+      value = config.accept.includes('phone')
+        ? phoneNumber(found.value)
+        : found.value;
+      winner = found.label;
+      error = undefined;
+      break;
+    }
+    if (result.receipt.error) {
+      error = result.receipt.error;
       if (
-        receipt.stopWaterfall ||
+        result.receipt.stopWaterfall ||
         !config.continueOnError ||
-        receipt.error === 'HTTP 451'
+        error === 'HTTP 451'
       ) {
         stoppedEarly = true;
         break;
       }
     }
   }
-  const providerErrors = attempts.filter((attempt) => attempt.error).length;
+  const providerErrors = attempts.filter((a) => a.error).length;
+  const finderCount = attempts.filter(
+    (a) => a.operationRole === 'lookup',
+  ).length;
   const values = {
     [column.id]: pending ? (row.values[column.id] ?? '') : value,
     [config.winnerColumnId]: pending
@@ -298,14 +426,13 @@ export async function executeProviderWaterfall(
       ? (attempts.at(-1)?.outputValues?.[config.statusColumnId] ??
         'Waiting for provider results')
       : winner
-        ? `Accepted after ${attempts.length} ${attempts.length === 1 ? 'attempt' : 'attempts'}`
+        ? `Accepted after ${finderCount} ${finderCount === 1 ? 'attempt' : 'attempts'}${attempts.some((a) => a.operationRole === 'verification') ? ' · independently verified' : ''}`
         : stoppedEarly
           ? `Stopped: ${error}`
           : error
             ? `All providers tried; no acceptable value. ${providerErrors} provider ${providerErrors === 1 ? 'error' : 'errors'}.`
             : 'No provider returned an acceptable value',
   };
-  const sent = attempts.some((a) => a.provider === 'http');
   const receipt: ActionReceipt = {
     id: crypto.randomUUID(),
     rowId,
@@ -317,12 +444,13 @@ export async function executeProviderWaterfall(
     before: row.values[column.id] ?? '',
     after: values[column.id],
     pending: pending || undefined,
+    nextCheckAt: pending || error ? attempts.at(-1)?.nextCheckAt : undefined,
     httpRequestCount: attempts.reduce(
       (sum, a) => sum + (a.httpRequestCount ?? 0),
       0,
     ),
     outputValues: values,
-    provider: sent ? 'http' : 'local',
+    provider: attempts.some((a) => a.provider === 'http') ? 'http' : 'local',
     creditsConsumed: attempts.some((a) => a.creditsConsumed === null)
       ? null
       : attempts.reduce((sum, a) => sum + (a.creditsConsumed ?? 0), 0),
@@ -330,7 +458,7 @@ export async function executeProviderWaterfall(
     attempts,
     evidence: attempts.map(
       (a) =>
-        `${a.action}: ${a.pending ? 'waiting for result' : (a.error ?? (a.status === 'passed' ? 'accepted' : 'no acceptable result'))}`,
+        `${a.action}: ${a.pending ? 'waiting for result' : (a.error ?? (a.outcome === 'candidate' ? 'candidate awaiting verification' : a.status === 'passed' ? 'accepted' : 'no acceptable result'))}`,
     ),
   };
   return {

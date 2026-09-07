@@ -4,8 +4,10 @@ import type { WaterfallProgress } from '../db/waterfall-progress';
 export const ASYNC_PROVIDER_CONNECTIONS = ['pomade_enrow', 'pomade_fullenrich'];
 export function hasAsyncProvider(column: PomadeColumn) {
   return (
-    column.providerWaterfall?.steps.some((step) =>
-      ASYNC_PROVIDER_CONNECTIONS.includes(step.connectionId),
+    column.providerWaterfall?.steps.some(
+      (step) =>
+        ASYNC_PROVIDER_CONNECTIONS.includes(step.connectionId) ||
+        step.verifier?.presetId === 'enrow-verify',
     ) ?? false
   );
 }
@@ -21,7 +23,7 @@ export type AsyncProviderRequest = {
 };
 export type AsyncProviderContext = {
   progress: WaterfallProgress;
-  index: number;
+  index: number | string;
 };
 export class ProviderPendingError extends Error {
   constructor(

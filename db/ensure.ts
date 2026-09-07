@@ -127,6 +127,9 @@ export async function ensureDatabaseSchema(db: D1Database) {
       column_ids TEXT,
       workbook_run_id TEXT,
       resume_column_ids TEXT,
+      schedule_execution_id TEXT,
+      next_check_at INTEGER,
+      waiting_message TEXT,
       cursor INTEGER NOT NULL DEFAULT 0,
       completed_count INTEGER NOT NULL DEFAULT 0,
       skipped_count INTEGER NOT NULL DEFAULT 0,
@@ -153,6 +156,13 @@ export async function ensureDatabaseSchema(db: D1Database) {
     await db
       .prepare('ALTER TABLE run_jobs ADD COLUMN resume_column_ids TEXT')
       .run();
+  for (const [name, type] of [
+    ['schedule_execution_id', 'TEXT'],
+    ['next_check_at', 'INTEGER'],
+    ['waiting_message', 'TEXT'],
+  ])
+    if (!columns.results.some((column) => column.name === name))
+      await db.prepare(`ALTER TABLE run_jobs ADD COLUMN ${name} ${type}`).run();
 }
 
 export async function ensureDatabase() {

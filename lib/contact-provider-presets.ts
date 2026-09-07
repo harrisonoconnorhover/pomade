@@ -375,3 +375,25 @@ export function missingContactInputs(
     (input) => !columns.some((column) => column.id === bindings[input]),
   );
 }
+
+export const WATERFALL_CANDIDATE_INPUT = 'pomade_candidate';
+export const CONTACT_VERIFIER_PRESETS = CONTACT_PROVIDER_PRESETS.filter(
+  (preset) =>
+    [
+      'hunter-verify',
+      'leadmagic-verify',
+      'findymail-verify',
+      'zerobounce-verify',
+      'bounceban-verify',
+      'enrow-verify',
+      'trestle-verify',
+    ].includes(preset.id),
+);
+export function contactVerifierStep(id: string): HttpProviderStep {
+  const preset = CONTACT_VERIFIER_PRESETS.find((p) => p.id === id);
+  if (!preset) throw new Error('Choose an existing email or phone verifier.');
+  const bindings = Object.fromEntries(
+    Object.keys(CONTACT_INPUTS).map((key) => [key, WATERFALL_CANDIDATE_INPUT]),
+  ) as ContactBindings;
+  return preset.step(bindings);
+}

@@ -73,12 +73,15 @@ export class WaterfallProgress {
       );
     this.raw = next;
   }
-  async saveRequest(index: number, request: AsyncProviderRequest | undefined) {
+  async saveRequest(
+    index: number | string,
+    request: AsyncProviderRequest | undefined,
+  ) {
     const state = this.state;
     state.requests[index] = request;
     await this.save(state);
   }
-  async saveAttempt(index: number, receipt: ActionReceipt) {
+  async saveAttempt(index: number | string, receipt: ActionReceipt) {
     const state = this.state;
     state.attempts[index] = receipt;
     await this.save(state);

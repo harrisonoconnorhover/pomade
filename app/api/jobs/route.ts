@@ -1,3 +1,4 @@
+import { controlRunJob } from '@/db/run-job-control';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { ensureDatabase } from '@/db/ensure';
 import { versionedWorkspaceStatements } from '@/db/workspace-store';
@@ -15,6 +16,9 @@ import { MAX_BACKGROUND_RESEARCH_ACTIONS, createRunJob } from '@/lib/run-job';
 type RunJobRecord = {
   id: string;
   workspace_id: string;
+  schedule_execution_id: string | null;
+  next_check_at: number | null;
+  waiting_message: string | null;
   status: string;
   row_ids: string;
   column_ids: string | null;
@@ -62,6 +66,9 @@ function toRunJob(record: RunJobRecord): RunJob {
   return {
     id: record.id,
     workspaceId: record.workspace_id,
+    scheduleExecutionId: record.schedule_execution_id ?? undefined,
+    nextCheckAt: record.next_check_at ?? undefined,
+    waitingMessage: record.waiting_message ?? undefined,
     status: record.status as RunJobStatus,
     rowIds: parseJsonArray(record.row_ids) ?? [],
     columnIds: parseJsonArray(record.column_ids),
@@ -229,7 +236,7 @@ export async function POST(request: Request) {
       return Response.json(
         {
           error:
-            'This workspace already has an active background run. Finish, resume, or pause it before starting another.',
+            'This workspace already has an active background run. Finish, resume, or cancel it before starting another.',
         },
         { status: 409 },
       );
@@ -279,81 +286,41 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const body: unknown = await request.json();
-  const jobId = (body as { jobId?: unknown })?.jobId;
-  const action = (body as { action?: unknown })?.action;
-  if (
-    typeof jobId !== 'string' ||
-    (action !== 'pause' && action !== 'resume')
-  ) {
+  try {
+    const body = (await request.json()) as {
+      jobId?: unknown;
+      action?: unknown;
+    };
+    if (
+      typeof body?.jobId !== 'string' ||
+      !['pause', 'resume', 'cancel'].includes(String(body.action))
+    )
+      return Response.json(
+        { error: 'Choose a valid background run action.' },
+        { status: 400 },
+      );
+    const current = await readJob(body.jobId);
+    if (!current)
+      return Response.json(
+        { error: 'The background run no longer exists.' },
+        { status: 404 },
+      );
+    const db = await ensureDatabase();
+    const workspace = await controlRunJob(
+      db,
+      current,
+      body.action as 'pause' | 'resume' | 'cancel',
+    );
+    return Response.json({ job: await readJob(body.jobId), workspace });
+  } catch (error) {
     return Response.json(
-      { error: 'Choose a valid background run action.' },
-      { status: 400 },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'The run could not be updated.',
+      },
+      { status: 409 },
     );
   }
-  const current = await readJob(jobId);
-  if (!current) {
-    return Response.json(
-      { error: 'The background run no longer exists.' },
-      { status: 404 },
-    );
-  }
-  const db = await ensureDatabase();
-  const now = Date.now();
-  if (action === 'pause') {
-    const result = await db
-      .prepare(
-        `UPDATE run_jobs
-         SET status = 'paused', updated_at = ?
-         WHERE id = ? AND status IN ('queued', 'running')`,
-      )
-      .bind(now, jobId)
-      .run();
-    if (result.meta.changes !== 1) {
-      return Response.json(
-        { error: 'Only a queued or running job can be paused.' },
-        { status: 409 },
-      );
-    }
-  } else {
-    const active = await db
-      .prepare(
-        `SELECT id FROM run_jobs
-         WHERE workspace_id = ? AND id != ?
-           AND status IN ('queued', 'running', 'paused')
-         LIMIT 1`,
-      )
-      .bind(current.workspaceId, jobId)
-      .first<{ id: string }>();
-    if (active) {
-      return Response.json(
-        { error: 'Another background run is already active.' },
-        { status: 409 },
-      );
-    }
-    const result = await db
-      .prepare(
-        `UPDATE run_jobs
-         SET status = CASE
-               WHEN lease_until IS NOT NULL AND lease_until > ? THEN 'running'
-               ELSE 'queued'
-             END,
-             lease_until = CASE
-               WHEN lease_until IS NOT NULL AND lease_until > ? THEN lease_until
-               ELSE NULL
-             END,
-             last_error = NULL,
-             updated_at = ?
-         WHERE id = ? AND status IN ('paused', 'failed')`,
-      )
-      .bind(now, now, now, jobId)
-      .run();
-    if (result.meta.changes !== 1) {
-      return Response.json(
-        { error: 'Only a paused or failed job can be resumed.' },
-        { status: 409 },
-      );
-    }
-  }
-  return Response.json({ job: await readJob(jobId) });
 }

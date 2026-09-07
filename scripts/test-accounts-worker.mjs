@@ -67,6 +67,58 @@ try {
   assert.equal(owner.account.role, 'owner');
   const ownerTables = await api('owner', '/api/tables');
   assert.ok(ownerTables.tables.length);
+  const evidence = {
+    id: 'synthetic-performance',
+    workspaceId: ownerTables.tables[0].id,
+    status: 'completed',
+    startedAt: 1,
+    finishedAt: 2,
+    rowCount: 1,
+    actionCount: 1,
+    passedCount: 1,
+    reviewCount: 0,
+    externalWrites: 0,
+    receipts: [
+      {
+        id: 'one',
+        rowId: 'row',
+        rowLabel: 'Synthetic',
+        columnId: 'email',
+        action: 'Lookup',
+        status: 'passed',
+        before: '',
+        after: 'synthetic@example.test',
+        durationMs: 1,
+        provider: 'http',
+        providerConnectionId: 'synthetic',
+        providerLabel: 'Synthetic',
+        operationId: 'job:row:email:0',
+        operationRole: 'lookup',
+        outcome: 'accepted',
+        httpRequestCount: 1,
+      },
+    ],
+  };
+  await db
+    .prepare(
+      "INSERT INTO runs(id,workspace_id,status,row_count,action_count,receipt,created_at) VALUES (?,?,'completed',1,1,?,?)",
+    )
+    .bind(
+      evidence.id,
+      evidence.workspaceId,
+      JSON.stringify(evidence),
+      Date.now(),
+    )
+    .run();
+  assert.equal(
+    (
+      await api(
+        'owner',
+        '/api/providers/performance?workspaceId=' + evidence.workspaceId,
+      )
+    ).providers[0].accepted,
+    1,
+  );
   const members = [];
   for (let i = 1; i <= 3; i++) {
     const who = 'friend' + i;
@@ -84,6 +136,15 @@ try {
       api(who, '/api/providers/apollo'),
     ]);
     assert.ok(settings.connections.every((c) => !c.configured));
+    assert.deepEqual(
+      (
+        await api(
+          who,
+          '/api/providers/performance?workspaceId=' + evidence.workspaceId,
+        )
+      ).providers,
+      [],
+    );
     assert.equal(settings.members, undefined);
     const tables = await api(who, '/api/tables');
     assert.equal(tables.tables.length, 1);

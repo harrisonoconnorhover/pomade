@@ -62,6 +62,7 @@ export type HttpRecipe = {
 };
 
 export type HttpProviderStep = {
+  verifier?: { presetId: string };
   connectionId: string;
   method: 'GET' | 'POST';
   pathTemplate: string;
@@ -171,6 +172,9 @@ export type ScheduledCrmWrite = {
   condition?: RecipeRunCondition;
 };
 export type RecipeSchedule = {
+  jobId?: string;
+  sourceExecutionId?: string;
+  executionFingerprint?: string;
   executionId?: string;
   afterRunCrm?: ScheduledCrmWrite[];
   lastCrmPlanIds?: string[];
@@ -207,6 +211,9 @@ export type RunJobStatus =
   | 'failed';
 
 export type RunJob = {
+  scheduleExecutionId?: string;
+  nextCheckAt?: number;
+  waitingMessage?: string;
   id: string;
   workspaceId: string;
   status: RunJobStatus;
@@ -299,6 +306,18 @@ export type WorkspaceSource = {
 };
 
 export type ActionReceipt = {
+  providerConnectionId?: string;
+  providerLabel?: string;
+  operationId?: string;
+  operationRole?: 'lookup' | 'verification';
+  operationPhase?: 'request' | 'submission' | 'result-check';
+  outcome?: 'candidate' | 'accepted' | 'rejected' | 'pending' | 'error';
+  waterfallStep?: number;
+  startedAt?: number;
+  finishedAt?: number;
+  nextCheckAt?: number;
+  creditsReported?: boolean;
+  reportedCreditTotal?: number;
   researchModel?: string;
   reasoningEffort?: string;
   pending?: boolean;

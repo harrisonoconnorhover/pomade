@@ -63,20 +63,21 @@ export async function executeEnrowRequest(
       !/^[A-Za-z0-9_-]{1,200}$/.test(data.id)
     )
       throw new EnrowSubmissionUnknownError();
-    await progress.saveRequest(index, {
-      phase: 'waiting',
-      requestId: data.id,
-      submittedAt: now,
-      nextPollAt: now + ENROW_POLL_INTERVAL_MS,
-      pollCount: 0,
-      waitUntil: now + ENROW_WAIT_WINDOW_MS,
-    });
     const credits =
       typeof data.credits_used === 'number' &&
       Number.isFinite(data.credits_used) &&
       data.credits_used >= 0
         ? data.credits_used
         : null;
+    await progress.saveRequest(index, {
+      phase: 'waiting',
+      reportedCredits: credits ?? undefined,
+      requestId: data.id,
+      submittedAt: now,
+      nextPollAt: now + ENROW_POLL_INTERVAL_MS,
+      pollCount: 0,
+      waitUntil: now + ENROW_WAIT_WINDOW_MS,
+    });
     throw new EnrowPendingError(
       `Waiting for Enrow. Search ID: ${data.id}. Pomade will check this saved search automatically.`,
       credits,

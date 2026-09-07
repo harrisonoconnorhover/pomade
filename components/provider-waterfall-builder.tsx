@@ -15,6 +15,8 @@ import {
 import {
   CONTACT_INPUTS,
   CONTACT_PROVIDER_PRESETS,
+  CONTACT_VERIFIER_PRESETS,
+  contactVerifierStep,
   contactPreset,
   missingContactInputs,
   type ContactBindings,
@@ -170,7 +172,13 @@ export default function ProviderWaterfallBuilder({
     setSteps((current) =>
       current.map((step) => {
         const preset = contactPreset(step.quickSetup);
-        return preset ? { ...preset.step(next), quickSetup: preset.id } : step;
+        return preset
+          ? {
+              ...preset.step(next),
+              quickSetup: preset.id,
+              verifier: step.verifier,
+            }
+          : step;
       }),
     );
   }
@@ -183,6 +191,12 @@ export default function ProviderWaterfallBuilder({
   const neededConnections = [
     ...new Set(
       steps
+        .flatMap((step) => [
+          step,
+          ...(step.verifier
+            ? [contactVerifierStep(step.verifier.presetId)]
+            : []),
+        ])
         .filter(
           (step) =>
             step.connectionId &&
@@ -190,7 +204,9 @@ export default function ProviderWaterfallBuilder({
         )
         .map(
           (step) =>
-            contactPreset(step.quickSetup)?.provider ?? step.connectionId,
+            CONTACT_PROVIDER_PRESETS.find(
+              (p) => p.connectionId === step.connectionId,
+            )?.provider ?? step.connectionId,
         ),
     ),
   ];
@@ -271,6 +287,7 @@ export default function ProviderWaterfallBuilder({
                           ? {
                               ...preset.step(bindings),
                               quickSetup: preset.id,
+                              verifier: item.verifier,
                             }
                           : item,
                       ),
@@ -298,6 +315,53 @@ export default function ProviderWaterfallBuilder({
             {contactPreset(step.quickSetup)?.note ? (
               <p>{contactPreset(step.quickSetup)?.note}</p>
             ) : null}
+            <label>
+              Verify this result before accepting it
+              <select
+                aria-label={`Verifier for provider ${index + 1}`}
+                value={step.verifier?.presetId ?? ''}
+                onChange={(event) => {
+                  const id = event.target.value;
+                  const verifier = CONTACT_VERIFIER_PRESETS.find(
+                    (p) => p.id === id,
+                  );
+                  setSteps((current) =>
+                    current.map((item, i) =>
+                      i === index
+                        ? {
+                            ...item,
+                            verifier: id ? { presetId: id } : undefined,
+                          }
+                        : item,
+                    ),
+                  );
+                  if (verifier) setAccept(verifier.accept);
+                }}
+              >
+                <option value="">
+                  Use the finder’s result and acceptance rule
+                </option>
+                {CONTACT_VERIFIER_PRESETS.filter(
+                  (p) =>
+                    accept === 'nonempty' ||
+                    p.accept.includes('phone') === accept.includes('phone'),
+                ).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.provider}
+                    {connections.some((c) => c.id === p.connectionId)
+                      ? ''
+                      : ' · API key needed'}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {step.verifier && (
+              <p>
+                The candidate goes directly to this verifier. A rejected result
+                tries the next finder; waiting holds the chain. Each
+                verification may consume credits.
+              </p>
+            )}
             <details
               className="provider-request-settings"
               open={step.quickSetup ? undefined : true}
@@ -362,7 +426,7 @@ export default function ProviderWaterfallBuilder({
                   />
                 </label>
               </div>
-              {verifiedAcceptance(accept) ? (
+              {verifiedAcceptance(accept) && !step.verifier ? (
                 <div className="http-output-grid">
                   <label>
                     Verification status JSON path
@@ -475,14 +539,15 @@ export default function ProviderWaterfallBuilder({
         </label>
         <p>
           Blank or rejected values try the next provider. Each row can make up
-          to {steps.length} requests; your run confirmation includes that
-          maximum. Verified modes require both a valid format and an explicit
-          verification status returned by that provider. Missing, unknown and
-          catch-all statuses in the presets fall through. Phone numbers must
-          include a country code. A format-only result is not verification. Use
-          row tokens such as {'{{domain}}'} in paths and JSON string values.
-          Verified phone status does not establish whether a number is a mobile
-          number or a company switchboard.
+          to {steps.reduce((n, step) => n + 1 + (step.verifier ? 1 : 0), 0)}{' '}
+          provider submissions; your run confirmation includes that maximum.
+          Verified modes require both a valid format and an explicit
+          verification status returned by the finder or its selected verifier.
+          Missing, unknown and catch-all statuses in the presets fall through.
+          Phone numbers must include a country code. A format-only result is not
+          verification. Use row tokens such as {'{{domain}}'} in paths and JSON
+          string values. Verified phone status does not establish whether a
+          number is a mobile number or a company switchboard.
         </p>
         {!loading && neededConnections.length ? (
           <p>

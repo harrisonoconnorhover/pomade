@@ -1,4 +1,8 @@
-import { previewCrmSync, type CrmSyncPlan } from '../lib/crm-sync';
+import {
+  previewCrmSync,
+  crmPreviewConnectionMatches,
+  type CrmSyncPlan,
+} from '../lib/crm-sync';
 import { scheduledCrmRows } from '../lib/recipe-schedule';
 import type { WorkspaceSnapshot } from '../lib/pomade-types';
 import type { CrmSourceOptions } from '../lib/crm-sources';
@@ -56,6 +60,33 @@ export async function runScheduledCrm(
       throw new Error(
         `CRM batch ${id} needs review before any retry. Inspect Write to CRM history.`,
       );
+    if (prior.revision !== (workspace.revision ?? 0)) {
+      // Recover a preview that never started writing. Re-read native values;
+      // never reissue a running, completed or uncertain batch.
+      if (!(await crmPreviewConnectionMatches(prior, options)))
+        throw new Error(
+          'The CRM connection changed. Review it before starting a new scheduled run.',
+        );
+      const eligible = scheduledCrmRows(workspace, write, rowIds);
+      if (!eligible.length) continue;
+      const refreshed = await previewCrmSync(
+        workspace,
+        eligible,
+        write.config,
+        options,
+      );
+      refreshed.id = id;
+      const saved = await db
+        .prepare(
+          "UPDATE crm_sync_runs SET plan=? WHERE id=? AND status='preview'",
+        )
+        .bind(JSON.stringify(refreshed), id)
+        .run();
+      if (saved.meta.changes !== 1)
+        throw new Error(
+          `CRM batch ${id} changed. Inspect Write to CRM history.`,
+        );
+    }
     const result = await confirm(id);
     if (
       result.status !== 'complete' ||

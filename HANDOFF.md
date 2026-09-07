@@ -2,38 +2,36 @@
 
 ## Finished
 
-- Added four FullEnrich presets: verified work email, verified personal email, mobile, and active mobile with matched owner. Pomade now has 29 contact presets across 13 providers.
-- Reused account-scoped background progress. FullEnrich submits one contact type, saves its request ID and correlation tag, and checks results at least five minutes apart. Pause/restart preserves the request and completed waterfall steps.
-- Pending results hold fallback/downstream work. Only a completed result for the matching contact can proceed; missing IDs and result failures stop for review. Repeated cumulative credit totals are not counted twice.
-- Added personal FullEnrich key storage and local environment support. Updated the tracker: 15 core providers remain; Dropcontact is the next connector.
+- Find → verify → fallback now fits inside one waterfall. Each finder can use an existing email verifier or Trestle phone validator; pending results hold later steps, rejected candidates fall back, and saved finders are reused on resume.
+- Added per-sheet provider performance in Run history: accepted and extra fallback matches, lookup/verification counts, waiting/errors, elapsed time and observed credits. Polls/reused steps do not inflate matches; unknown costs remain unknown.
+- Schedules now queue durable jobs, retain completed source refreshes, and wait for enrichment before CRM writes and transfers. Recurring occurrences get fresh IDs.
+- Background runs shows waiting and next-check time, Resume saved run, Finish scheduled steps and Cancel run. Interrupted post-run work reuses completed enrichment/CRM batches. Unexecuted stale CRM previews refresh safely before confirmation.
 
 ## Try It
 
-Open **Provider waterfall → Quick setup**, select a FullEnrich preset and map its inputs. Save without a key. Connect through **Account → Connections**, or set `FULLENRICH_API_KEY` locally, when a key is available. Run queues background work automatically. After a result error or 30-minute wait, **Background runs → Resume** checks the same request.
+In **Provider waterfall**, choose a finder and its **Verify this result before accepting it** option. Connect the required keys before running. Use **Run history → Provider performance** to compare observed results. Schedule the workflow normally; manage waiting, pause/resume and cancellation in **Background runs**. A new run deliberately makes fresh lookups.
 
 ## Checks
 
-- 216 focused tests passed across 11 files, including FullEnrich, Enrow, contact presets, account isolation, waterfall, HTTP, pipelines, schedules, templates, workbook runs and usage.
-- TypeScript, lint, hosted build, script syntax and diff checks passed.
-- Built Worker with disposable persistent D1 passed for both FullEnrich and Enrow: submit, pause, process restart, saved-ID polling, earlier-step reuse, completed-miss fallback and downstream execution. All outbound traffic was intercepted.
-- Local build passed; `http://localhost:8798` is running. All 19 local table row/column counts and connection IDs are preserved.
-- Private Sites version 22 is live at `https://pomade.deleteddeleted.chatgpt.site` from runtime commit `bb0aba6`. All 11 hosted table row/column counts and seven configured connections are preserved. The served provider bundle matches the packaged build; FullEnrich is offered but unconnected. Owner-only access is unchanged.
+- 244 focused tests passed across 15 files. TypeScript, lint and diff checks passed.
+- Built Worker/D1 tests passed for scheduled source import, inline asynchronous verification, fallback, restart/resume, simulated HubSpot write/readback, transfer recovery, reporting, cancellation and fresh runs. Existing FullEnrich and Enrow restart exercises passed. All outbound traffic intercepted.
+- Pre-release baseline: 19 local tables, 11 hosted tables, seven hosted connections; no queued/running jobs. Final release verification remains below.
 
 ## Decisions
 
-- Keep provider contracts and polling intervals separate while sharing durable state; no new migration, SDK or service.
-- Email requires DELIVERABLE. Strict mobile requires MOBILE, ACTIVE and CONFIRMED for the same number; broader mobile allows unknown ownership/activity.
-- FullEnrich submission cost is unknown; result receipts record newly observed cumulative credits. Synthetic checks do not prove live access or billing.
+- Reuse existing verifiers and row jobs; add three run-job columns and update per-account schema version. No new service or provider subscription.
+- Up to four finders plus optional verifiers; scheduled budgets include both stages and possible source additions. Frozen recipe/destination settings must match when resuming.
+- Provider credits are vendor-specific observations. Synthetic tests do not establish live coverage, entitlement or billing accuracy.
 
 ## Remaining
 
-- Live FullEnrich key, entitlement and billing validation. No provider credits were used.
-- Fifteen remaining providers, listed in `docs/clay-contact-provider-tracker.md`.
-- Recommended next: find → verify → fallback within one action, provider match/credit reporting, and durable scheduled runs with clearer waiting/resume controls.
-- Single-pass schedules still refuse asynchronous providers; background and workbook jobs support them.
+- Finish release of this change to the local server and existing owner-private Sites deployment; verify preserved data and account isolation.
+- Live provider comparison using connected keys and a small repeatable dataset.
+- Fifteen core providers remain; Dropcontact is next. This change adds workflow capabilities, not another vendor.
+- Local server/clock or hosted wakeups must run. Ambiguous provider submissions and uncertain CRM writes still need native-result review.
 
 ## Review First
 
-- `lib/fullenrich-request.ts`: submission, correlation, polling and credits.
-- `lib/fullenrich.ts`: contact quality and type selection.
-- `scripts/test-enrow-worker.mjs fullenrich`: built Worker restart exercise.
+- `lib/provider-waterfall.ts` and `lib/provider-performance.ts`.
+- `db/schedule-runner.ts`, `db/run-job-control.ts` and `db/scheduled-crm.ts`.
+- `scripts/test-workflow-worker.mjs` and the three new focused test files.

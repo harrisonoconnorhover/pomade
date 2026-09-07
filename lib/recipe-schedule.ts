@@ -58,6 +58,10 @@ export function createRecipeSchedule(input: {
   const rowIds = Array.from(new Set(input.rowIds ?? [])).filter(Boolean);
   return {
     id: input.id,
+    executionId: undefined,
+    jobId: undefined,
+    sourceExecutionId: undefined,
+    executionFingerprint: undefined,
     afterRunCrm: input.afterRunCrm?.length
       ? structuredClone(input.afterRunCrm)
       : undefined,
@@ -97,8 +101,7 @@ export function isScheduleDue(
       schedule.nextRunAt !== undefined &&
       schedule.nextRunAt <= now) ||
     (schedule?.state === 'running' &&
-      schedule.leaseUntil !== undefined &&
-      schedule.leaseUntil <= now),
+      (schedule.leaseUntil ?? (schedule.jobId ? 0 : Infinity)) <= now),
   );
 }
 
@@ -132,6 +135,13 @@ export function claimDueSchedule(
         ? schedule.executionId ||
           `${schedule.id}-${schedule.lastAttemptAt ?? now}`
         : crypto.randomUUID(),
+      jobId: recoveringExpiredClaim ? schedule.jobId : undefined,
+      sourceExecutionId: recoveringExpiredClaim
+        ? schedule.sourceExecutionId
+        : undefined,
+      executionFingerprint: recoveringExpiredClaim
+        ? schedule.executionFingerprint
+        : undefined,
       lastAttemptAt: now,
       leaseUntil: now + SCHEDULE_LEASE_MS,
       lastError: undefined,
@@ -143,7 +153,7 @@ export function claimDueSchedule(
 
 export function completeClaimedSchedule(
   workspace: WorkspaceSnapshot,
-  run: RunReceipt,
+  run: Pick<RunReceipt, 'id'> | undefined,
   now = Date.now(),
 ): WorkspaceSnapshot {
   const schedule = workspace.schedule;
@@ -156,7 +166,7 @@ export function completeClaimedSchedule(
       enabled: recurring,
       state: recurring ? 'active' : 'complete',
       lastRunAt: now,
-      lastRunId: run.id,
+      lastRunId: run?.id,
       lastError: undefined,
       leaseUntil: undefined,
       updatedAt: now,
@@ -238,4 +248,41 @@ export function scheduledCrmRows(
       'Scheduled CRM writes support at most 25 qualifying rows per destination. Narrow the schedule or its condition.',
     );
   return ids;
+}
+
+// Ignore presentation-only edits; freeze the actual recipe and post-run scope.
+export function scheduleExecutionFingerprint(workspace: WorkspaceSnapshot) {
+  const schedule = workspace.schedule;
+  const ids = scheduledColumnIds(workspace);
+  return JSON.stringify({
+    columns: workspace.columns
+      .filter(
+        (c) =>
+          (c.kind === 'formula' || c.kind === 'enrichment') &&
+          (!ids || ids.includes(c.id)),
+      )
+      .map(({ width: _width, title: _title, ...column }) => column),
+    target: schedule?.target,
+    rowIds: schedule?.rowIds,
+    source: schedule?.beforeRunSource,
+    transfers: scheduledTransfers(schedule),
+    crm: schedule?.afterRunCrm,
+    confirmExternalResearch: schedule?.confirmExternalResearch,
+  });
+}
+export function assertScheduledJobScope(
+  workspace: WorkspaceSnapshot,
+  executionId: string,
+) {
+  if (workspace.schedule?.executionId !== executionId)
+    throw new Error(
+      'This scheduled run was replaced. Cancel its old background job.',
+    );
+  if (
+    workspace.schedule.executionFingerprint !==
+    scheduleExecutionFingerprint(workspace)
+  )
+    throw new Error(
+      'Scheduled recipes or destinations changed. Restore the original setup to resume, or cancel this run and save a new schedule.',
+    );
 }

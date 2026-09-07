@@ -71,6 +71,39 @@ describe('recent usage summary', () => {
     });
   });
 
+  it('resolves previously unknown submission cost when a later poll reports it, without counting waiting twice', () => {
+    const summary = summarizeRecentUsage([
+      run([
+        receipt('submit', {
+          provider: 'http',
+          operationId: 'one',
+          creditsConsumed: null,
+          creditsReported: false,
+        }),
+        receipt('result', {
+          provider: 'http',
+          operationId: 'one',
+          creditsConsumed: 2,
+          creditsReported: true,
+        }),
+        receipt('waiting', {
+          provider: 'http',
+          operationId: 'two',
+          creditsConsumed: null,
+          creditsReported: false,
+        }),
+        receipt('waiting-again', {
+          provider: 'http',
+          operationId: 'two',
+          creditsConsumed: 0,
+          creditsReported: false,
+        }),
+      ]),
+    ]);
+    expect(summary.observedCredits).toBe(2);
+    expect(summary.unreportedProviderActionCount).toBe(1);
+  });
+
   it('returns zeros for an empty history', () => {
     expect(summarizeRecentUsage([])).toMatchObject({
       runCount: 0,

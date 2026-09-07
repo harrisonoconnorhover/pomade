@@ -29,7 +29,10 @@ export function countMaximumExternalActions(
           (sum, column) =>
             sum +
             (column.recipe === 'http-waterfall'
-              ? (column.providerWaterfall?.steps.length ?? 4)
+              ? (column.providerWaterfall?.steps.reduce(
+                  (count, step) => count + 1 + (step.verifier ? 1 : 0),
+                  0,
+                ) ?? 4)
               : 1),
           0,
         ),

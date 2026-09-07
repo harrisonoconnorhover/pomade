@@ -29,11 +29,12 @@ export async function executeRecipePipeline(
   let workspace = input;
   const receipts: ActionReceipt[] = [];
   let skippedCount = 0;
+  const failedRows = new Set<string>();
   pipeline: for (const column of columns) {
     if (!isExternalRecipe(column)) {
       const local = executeWorkspace(
         workspace,
-        targetIds,
+        targetIds.filter((id) => !failedRows.has(id)),
         [column.id],
         lookupTables,
       );
@@ -44,7 +45,7 @@ export async function executeRecipePipeline(
     }
     for (const id of targetIds) {
       const row = workspace.rows.find((candidate) => candidate.id === id);
-      if (!row || !shouldRunRecipe(column, row)) {
+      if (!row || failedRows.has(id) || !shouldRunRecipe(column, row)) {
         skippedCount++;
         continue;
       }
@@ -52,6 +53,7 @@ export async function executeRecipePipeline(
       workspace = result.workspace;
       receipts.push(result.receipt);
       if (result.receipt.pending) break pipeline;
+      if (result.receipt.error) failedRows.add(id);
     }
   }
   const reviewed = new Set(

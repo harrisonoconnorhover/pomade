@@ -162,6 +162,7 @@ import {
 } from '@/lib/recipe-file';
 import { summarizeTable, type TableSummary } from '@/lib/workbook';
 import { summarizeRecentUsage } from '@/lib/usage-summary';
+import ProviderPerformancePanel from './provider-performance';
 import {
   MAX_BACKGROUND_RESEARCH_ACTIONS,
   MAX_BACKGROUND_ROWS,
@@ -1086,6 +1087,7 @@ export default function PomadeWorkspace({
       : undefined;
   const jobLocksWorkspace = Boolean(
     workbookRunning ||
+    workspace.schedule?.state === 'running' ||
     running ||
     apolloRunning ||
     jobSaving ||
@@ -1121,9 +1123,24 @@ export default function PomadeWorkspace({
   const scheduledExternalColumns = scheduleColumnIds
     ? webResearchColumns.filter((c) => scheduleColumnIds.includes(c.id))
     : webResearchColumns;
-  if (scheduledExternalColumns.some(hasAsyncProvider))
+
+  if (
+    scheduledTargetRows.length +
+      (scheduleSourceEnabled
+        ? (workspace.apiSourceRefresh?.config.maxRows ?? 0)
+        : 0) >
+    100
+  )
     scheduleScopeError =
-      'Asynchronous providers need a background or workbook run so they can wait for results. Single-pass schedules are not supported yet.';
+      'Limit a scheduled run to 100 rows, including possible source additions.';
+  if (
+    scheduledTargetRows.some(
+      (row) =>
+        countMaximumExternalActions([row], scheduledExternalColumns) > 10,
+    )
+  )
+    scheduleScopeError =
+      'Limit each scheduled row to 10 provider submissions, including verifications.';
   const scheduledResearchActionCount = countMaximumExternalActions(
     scheduleSourceEnabled && workspace.apiSourceRefresh
       ? [
@@ -1136,9 +1153,20 @@ export default function PomadeWorkspace({
       : scheduledTargetRows,
     scheduledExternalColumns,
   );
+  const savedScheduleJob = runJobs.find(
+    (job) => job.id === workspace.schedule?.jobId,
+  );
+  const scheduleHasUnfinishedRun =
+    workspace.schedule?.state === 'running' ||
+    Boolean(
+      savedScheduleJob &&
+      savedScheduleJob.status !== 'cancelled' &&
+      ['failed', 'paused'].includes(workspace.schedule?.state ?? ''),
+    );
   const scheduleTimestamp = new Date(scheduleRunAt).getTime();
   const scheduleReady =
     !scheduleScopeError &&
+    !scheduleHasUnfinishedRun &&
     (!scheduleCrmIds.length || scheduleCrmConfirmed) &&
     (!scheduleSourceEnabled ||
       (Boolean(workspace.apiSourceRefresh) && scheduleSourceConfirmed)) &&
@@ -1146,7 +1174,7 @@ export default function PomadeWorkspace({
     Number.isFinite(scheduleTimestamp) &&
     scheduleTimestamp > scheduleNow &&
     (scheduledTargetRows.length > 0 || scheduleSourceEnabled) &&
-    scheduledResearchActionCount <= maximumResearchActions &&
+    scheduledResearchActionCount <= MAX_BACKGROUND_RESEARCH_ACTIONS &&
     (scheduledExternalColumns.length === 0 || scheduleConfirmsResearch);
   const icpListReady = Boolean(icpBrief.trim()) && icpListLimit >= 1;
   const peopleListReady = Boolean(
@@ -2442,7 +2470,10 @@ export default function PomadeWorkspace({
     }
   }
 
-  async function updateRunJob(job: RunJob, action: 'pause' | 'resume') {
+  async function updateRunJob(
+    job: RunJob,
+    action: 'pause' | 'resume' | 'cancel',
+  ) {
     setJobSaving(true);
     setJobError('');
     try {
@@ -2453,6 +2484,7 @@ export default function PomadeWorkspace({
       });
       const result = (await response.json()) as {
         job?: RunJob;
+        workspace?: WorkspaceSnapshot;
         error?: string;
       };
       if (!response.ok || !result.job) {
@@ -2465,10 +2497,22 @@ export default function PomadeWorkspace({
             candidate.id === result.job?.id ? result.job : candidate,
           ) as RunJob[],
       );
+      if (result.workspace) {
+        const merged = mergeWorkspaceEdits(
+          lastSaved.current ?? workspace,
+          latestLocal.current,
+          result.workspace,
+        );
+        lastSaved.current = result.workspace;
+        setSavedWorkspace(result.workspace);
+        setWorkspace(merged);
+      }
       setNotice(
         action === 'pause'
           ? 'Background run paused after any in-flight row finishes.'
-          : 'Background run resumed.',
+          : action === 'cancel'
+            ? 'Run cancelled. Start a new background run for fresh lookups; those can use new provider credits.'
+            : 'Resuming saved progress and provider requests.',
       );
     } catch (error) {
       setJobError(
@@ -2670,6 +2714,10 @@ export default function PomadeWorkspace({
   function saveRecipeSchedule() {
     try {
       if (scheduleScopeError) throw new Error(scheduleScopeError);
+      if (scheduleHasUnfinishedRun)
+        throw new Error(
+          'Resume or cancel the saved run in Background runs before replacing its schedule.',
+        );
       const afterRunTransfers = scheduleTransferIds.map((id) => {
         const rule = workspace.tableTransfers?.find((r) => r.id === id);
         if (!rule) throw new Error('Choose existing saved transfer rules.');
@@ -2723,6 +2771,11 @@ export default function PomadeWorkspace({
 
   function pauseSchedule() {
     if (!workspace.schedule) return;
+    if (savedScheduleJob && scheduleHasUnfinishedRun) {
+      void updateRunJob(savedScheduleJob, 'pause');
+      setScheduleOpen(false);
+      return;
+    }
     setWorkspace((current) =>
       current.schedule
         ? {
@@ -4969,14 +5022,21 @@ export default function PomadeWorkspace({
           <DialogHeader>
             <DialogTitle>Background runs</DialogTitle>
             <DialogDescription>
-              Durable row-by-row recipe work continues on the worker clock after
-              you close Pomade. Every completed row keeps its normal receipt.
+              Saved runs keep completed steps and wait for provider results.
+              Processing continues while the local server and clock, or the
+              hosted worker and its wakeups, are running.
             </DialogDescription>
           </DialogHeader>
           {runJobs.length ? (
             <div className="run-job-list">
               {runJobs.slice(0, 6).map((job) => {
                 const processed = job.completedCount + job.skippedCount;
+                const finishSchedule =
+                  job.id === workspace.schedule?.jobId &&
+                  job.status === 'completed' &&
+                  ['failed', 'paused'].includes(
+                    workspace.schedule?.state ?? '',
+                  );
                 return (
                   <article
                     key={job.id}
@@ -4999,7 +5059,10 @@ export default function PomadeWorkspace({
                       <div>
                         <strong>{job.rowIds.length} row background run</strong>
                         <small>
-                          {processed} processed · {job.status}
+                          {processed} processed ·{' '}
+                          {job.waitingMessage && job.status === 'queued'
+                            ? 'Waiting for result'
+                            : job.status}
                           {job.confirmExternalResearch
                             ? ' · provider consent saved'
                             : ' · local recipes only'}
@@ -5013,15 +5076,28 @@ export default function PomadeWorkspace({
                       max={100}
                       value={runJobPercent(job)}
                     />
-                    {job.lastError ? (
-                      <p className="run-job-error">{job.lastError}</p>
+                    {job.waitingMessage ? (
+                      <p className="run-job-waiting">
+                        {job.waitingMessage}
+                        {job.nextCheckAt
+                          ? ` Next result check no earlier than ${runTime(job.nextCheckAt)}.`
+                          : ''}
+                      </p>
                     ) : null}
-                    {canPauseRunJob(job) || canResumeRunJob(job) ? (
+                    {job.lastError ||
+                    (finishSchedule && workspace.schedule?.lastError) ? (
+                      <p className="run-job-error">
+                        {job.lastError || workspace.schedule?.lastError}
+                      </p>
+                    ) : null}
+                    {canPauseRunJob(job) ||
+                    canResumeRunJob(job) ||
+                    finishSchedule ? (
                       <div className="run-job-actions">
                         <span>
                           {job.skippedCount
                             ? `${job.skippedCount} deleted ${job.skippedCount === 1 ? 'row was' : 'rows were'} skipped.`
-                            : 'The current row may finish before a pause takes effect.'}
+                            : 'Resume reuses saved steps and request IDs. Cancel, then start a new run for fresh lookups. A request already in flight may finish.'}
                         </span>
                         {canPauseRunJob(job) ? (
                           <Button
@@ -5037,9 +5113,18 @@ export default function PomadeWorkspace({
                             disabled={jobSaving}
                           >
                             <Play />{' '}
-                            {job.status === 'failed' ? 'Retry' : 'Resume'}
+                            {finishSchedule
+                              ? 'Finish scheduled steps'
+                              : 'Resume saved run'}
                           </Button>
                         )}
+                        <Button
+                          variant="outline"
+                          disabled={jobSaving}
+                          onClick={() => void updateRunJob(job, 'cancel')}
+                        >
+                          Cancel run
+                        </Button>
                       </div>
                     ) : null}
                   </article>
@@ -5097,11 +5182,14 @@ export default function PomadeWorkspace({
                 <strong>
                   {workspace.schedule.state === 'failed'
                     ? 'Schedule stopped after an error'
-                    : workspace.schedule.enabled && workspace.schedule.nextRunAt
-                      ? `${cadenceLabel(workspace.schedule.cadence)} · next ${runTime(workspace.schedule.nextRunAt)}`
-                      : workspace.schedule.state === 'complete'
-                        ? 'One-time run complete'
-                        : 'Schedule paused'}
+                    : workspace.schedule.state === 'running'
+                      ? 'Scheduled run in progress'
+                      : workspace.schedule.enabled &&
+                          workspace.schedule.nextRunAt
+                        ? `${cadenceLabel(workspace.schedule.cadence)} · next ${runTime(workspace.schedule.nextRunAt)}`
+                        : workspace.schedule.state === 'complete'
+                          ? 'One-time run complete'
+                          : 'Schedule paused'}
                 </strong>
                 <small>
                   {workspace.schedule.lastError ||
@@ -5310,6 +5398,21 @@ export default function PomadeWorkspace({
             ) : null}
           </fieldset>
           {scheduleScopeError ? <p role="alert">{scheduleScopeError}</p> : null}
+          {scheduleHasUnfinishedRun ? (
+            <p>
+              A saved scheduled run is unfinished. Resume or cancel it before
+              saving a replacement.{' '}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setScheduleOpen(false);
+                  setBackgroundRunsOpen(true);
+                }}
+              >
+                Manage saved run
+              </Button>
+            </p>
+          ) : null}
           {scheduleTransferIds.length ? (
             <p>
               Choose up to five rules with different destinations. Each branch
@@ -5370,11 +5473,12 @@ export default function PomadeWorkspace({
               enrichments only.
             </p>
           )}
-          {scheduledResearchActionCount > maximumResearchActions ? (
+          {scheduledResearchActionCount > MAX_BACKGROUND_RESEARCH_ACTIONS ? (
             <p className="schedule-error" role="alert">
               This scope allows up to {scheduledResearchActionCount} external
               requests. Choose a captured selection so each run stays at or
-              below {maximumResearchActions}.
+              below {MAX_BACKGROUND_RESEARCH_ACTIONS} provider submissions,
+              including verifications.
             </p>
           ) : scheduleError ? (
             <p className="schedule-error" role="alert">
@@ -5383,10 +5487,12 @@ export default function PomadeWorkspace({
           ) : null}
           <div className="schedule-actions">
             <p>
-              Pomade checks for due work every minute. Failed schedules stop
-              instead of spending credits repeatedly.
+              Delayed results keep this run waiting. Transfers and CRM writes
+              start after enrichment finishes. Resume a stopped run from
+              Background runs.
             </p>
-            {workspace.schedule?.enabled ? (
+            {workspace.schedule?.enabled ||
+            workspace.schedule?.state === 'running' ? (
               <Button variant="outline" onClick={pauseSchedule}>
                 <Pause /> Pause
               </Button>
@@ -5636,6 +5742,11 @@ export default function PomadeWorkspace({
               .join(' · ') || 'none'}
             . Recent receipts only—not a billing ledger.
           </p>
+          <ProviderPerformancePanel
+            key={workspaceId}
+            workspaceId={workspace.id}
+            open={historyOpen}
+          />
           <div className="run-history-list">
             {runHistory.length ? (
               runHistory.map((run) => (

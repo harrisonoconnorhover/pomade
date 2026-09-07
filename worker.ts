@@ -1,4 +1,3 @@
-import { hasAsyncProvider } from './lib/async-provider';
 import { withEnv } from 'cloudflare:workers';
 import {
   accountsEnabled,
@@ -19,42 +18,22 @@ import { runWorkbooks, workbookJobAllowed } from './db/workbook-runner';
 import { authorizeDeployment, deploymentStatus } from './lib/deployment';
 import { handleCompanion } from './db/companion-handler';
 import { companionStatus } from './lib/companion-research';
-import { runScheduledCrm } from './db/scheduled-crm';
-import { signalStatements } from './db/signal-store';
 import app from 'vinext/server/fetch-handler';
-import {
-  refreshApiSource,
-  validateApiSourceRefresh,
-  type ApiSourceBatch,
-} from './lib/api-source';
-import { scheduledTransferStatements } from './db/scheduled-transfer';
-
-import { versionedWorkspaceStatements } from './db/workspace-store';
 import { ingestWebhookEvents } from './db/webhook-ingestion';
 import { ensureDatabaseSchema } from './db/ensure';
-import {
-  scheduledColumnIds,
-  claimDueSchedule,
-  completeClaimedSchedule,
-  failClaimedSchedule,
-} from './lib/recipe-schedule';
+import { advanceRecipeSchedules } from './db/schedule-runner';
+import { assertScheduledJobScope } from './lib/recipe-schedule';
 import type { RunReceipt, WorkspaceSnapshot } from './lib/pomade-types';
 import { RUN_JOB_LEASE_MS } from './lib/run-job';
 
-const MAX_WORKSPACES_PER_TICK = 3;
 const MAX_JOBS_PER_TICK = 3;
 let workerSchemaReady = false;
-
-type WorkspaceRecord = {
-  id: string;
-  snapshot: string;
-  updated_at: number;
-};
-
 type RunJobRecord = {
   id: string;
   workspace_id: string;
   workbook_run_id: string | null;
+  schedule_execution_id: string | null;
+  next_check_at: number | null;
   status: string;
   row_ids: string;
   column_ids: string | null;
@@ -66,240 +45,32 @@ type RunJobRecord = {
   lease_until: number | null;
   updated_at: number;
 };
-
-async function saveWorkspace(
-  env: Cloudflare.Env,
-  workspace: WorkspaceSnapshot,
-) {
-  await env.DB.batch(
-    await versionedWorkspaceStatements(
-      env.DB,
-      workspace,
-      'Background run queued',
-    ),
-  );
-}
-
-async function claimWorkspace(
-  env: Cloudflare.Env,
-  record: WorkspaceRecord,
-  now: number,
-) {
-  const workspace = JSON.parse(record.snapshot) as WorkspaceSnapshot;
-  const claimed = claimDueSchedule(workspace, now);
-  if (!claimed) return null;
-  claimed.revision = (workspace.revision ?? 0) + 1;
-  const result = await env.DB.prepare(
-    `UPDATE workspaces
-     SET snapshot = ?, updated_at = ?
-     WHERE id = ? AND snapshot = ?`,
-  )
-    .bind(
-      JSON.stringify(claimed),
-      claimed.updatedAt,
-      record.id,
-      record.snapshot,
-    )
-    .run();
-  return result.meta.changes === 1 ? claimed : null;
-}
-
-async function scheduledRowIds(workspace: WorkspaceSnapshot) {
-  const schedule = workspace.schedule;
-  if (!schedule || schedule.target !== 'selected') return undefined;
-  const known = new Set(workspace.rows.map((row) => row.id));
-  const rowIds = (schedule.rowIds ?? []).filter((rowId) => known.has(rowId));
-  if (!rowIds.length) {
-    throw new Error('The scheduled rows no longer exist.');
-  }
-  return rowIds;
-}
-
 export async function runDueSchedules(
   scheduledTime: number,
   env: Cloudflare.Env,
   ctx: ExecutionContext,
 ) {
-  const records = await env.DB.prepare(
-    `SELECT id, snapshot, updated_at
-     FROM workspaces
-     ORDER BY updated_at ASC
-     LIMIT 50`,
-  ).all<WorkspaceRecord>();
-  let claimedCount = 0;
-
-  for (const record of records.results) {
-    if (claimedCount >= MAX_WORKSPACES_PER_TICK) break;
-    let claimed: WorkspaceSnapshot | null = null;
-    let latestWorkspace: WorkspaceSnapshot | null = null;
-    try {
-      claimed = await claimWorkspace(env, record, scheduledTime);
-      if (!claimed) continue;
-      latestWorkspace = claimed;
-      claimedCount += 1;
-      // Resolve recipe membership before making any scheduled source requests.
-      const columnIds = scheduledColumnIds(claimed);
-      if (
-        claimed.columns.some(
-          (column) =>
-            hasAsyncProvider(column) &&
-            (!columnIds || columnIds.includes(column.id)),
-        )
-      )
-        throw new Error(
-          'Asynchronous provider recipes need a background or workbook run. Single-pass schedules cannot wait for their results.',
-        );
-      const source = claimed.schedule?.beforeRunSource;
-      if (source) {
-        validateApiSourceRefresh(claimed, source);
-        if (claimed.schedule?.target !== 'all')
-          throw new Error('Source refresh requires whole-table recipe scope.');
-        const fetched = await app.fetch(
-          new Request('https://pomade.internal/api/sources/http', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              workspaceId: claimed.id,
-              config: source.config,
-              confirmRequests: true,
-            }),
-          }),
-          env,
-          ctx,
-        );
-        const result = (await fetched.json()) as {
-          batch?: ApiSourceBatch;
-          error?: string;
-        };
-        if (!fetched.ok || result.error || !result.batch)
-          throw new Error(result.error ?? 'Scheduled source fetch failed.');
-        const refreshed = refreshApiSource(
-          claimed,
-          result.batch,
-          source.mapping,
-        ).workspace;
-        refreshed.schedule!.lastSourceBatchId = result.batch.id;
-        await env.DB.batch([
-          ...(await versionedWorkspaceStatements(
-            env.DB,
-            refreshed,
-            'Grid edit',
-          )),
-          ...signalStatements(env.DB, claimed, refreshed, {
-            id: result.batch.id,
-            origin: 'API refresh',
-            columnIds: Object.keys(source.mapping),
-          }),
-        ]);
-        claimed = refreshed;
-        latestWorkspace = refreshed;
-      }
-      const rowIds = await scheduledRowIds(claimed);
-      const response = await app.fetch(
-        new Request('https://pomade.internal/api/runs', {
+  await advanceRecipeSchedules(
+    env.DB,
+    scheduledTime,
+    (path, body) =>
+      app.fetch(
+        new Request(`https://pomade.internal${path}`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            workspace: claimed,
-            rowIds,
-            columnIds,
-            confirmExternalResearch:
-              claimed.schedule?.confirmExternalResearch === true,
-          }),
+          body: JSON.stringify(body),
         }),
         env,
         ctx,
-      );
-      const result = (await response.json()) as {
-        workspace?: WorkspaceSnapshot;
-        run?: RunReceipt;
-        error?: string;
-      };
-      if (!response.ok || !result.workspace || !result.run) {
-        throw new Error(
-          result.error || `Scheduled run failed (${response.status}).`,
-        );
-      }
-      latestWorkspace = result.workspace;
-      const stepError = result.run.receipts.find(
-        (receipt) => receipt.error,
-      )?.error;
-      if (stepError) throw new Error(stepError);
-      const crmPlanIds = await runScheduledCrm(
-        env.DB,
-        result.workspace,
-        rowIds,
-        {
-          hubSpotAccessToken: env.HUBSPOT_ACCESS_TOKEN,
-          salesforceAccessToken: env.SALESFORCE_ACCESS_TOKEN,
-          ...salesforceRenewalEnvironment(env),
-          salesforceInstanceUrl: env.SALESFORCE_INSTANCE_URL,
-          salesforceApiVersion: env.SALESFORCE_API_VERSION,
-        },
-        async (planId) => {
-          const response = await app.fetch(
-            new Request('https://pomade.internal/api/crm-sync', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ planId, confirmWrite: true }),
-            }),
-            env,
-            ctx,
-          );
-          const body = (await response.json()) as {
-            plan?: import('./lib/crm-sync').CrmSyncPlan;
-            error?: string;
-          };
-          if (!response.ok || !body.plan)
-            throw new Error(body.error || 'Scheduled CRM write failed.');
-          return body.plan;
-        },
-      );
-      const transfer = await scheduledTransferStatements(
-        env.DB,
-        result.workspace,
-        rowIds ??
-          (claimed.rows.length ? claimed.rows.map((row) => row.id) : undefined),
-      );
-      const completed = completeClaimedSchedule(
-        result.workspace,
-        result.run,
-        Date.now(),
-      );
-      completed.schedule!.lastCrmPlanIds = crmPlanIds;
-      completed.schedule!.lastTransferRunId = transfer.receiptId;
-      completed.schedule!.lastTransferRunIds = transfer.receiptIds;
-      await env.DB.batch([
-        ...transfer.statements,
-        ...(await versionedWorkspaceStatements(
-          env.DB,
-          completed,
-          'Background run queued',
-        )),
-      ]);
-    } catch (error) {
-      if (!latestWorkspace) continue;
-      const message =
-        error instanceof Error ? error.message : 'The scheduled run failed.';
-      console.error(
-        `Pomade schedule ${latestWorkspace.schedule?.id ?? 'unknown'} failed: ${message}`,
-      );
-      try {
-        await saveWorkspace(
-          env,
-          failClaimedSchedule(latestWorkspace, message, Date.now()),
-        );
-      } catch (recoveryError) {
-        console.error(
-          `Pomade could not persist the failed schedule state: ${
-            recoveryError instanceof Error
-              ? recoveryError.message
-              : 'unknown error'
-          }`,
-        );
-      }
-    }
-  }
+      ),
+    {
+      hubSpotAccessToken: env.HUBSPOT_ACCESS_TOKEN,
+      salesforceAccessToken: env.SALESFORCE_ACCESS_TOKEN,
+      ...salesforceRenewalEnvironment(env),
+      salesforceInstanceUrl: env.SALESFORCE_INSTANCE_URL,
+      salesforceApiVersion: env.SALESFORCE_API_VERSION,
+    },
+  );
 }
 
 async function claimRunJob(
@@ -333,7 +104,7 @@ async function finishRunJobStep(
          skipped_count = skipped_count + ?,
          status = CASE WHEN status = 'paused' THEN 'paused' ELSE ? END,
          lease_until = NULL, resume_column_ids = NULL, last_run_id = COALESCE(?, last_run_id),
-         last_error = NULL, updated_at = ?
+         last_error = NULL, waiting_message = NULL, next_check_at = NULL, updated_at = ?
      WHERE id = ? AND status IN ('running', 'paused')`,
   )
     .bind(
@@ -348,14 +119,27 @@ async function finishRunJobStep(
     .run();
 }
 
-async function failRunJob(env: Cloudflare.Env, jobId: string, error: string) {
+async function failRunJob(
+  env: Cloudflare.Env,
+  jobId: string,
+  error: string,
+  checkpoint?: { columnIds?: string[]; runId?: string; nextCheckAt?: number },
+) {
   await env.DB.prepare(
     `UPDATE run_jobs
      SET status = CASE WHEN status = 'paused' THEN 'paused' ELSE 'failed' END,
-         lease_until = NULL, last_error = ?, updated_at = ?
+         lease_until = NULL, last_error = ?, waiting_message = NULL, updated_at = ?,
+         resume_column_ids = COALESCE(?,resume_column_ids), last_run_id = COALESCE(?,last_run_id), next_check_at = ?
      WHERE id = ? AND status IN ('running', 'paused')`,
   )
-    .bind(error.replace(/\s+/g, ' ').trim().slice(0, 500), Date.now(), jobId)
+    .bind(
+      error.replace(/\s+/g, ' ').trim().slice(0, 500),
+      Date.now(),
+      checkpoint?.columnIds ? JSON.stringify(checkpoint.columnIds) : null,
+      checkpoint?.runId ?? null,
+      checkpoint?.nextCheckAt ?? null,
+      jobId,
+    )
     .run();
 }
 
@@ -365,15 +149,17 @@ async function waitForExternalResult(
   columnIds: string[] | undefined,
   message: string,
   runId?: string,
+  nextCheckAt?: number,
 ) {
   await env.DB.prepare(`UPDATE run_jobs SET
     status = CASE WHEN status = 'paused' THEN 'paused' ELSE 'queued' END,
-    lease_until = NULL, resume_column_ids = ?, last_error = ?,
+    lease_until = NULL, resume_column_ids = ?, waiting_message = ?, last_error = NULL, next_check_at = ?,
     last_run_id = COALESCE(?, last_run_id), updated_at = ?
     WHERE id = ? AND status IN ('running', 'paused')`)
     .bind(
       columnIds ? JSON.stringify(columnIds) : null,
       message,
+      nextCheckAt ?? Date.now() + 15_000,
       runId ?? null,
       Date.now(),
       job.id,
@@ -387,16 +173,16 @@ export async function runQueuedJobs(
   ctx: ExecutionContext,
 ) {
   const records = await env.DB.prepare(
-    `SELECT id, workspace_id, workbook_run_id, status, row_ids, column_ids, resume_column_ids, cursor,
+    `SELECT id, workspace_id, workbook_run_id, schedule_execution_id, next_check_at, status, row_ids, column_ids, resume_column_ids, cursor,
             completed_count, skipped_count, confirm_external_research,
             lease_until, updated_at
      FROM run_jobs
-     WHERE status = 'queued'
+     WHERE (status = 'queued' AND (next_check_at IS NULL OR next_check_at <= ?))
         OR (status = 'running' AND lease_until <= ?)
      ORDER BY created_at ASC
      LIMIT ?`,
   )
-    .bind(scheduledTime, MAX_JOBS_PER_TICK)
+    .bind(scheduledTime, scheduledTime, MAX_JOBS_PER_TICK)
     .all<RunJobRecord>();
 
   for (const job of records.results) {
@@ -424,6 +210,26 @@ export async function runQueuedJobs(
       const workspace = JSON.parse(
         workspaceRecord.snapshot,
       ) as WorkspaceSnapshot;
+      if (job.schedule_execution_id) {
+        if (
+          workspace.schedule?.executionId !== job.schedule_execution_id ||
+          workspace.schedule?.state !== 'running'
+        ) {
+          await env.DB.prepare(
+            "UPDATE run_jobs SET status=?,lease_until=NULL,updated_at=? WHERE id=? AND status='running'",
+          )
+            .bind(
+              workspace.schedule?.executionId === job.schedule_execution_id
+                ? 'paused'
+                : 'cancelled',
+              Date.now(),
+              job.id,
+            )
+            .run();
+          continue;
+        }
+        assertScheduledJobScope(workspace, job.schedule_execution_id);
+      }
       if (
         job.workbook_run_id &&
         !(await workbookJobAllowed(env.DB, job.workbook_run_id, workspace))
@@ -490,26 +296,35 @@ export async function runQueuedJobs(
           result.error || `Background row failed (${response.status}).`,
         );
       }
-      const stepError = result.run.receipts.find(
-        (receipt) => receipt.error,
-      )?.error;
-      if (stepError) throw new Error(stepError);
-      const pending = result.run.receipts.find((receipt) => receipt.pending);
-      if (pending) {
-        const scoped = workspace.columns
-          .filter(
-            (column) =>
-              (column.kind === 'formula' || column.kind === 'enrichment') &&
-              (!columnIds || columnIds.includes(column.id)),
-          )
-          .map((column) => column.id);
-        await waitForExternalResult(
-          env,
-          job,
-          scoped.slice(scoped.indexOf(pending.columnId)),
-          pending.evidence?.at(-1) || 'Waiting for an external result.',
-          result.run.id,
+      const scoped = workspace.columns
+        .filter(
+          (column) =>
+            (column.kind === 'formula' || column.kind === 'enrichment') &&
+            (!columnIds || columnIds.includes(column.id)),
+        )
+        .map((column) => column.id);
+      const problem = result.run.receipts.find(
+        (receipt) => receipt.error || receipt.pending,
+      );
+      if (problem) {
+        const remaining = scoped.slice(
+          Math.max(0, scoped.indexOf(problem.columnId)),
         );
+        if (problem.error)
+          await failRunJob(env, job.id, problem.error, {
+            columnIds: remaining,
+            runId: result.run.id,
+            nextCheckAt: problem.nextCheckAt,
+          });
+        else
+          await waitForExternalResult(
+            env,
+            job,
+            remaining,
+            problem.evidence?.at(-1) || 'Waiting for an external result.',
+            result.run.id,
+            problem.nextCheckAt,
+          );
         continue;
       }
       await finishRunJobStep(env, job, { runId: result.run.id });

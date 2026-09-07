@@ -556,7 +556,24 @@ export async function executeHttpRecipe(
     }
   }
   values[config.statusColumnId] = status;
+  const requestState =
+    asyncContext?.progress.state.requests[asyncContext.index];
   const receipt: ActionReceipt = {
+    providerConnectionId: connection?.id ?? config.connectionId,
+    providerLabel: connection?.label ?? config.connectionId,
+    operationPhase: ASYNC_PROVIDER_CONNECTIONS.includes(config.connectionId)
+      ? requestState?.pollCount
+        ? 'result-check'
+        : 'submission'
+      : 'request',
+    startedAt: requestState?.submittedAt ?? started,
+    finishedAt: pending ? undefined : Date.now(),
+    nextCheckAt: pending || failure ? requestState?.nextPollAt : undefined,
+    reportedCreditTotal: requestState?.reportedCredits,
+    creditsReported: ASYNC_PROVIDER_CONNECTIONS.includes(config.connectionId)
+      ? requestState?.reportedCredits !== undefined
+      : typeof credits === 'number',
+
     id: crypto.randomUUID(),
     rowId,
     rowLabel: row.values.company || rowId,

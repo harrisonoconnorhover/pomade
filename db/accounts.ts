@@ -16,7 +16,7 @@ export type PomadeAccount = {
   companion_hash: string | null;
   created_at: number;
 };
-export const ACCOUNT_SCHEMA_VERSION = 2;
+export const ACCOUNT_SCHEMA_VERSION = 3;
 export const accountsEnabled = (env: Cloudflare.Env) =>
   env.POMADE_DEPLOYMENT === 'hosted' && env.POMADE_ACCOUNTS_ENABLED === 'true';
 export class AccountError extends Error {
