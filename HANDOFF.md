@@ -17,7 +17,8 @@
 ## Checks
 
 - 24 focused recipe/template/portable-file/function tests passed, including mapped skips, four-action execution, stale-value clearing, and export/import.
-- Typecheck and lint passed. Local/hosted builds and private deployment are the remaining release checks.
+- Typecheck, lint, local and hosted builds, package validation, and diff whitespace checks passed.
+- Private version 18 is live (runtime commit `2540a9f`). HTTP checks returned 200; the served recipe bundle exactly matches the packaged build. All 11 hosted and 19 local table inventories were preserved.
 - No browser visual QA or live provider research has been performed for these four new prompts.
 
 ## Decisions
@@ -28,7 +29,6 @@
 
 ## Remaining
 
-- Complete local/hosted release checks and private publication.
 - Assess real answer quality on chosen companies when using the recipes. Citations and structure checks do not independently prove claims.
 - Friend sign-in and personal companion onboarding remain future work when someone wants access. These recipes do not add automatic monitoring.
 
