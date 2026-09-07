@@ -36,7 +36,7 @@ export default function ResearchProviderPicker({
       </select>
       <small>
         {provider === 'codex'
-          ? 'Uses the model and effort below. Your Mac must be connected.'
+          ? 'Uses the column’s model and effort settings. Your Mac must be connected.'
           : provider === 'parallel'
             ? 'Uses your Parallel account and its configured model. Useful for quick, structured questions.'
             : 'Uses the connected provider’s allowance. Provider access is checked when the column runs.'}

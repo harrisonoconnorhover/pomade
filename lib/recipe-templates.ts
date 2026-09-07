@@ -282,6 +282,10 @@ export function instantiateRecipeTemplate(
       field.title = preservedOutputs[i].title;
     });
   }
+  if (!preservedOutputs && columns.length + outputFields.length > 100)
+    throw new Error(
+      `This table supports 100 columns. Leave room for ${outputFields.length} recipe outputs.`,
+    );
   const [primary, ...supporting] = outputFields;
   if (!primary) throw new Error('Template needs an output column.');
 

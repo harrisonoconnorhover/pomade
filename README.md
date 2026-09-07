@@ -9,6 +9,8 @@ what changed. It is an original product built on the open-source
 
 ## Current vertical slice
 
+- Start with four buying-signal recipes for sales hiring, recent funding, tools in use,
+  and sales leadership with operations support; customize and reuse them across sheets.
 - Run a prompt-built workbook across its linked sheets with saved progress,
   pause/resume, request limits, and scoped transfers.
 - Refresh a saved HubSpot segment or Salesforce source manually, daily, or weekly;
@@ -71,11 +73,12 @@ writes now have their own preview and receipts, without automatic rollback.
 
 One open-source product, usable through an independent installation or an
 optional Pomade-hosted account. Our current priority is daily usability: table workflows, integrations and
-reliable enrichment. Google sign-in and account isolation are deferred until
-those workflows work well for us. Hosted signup and complete standalone
-self-host packaging are not implemented yet. Development currently uses
-Workers/D1 and Sites tooling. Build slices are committed locally; GitHub pushes
-and site publication wait for a requested release milestone.
+reliable enrichment. The private hosted site uses Sites ChatGPT sign-in and
+isolated accounts with personal provider/CRM connections. The optional friends
+beta can remain unused until someone wants access; public signup and direct
+Google sign-in are not implemented. Complete standalone self-host packaging
+remains unfinished. Development uses Workers/D1 and Sites tooling, with approved
+private-site releases and local commits. GitHub publishing remains deferred.
 
 ## Build from a prompt
 
@@ -121,6 +124,32 @@ lookup values. Receipts include the source table, matching row and source save
 time. A later formula can use the returned values in the same run. Lookups can
 be saved as templates inside this workbook. Contains matching and numeric
 rollups are supported as described below; portable lookup export remains pending.
+
+## Research buying signals
+
+Open **Recipe library → Buying-signal research**, choose **Use**, map the company
+website column, and optionally select a research provider or add a focus such as
+“HubSpot and Salesforce” or “US SDR roles.” Adding a recipe does not run it.
+Use its column menu to run selected or visible rows when ready.
+
+Each of the four recipes adds six outputs from one research action per row:
+an assessment, relevant details, evidence, supporting URLs, and a cautious sales
+hypothesis. Hiring checks current sales roles and announcements from the last
+90 days; funding defaults to completed rounds announced within 180 days. Tool
+and team recipes separate current evidence from historical or indirect mentions.
+A custom focus can narrow these defaults. Rows without the mapped website skip
+research. Provider pricing still applies to the underlying research action.
+
+**Not found** means the research did not establish the signal. Unknown factual
+values stay blank; missing citations remain in **Review**. Source-linked answers
+still need judgment: an open job does not prove growth, funding does not prove
+budget, and a job-ad tool mention does not prove current installation.
+
+Edit the full prompt in column settings and **Save template** to retain your
+version. Saved copies preserve their prompt, provider, mapped inputs, conditions,
+and six outputs; export/import supports reuse on another installation. These are
+research snapshots. Use the existing **Change signals** flow for recurring
+hiring/leadership monitoring.
 
 ## Share a recipe between installations
 

@@ -1,6 +1,11 @@
 'use client';
 
 import {
+  RESEARCH_RECIPES,
+  prepareResearchRecipe,
+} from '@/lib/research-recipes';
+
+import {
   Copy,
   ArrowDown,
   ArrowDownUp,
@@ -321,7 +326,7 @@ const recipePresets: RecipePreset[] = [
     group: 'Research',
     description:
       'Ask a custom row-by-row question using live public web research.',
-    requires: 'Parallel or Google AI key + company context',
+    requires: 'Connected research provider + company context',
   },
   {
     title: 'ICP fit',
@@ -538,6 +543,9 @@ export default function PomadeWorkspace({
   const [templateName, setTemplateName] = useState('');
   const [templateDescription, setTemplateDescription] = useState('');
   const [activeTemplateId, setActiveTemplateId] = useState('');
+  const [templateResearchFocus, setTemplateResearchFocus] = useState('');
+  const [templateResearchProvider, setTemplateResearchProvider] =
+    useState<PomadeColumn['researchProvider']>();
   const [templateError, setTemplateError] = useState('');
   const [recipeFileMessage, setRecipeFileMessage] = useState('');
   const [templateBindings, setTemplateBindings] = useState<
@@ -997,7 +1005,7 @@ export default function PomadeWorkspace({
   const templateColumn = workspace.columns.find(
     (column) => column.id === templateColumnId,
   );
-  const activeTemplate = recipeTemplates.find(
+  const activeTemplate = [...RESEARCH_RECIPES, ...recipeTemplates].find(
     (template) => template.id === activeTemplateId,
   );
   const templateBindingsReady = Boolean(
@@ -1408,6 +1416,8 @@ export default function PomadeWorkspace({
   function openTemplateUse(template: RecipeTemplate) {
     setAddColumnOpen(false);
     setActiveTemplateId(template.id);
+    setTemplateResearchFocus('');
+    setTemplateResearchProvider(template.column.researchProvider);
     setTemplateBindings(defaultTemplateBindings(template, workspace.columns));
     setTemplateError('');
     setTemplateUseOpen(true);
@@ -1417,7 +1427,10 @@ export default function PomadeWorkspace({
     if (!activeTemplate || !templateBindingsReady) return;
     try {
       const addedColumns = instantiateRecipeTemplate(
-        activeTemplate,
+        prepareResearchRecipe(activeTemplate, {
+          focus: templateResearchFocus,
+          provider: templateResearchProvider,
+        }),
         workspace.columns,
         templateBindings,
       );
@@ -2854,7 +2867,8 @@ export default function PomadeWorkspace({
               onClick={() => setAddColumnOpen(true)}
               disabled={jobLocksWorkspace}
             >
-              <Library /> Recipe library <span>{recipeTemplates.length}</span>
+              <Library /> Recipe library{' '}
+              <span>{recipeTemplates.length + RESEARCH_RECIPES.length}</span>
             </button>
           </nav>
           <p className="sidebar-label sidebar-label-spaced">Saved views</p>
@@ -3684,6 +3698,48 @@ export default function PomadeWorkspace({
           {recipeFileMessage ? (
             <output className="template-no-inputs">{recipeFileMessage}</output>
           ) : null}
+          <section className="recipe-group">
+            <div className="recipe-group-heading">
+              <span>Buying-signal research</span>
+              <small>4 reusable recipes · one research action each</small>
+            </div>
+            <p className="template-no-inputs">
+              Find a reason to reach out. Each recipe adds six columns with
+              evidence, sources, and a separate sales hypothesis. Choose a
+              provider and run only when ready.
+            </p>
+            <div className="template-library-list">
+              {RESEARCH_RECIPES.map((template, index) => (
+                <article key={template.id}>
+                  <span className="template-library-icon" aria-hidden="true">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <div>
+                    <strong>{template.name}</strong>
+                    <small>{template.description}</small>
+                    <em>Company website → 6 outputs</em>
+                  </div>
+                  <button
+                    className="template-use-button"
+                    type="button"
+                    disabled={jobLocksWorkspace}
+                    onClick={() => openTemplateUse(template)}
+                  >
+                    Use
+                  </button>
+                  <button
+                    className="template-delete-button"
+                    type="button"
+                    aria-label={`Export ${template.name}`}
+                    title="Export recipe file"
+                    onClick={() => downloadRecipe(template)}
+                  >
+                    <Download />
+                  </button>
+                </article>
+              ))}
+            </div>
+          </section>
           {recipeTemplates.length ? (
             <section className="recipe-group template-library">
               <div className="recipe-group-heading">
@@ -3750,7 +3806,7 @@ export default function PomadeWorkspace({
                 <small>
                   {group === 'Transform'
                     ? 'Instant, deterministic formulas'
-                    : 'Safe demo enrichment recipes'}
+                    : 'Live web research and local demo recipes'}
                 </small>
               </div>
               <div className="recipe-presets">
@@ -4088,6 +4144,32 @@ export default function PomadeWorkspace({
                   ))}
                 </div>
               </div>
+              {activeTemplate.column.recipe === 'web-research' ? (
+                <>
+                  <ResearchProviderPicker
+                    value={templateResearchProvider}
+                    defaultProvider={researchStatus?.provider}
+                    disabled={jobLocksWorkspace}
+                    onChange={setTemplateResearchProvider}
+                  />
+                  <label className="recipe-research-focus">
+                    Research focus (optional)
+                    <textarea
+                      rows={2}
+                      maxLength={500}
+                      value={templateResearchFocus}
+                      onChange={(event) =>
+                        setTemplateResearchFocus(event.target.value)
+                      }
+                      placeholder="For example: HubSpot and Salesforce; US SDR roles; funding in the last 90 days"
+                    />
+                    <small>
+                      Saved with this copy. You can edit the full prompt in
+                      column settings and save your version as a template.
+                    </small>
+                  </label>
+                </>
+              ) : null}
               {activeTemplate.inputs.length ? (
                 <div className="template-input-mapping">
                   <div className="structured-field-heading">
@@ -4142,7 +4224,9 @@ export default function PomadeWorkspace({
             </Button>
             <Button
               onClick={useRecipeTemplate}
-              disabled={!activeTemplate || !templateBindingsReady}
+              disabled={
+                !activeTemplate || !templateBindingsReady || jobLocksWorkspace
+              }
             >
               <Plus /> Add function
             </Button>

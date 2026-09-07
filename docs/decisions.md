@@ -1014,3 +1014,25 @@ and connection replacement. In-flight requests can
 finish when access is revoked; later requests and cron selection reject the
 account. Existing owner companion remains owner-scoped; member research uses
 personal Parallel/Gemini keys until individual companion onboarding is added.
+
+
+## 2026-09-07 — Reusable buying-signal research
+
+Use the existing recipe-template and structured research pipeline for four built-in
+recipes: sales hiring, recent funding, tools in use, and sales leadership with
+operations support. Each research action returns six fields. Map the required
+website input and skip empty values before provider calls. Instantiating a recipe
+never runs it; the existing run controls and request limits apply.
+
+Keep optional plain-text focus and provider choice with each copied recipe. Save
+or export customized templates through the current library. Preserve provider
+selection in portable recipe files and enforce the existing 100-column table limit
+when adding multi-output recipes. No new credentials, database schema, or service.
+
+Separate observed evidence from sales implications. Hiring announcements use a
+90-day default and funding a 180-day default; current role/tool evidence must not
+be inferred from stale mentions. Not found is an evidence gap, not proof of absence.
+The existing citation/review mechanism applies but does not independently verify
+model claims. These recipes are snapshots, not new automatic monitors. The friends
+beta remains optional preparation: no email addresses or invitations are required
+for the current single-user release.

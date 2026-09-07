@@ -74,6 +74,7 @@ const columnCheck = object({
   autoRun: optional((v) => typeof v === 'boolean'),
   expression: optional(string),
   prompt: optional(string),
+  researchProvider: optional(oneOf(['codex', 'parallel', 'gemini'])),
   codexResearch: optional((value) => {
     try {
       validateCodexSettings(value);
@@ -148,6 +149,7 @@ export function exportRecipeFile(template: RecipeTemplate): string {
     autoRun: c.autoRun,
     expression: c.expression,
     prompt: c.prompt,
+    researchProvider: c.researchProvider,
     codexResearch: c.codexResearch
       ? validateCodexSettings(c.codexResearch)
       : undefined,

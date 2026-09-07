@@ -5,6 +5,9 @@ friends. Each person has private sheets, workbook templates, run history,
 research, provider caches, jobs, and CRM refreshes. The local installation keeps
 its existing single-user setup.
 
+The site can remain owner-only indefinitely. No friend addresses or invitations
+are needed until someone actually wants to try Pomade.
+
 ## Invite someone
 
 1. In **Account → Friends beta**, allow their sign-in email (up to three friends).
