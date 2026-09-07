@@ -485,9 +485,7 @@ safe recipe runner       CRM reads/writes        provider reads
 Pomade is a polished working vertical slice, not a complete Clay replacement.
 The grid, CSV and CRM source workflow, scoped recipe execution, grounded AI web
 research, bounded Apollo batch enrichment, persistence, cache, receipts, and
-Control Tower handoff and direct mapped CRM writes are real. Apollo phone reveal,
-durable CRM OAuth, multi-user collaboration and continuous CRM synchronization
-remain deferred. The 2026-09-05 three-company assignment completed live Parallel
+Control Tower handoff and direct mapped CRM writes are real. Apollo mobile now has a background submit/poll adapter, requiring a public callback URL and eligible API access. Shared-sheet collaboration and always-on CRM synchronization are not complete. The 2026-09-05 three-company assignment completed live Parallel
 research, Apollo company enrichment and company/contact round trips through both
 dev CRMs. People Enrichment returned a Free-plan access restriction from Apollo.
 
@@ -757,3 +755,14 @@ Schedules use the same persisted background jobs as manual runs, with up to 100 
 **Background runs** shows waiting messages and the earliest next result-check time. **Resume saved run** retains completed steps and provider request IDs. **Finish scheduled steps** resumes an interrupted post-run stage without repeating enrichment or completed CRM batches. Changed recipes or destinations require restoring the saved setup or cancelling and scheduling fresh work. **Cancel run** stops future work; a request already in flight may finish. Start a new background run for deliberately fresh lookups, which can consume new credits.
 
 The local server and clock must stay running. Hosted work advances through configured worker triggers or the existing owner-page/companion wakeups; this does not add an always-on paid scheduler. Ambiguous provider submissions and uncertain CRM writes still require reviewing their native outcomes before deliberately starting fresh work.
+
+
+### Run preview and additional contact providers (September 7, 2026)
+
+Before an external run, the confirmation dialog shows each row/action, current conditions, missing inputs or connections, finder/verifier order and maximum submissions. Dependencies on selected earlier steps are marked as pending inputs rather than definite misses. This is a configuration preview, not a live API entitlement test or a credit quote.
+
+**Dropcontact** is available in Account → Connections (`DROPCONTACT_API_KEY`) and the contact waterfall builder. Its named-work-email preset uses first name, last name and company domain, saves the request ID and checks results every 30 seconds. Only `nominative@pro` candidates pass; choose a separate verifier for strict verified-email acceptance. No phone is inferred from company data. `credits_left` remains a balance, not a charge attributed to the lookup. Live Dropcontact access is untested.
+
+**Apollo mobile** uses the existing API key plus `APOLLO_WEBHOOK_URL`, a public HTTPS receiver you control. An owner-private Sites URL or localhost cannot receive Apollo callbacks. The adapter retrieves results using Apollo's polling endpoint, preserves signed 64-bit request IDs without rounding, follows provider retry timing, and stops on expired/unknown IDs. Only the matching person's mobile with `valid_number` is accepted; this does not independently verify ownership. Personal-email reveal and Apollo's third-party waterfalls are not enabled. The current Free account returned 403 for People Enrichment; no phone lookup was submitted.
+
+See [the live benchmark](docs/live-benchmark-2026-09-07.md) and [provider backlog](docs/clay-contact-provider-tracker.md). The Parallel client now uses the documented `/v1beta/chat/completions` endpoint and `x-api-key` authentication.

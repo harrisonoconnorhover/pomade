@@ -5,7 +5,7 @@ import type {
   ResearchOutputCardinality,
 } from './pomade-types';
 
-const CHAT_URL = 'https://api.parallel.ai/chat/completions';
+const CHAT_URL = 'https://api.parallel.ai/v1beta/chat/completions';
 const DEFAULT_MODEL = 'speed';
 
 type ParallelCitation = {
@@ -262,7 +262,7 @@ export class ParallelWebResearchClient {
       const response = await this.fetchImpl(CHAT_URL, {
         method: 'POST',
         headers: {
-          authorization: `Bearer ${this.apiKey}`,
+          'x-api-key': this.apiKey,
           'content-type': 'application/json',
         },
         body: JSON.stringify({

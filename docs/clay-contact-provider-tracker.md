@@ -3,7 +3,7 @@
 Checked **2026-09-07** against Clay's public integration directory, individual
 provider/action pages, waterfall documentation, and direct provider API documentation.
 This is a development backlog, not a claim that we have bought or connected these
-services. No accounts were created and no paid or live enrichment calls were made.
+services. No new accounts or paid plans were purchased. The September 7 live benchmark below used existing authorized free-tier connections.
 
 Clay waterfalls are configurable: users can change the order, add/remove steps,
 and choose validation rules. There is no single provider sequence that every Clay
@@ -25,14 +25,14 @@ lead to the current actions supporting each row.
 
 | Service / Clay source | Email lookup | Phone lookup | Pomade status / next gap |
 |---|---|---|---|
-| [Apollo.io](https://www.clay.com/integrations/data-provider/apollo-io) | Work; personal | Mobile; company | Email preset exists. Phone reveal/callback support remains a gap. |
+| [Apollo.io](https://www.clay.com/integrations/data-provider/apollo-io) | Work; personal | Mobile; company | Email and mobile submit/poll presets implemented. Mobile requires a public callback URL and API entitlement; current Free People API returns 403. |
 | [Hunter](https://www.clay.com/integrations/data-provider/hunter) | Work | — | Email finder and independent verifier presets implemented. Pending verifier responses stop for a later retry. |
-| [Prospeo](https://www.clay.com/integrations/data-provider/prospeo) | Work | Mobile | Email and verified-mobile presets exist; mobile entitlement still needs a live check. |
+| [Prospeo](https://www.clay.com/integrations/data-provider/prospeo) | Work | Mobile | Email and verified-mobile presets implemented and live-tested with the connected free account. |
 | [People Data Labs](https://www.clay.com/integrations/data-provider/people-data-labs) | Work*; personal | Mobile | Company plus work-email, personal-email and mobile presets implemented. Person presets are fixture-tested; revealed contact fields depend on the plan. |
 | [LeadMagic](https://www.clay.com/integrations/data-provider/leadmagic) | Work; personal | Mobile | Work-email, mobile-by-work-email and independent email verification presets implemented; fixture-tested, live access pending. |
 | [Findymail](https://www.clay.com/integrations/data-provider/findymail) | Work | Mobile | Email lookup, US phone lookup and independent email verification implemented and fixture-tested. Finder outputs use format-only acceptance; the verifier requires `verified=true`. No live account test. |
 | [Enrow](https://www.clay.com/integrations/data-provider/enrow) | Work | Mobile | Email finder, verifier and phone finder implemented with durable submit/poll/resume. Sample-response tested; live API access pending. Phone acceptance is format-only after found status. |
-| [Dropcontact](https://www.clay.com/integrations/data-provider/dropcontact) | Work | — | Planned. Confirm current direct API request/result lifecycle before wiring. |
+| [Dropcontact](https://www.clay.com/integrations/data-provider/dropcontact) | Work | — | Named-work-email preset implemented with saved submit/poll/resume and contact correlation. Sample-response and compiled-Worker tests passed; live key pending. |
 | [Icypeas](https://www.clay.com/integrations/data-provider/icypeas) | Work | — | Planned. Includes email verification and domain email discovery. |
 | [Datagma](https://www.clay.com/integrations/data-provider/datagma) | Work | Mobile | Planned. Clay phone lookup accepts profile or email identifiers. |
 | [Wiza](https://www.clay.com/integrations/data-provider/wiza) | Work; personal | Phone | Planned. Verify direct API result retrieval and phone types. |
@@ -147,11 +147,11 @@ unversioned routes and different status descriptions. No new key or plan purchas
 
 ## Remaining count and next development order
 
-**13 of 28 distinct providers in the core finder/validator tables have some implemented support; 15 remain.** This counts each provider once, even when it offers both discovery and verification. It excludes the separate related/uncertain list and does not mean every capability or live account is validated. There are now 29 contact presets.
+**14 of 28 distinct providers in the core finder/validator tables have some implemented support; 14 remain.** This counts each provider once, even when it offers both discovery and verification. It excludes the separate related/uncertain list and does not mean every capability or live account is validated. There are now 31 contact presets.
 
-The 11 remaining discovery providers are **Dropcontact, Icypeas, Datagma, Wiza, Forager, BetterContact, Firmable, RocketReach, SMARTe, ZoomInfo and Bytemine**. The four additional validator-only providers are **Debounce, Enrichley, SureConnect and ClearoutPhone**. Icypeas verification is another capability of the same provider, not another vendor.
+The 10 remaining discovery providers are **Icypeas, Datagma, Wiza, Forager, BetterContact, Firmable, RocketReach, SMARTe, ZoomInfo and Bytemine**. The four additional validator-only providers are **Debounce, Enrichley, SureConnect and ClearoutPhone**. Icypeas verification is another capability of the same provider, not another vendor.
 
-Continue with **Dropcontact**, then Icypeas, inspecting exact request/response contracts one provider at a time. Keep placeholders out of the runnable UI. ClearoutPhone's public API reference could not be read in the earlier run (403/JS-only); obtain the actual schema before coding it. Do not confuse `debounce.cc` with the Clay-listed `debounce.io` service. Apollo phone callbacks still need their own callback contract; these polling adapters do not implement webhooks.
+Continue with **Icypeas**, inspecting exact request/response contracts one provider at a time. Keep placeholders out of the runnable UI. ClearoutPhone's public API reference could not be read in the earlier run (403/JS-only); obtain the actual schema before coding it. Do not confuse `debounce.cc` with the Clay-listed `debounce.io` service. Apollo mobile now polls the documented webhook-result endpoint, but still needs a public callback receiver and eligible account access. Pomade does not expose a new public webhook receiver.
 
 ### Workflow improvements implemented (September 7, 2026)
 
@@ -159,7 +159,7 @@ Continue with **Dropcontact**, then Icypeas, inspecting exact request/response c
 2. **Provider value and credit reporting.** Run history summarizes recent observed matches, extra fallback matches, waiting/errors, elapsed time and vendor credits. Polling and saved-step reuse do not inflate lookup counts; unknown costs stay unknown.
 3. **Durable schedules and run visibility.** Scheduled enrichment now uses saved background jobs, including asynchronous providers and verifiers. Completed source refreshes are reused, and CRM writes/transfers wait for enrichment. Background runs shows the next result-check time, saved-run resume, post-run completion and explicit cancellation before fresh work.
 
-Next, connect available keys and run a small repeatable real-world benchmark before choosing the cheapest useful provider order. Synthetic tests prove workflow handling, not provider match rates. Provider development can continue with Dropcontact without credentials.
+The [15-contact live benchmark](live-benchmark-2026-09-07.md) found 9 accepted emails through Hunter and 3 more through Prospeo. Synthetic tests remain separate from live coverage. Next provider development can continue with Icypeas without credentials.
 
 The existing one-to-four provider step limit is unchanged. Additional capabilities within implemented providers and live account checks remain separate from this vendor count.
 
@@ -222,3 +222,10 @@ For a future live smoke test after connecting a key, [FullEnrich documents a zer
 ```
 
 The request must still include `name`, one `data` entry and the desired `enrich_fields`. No provider key was created or used for this implementation.
+
+
+### Dropcontact and Apollo mobile (September 7, 2026)
+
+[Dropcontact's direct API](https://developer.dropcontact.com/) accepts a single-person batch, preserves custom correlation fields, and returns a request ID. Pomade polls every 30 seconds with `forceResults` omitted, rejects contact errors and mismatched correlation, and requires a separate verifier for strict verified-email acceptance. Missing email is a waterfall miss; account balance is not interpreted as per-request cost. No live key was used.
+
+[Apollo phone enrichment](https://docs.apollo.io/docs/retrieve-mobile-phone-numbers-for-contacts) requires a public HTTPS callback URL. Pomade uses the [documented polling endpoint](https://docs.apollo.io/reference/poll-webhook-result) and its [OpenAPI schema](https://docs.apollo.io/openapi/apollo-rest-api.json) to retrieve the wrapped phone payload, match the saved person ID, retain exact signed integer IDs, respect pending retry timing, and stop expired/unknown requests. Callback-delivery failure does not discard an available completed payload. Phone validity is provider-reported, not independent ownership proof. Current Free People API access was rechecked and returned 403, so live phone execution remains untested.

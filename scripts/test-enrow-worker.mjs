@@ -7,26 +7,60 @@ import { join } from 'node:path';
 import assert from 'node:assert/strict';
 
 const provider = process.argv[2] ?? 'enrow';
-assert.ok(['enrow', 'fullenrich'].includes(provider));
+assert.ok(
+  ['enrow', 'fullenrich', 'dropcontact', 'apollo_phone'].includes(provider),
+);
 const fullEnrich = provider === 'fullenrich';
-const vendorHost = fullEnrich ? 'app.fullenrich.com' : 'api.enrow.io';
-const vendorPath = fullEnrich
-  ? '/api/v2/contact/enrich/bulk'
-  : '/email/find/single';
-const resultPath = vendorPath + (fullEnrich ? '/saved-search-1' : '');
-const vendorBody = fullEnrich
+const dropcontact = provider === 'dropcontact';
+const apollo = provider === 'apollo_phone';
+const vendorHost = apollo
+  ? 'api.apollo.io'
+  : dropcontact
+    ? 'api.dropcontact.com'
+    : fullEnrich
+      ? 'app.fullenrich.com'
+      : 'api.enrow.io';
+const vendorPath = apollo
+  ? '/api/v1/people/match'
+  : dropcontact
+    ? '/v1/enrich/all'
+    : fullEnrich
+      ? '/api/v2/contact/enrich/bulk'
+      : '/email/find/single';
+const resultPath = apollo
+  ? '/api/v1/webhook_result/-1039995589705121900'
+  : vendorPath + (fullEnrich || dropcontact ? '/saved-search-1' : '');
+const vendorBody = apollo
   ? {
-      name: 'Pomade contact lookup',
-      data: [
-        {
-          first_name: '{{first_name}}',
-          last_name: '{{last_name}}',
-          domain: '{{domain}}',
-          enrich_fields: ['contact.work_emails'],
-        },
-      ],
+      name: '{{person}}',
+      domain: '{{domain}}',
+      reveal_phone_number: true,
+      reveal_personal_emails: false,
     }
-  : { fullname: '{{person}}', company_domain: '{{domain}}' };
+  : dropcontact
+    ? {
+        data: [
+          {
+            first_name: '{{first_name}}',
+            last_name: '{{last_name}}',
+            website: '{{domain}}',
+          },
+        ],
+        language: 'en',
+      }
+    : fullEnrich
+      ? {
+          name: 'Pomade contact lookup',
+          data: [
+            {
+              first_name: '{{first_name}}',
+              last_name: '{{last_name}}',
+              domain: '{{domain}}',
+              enrich_fields: ['contact.work_emails'],
+            },
+          ],
+        }
+      : { fullname: '{{person}}', company_domain: '{{domain}}' };
 let custom;
 const stateDir = mkdtempSync(join(tmpdir(), 'pomade-enrow-worker-'));
 const calls = [];
@@ -46,6 +80,9 @@ const options = {
   resourcePersistencePath: stateDir,
   bindings: {
     ENROW_API_KEY: 'synthetic-key',
+    DROPCONTACT_API_KEY: 'synthetic-key',
+    APOLLO_API_KEY: 'synthetic-key',
+    APOLLO_WEBHOOK_URL: 'https://callback.example.test/apollo',
     FULLENRICH_API_KEY: 'synthetic-key',
     POMADE_HTTP_CONNECTIONS: JSON.stringify({
       fixture: {
@@ -75,11 +112,40 @@ const options = {
       [vendorPath, resultPath].includes(url.pathname)
     ) {
       assert.equal(
-        request.headers.get(fullEnrich ? 'Authorization' : 'x-api-key'),
+        request.headers.get(
+          dropcontact
+            ? 'X-Access-Token'
+            : fullEnrich
+              ? 'Authorization'
+              : 'x-api-key',
+        ),
         fullEnrich ? 'Bearer synthetic-key' : 'synthetic-key',
       );
       if (request.method === 'POST') {
         const body = await request.json();
+        if (apollo) {
+          assert.deepEqual(body, {
+            name: 'Ada Example',
+            domain: 'example.test',
+            reveal_phone_number: true,
+            reveal_personal_emails: false,
+            webhook_url: 'https://callback.example.test/apollo',
+          });
+          return new Response(
+            '{"request_id":-1039995589705121900,"person":{"id":"person-1"}}',
+          );
+        }
+        if (dropcontact) {
+          custom = body.data[0].custom_fields;
+          assert.equal(typeof custom.pomade_request, 'string');
+          assert.equal(body.data[0].website, 'example.test');
+          return Response.json({
+            request_id: 'saved-search-1',
+            success: true,
+            error: false,
+            credits_left: 49,
+          });
+        }
         if (fullEnrich) {
           custom = body.data[0].custom;
           assert.equal(typeof custom.pomade_request, 'string');
@@ -99,6 +165,36 @@ const options = {
         return Response.json({ id: 'saved-search-1', credits_used: 1 });
       }
       ++resultChecks;
+      if (apollo)
+        return resultChecks === 1
+          ? Response.json(
+              { error_code: 'result_pending', retry_after_seconds: 30 },
+              { status: 404 },
+            )
+          : Response.json({
+              request_id: '-1039995589705121900',
+              request_type: 'phone',
+              webhook_status: 'success',
+              webhook_result: {
+                status: 'success',
+                credits_consumed: 0,
+                people: [
+                  { id: 'person-1', status: 'success', phone_numbers: [] },
+                ],
+              },
+            });
+      if (dropcontact)
+        return resultChecks === 1
+          ? Response.json({
+              error: false,
+              success: false,
+              reason: 'Request not ready yet, try again in 30 seconds',
+            })
+          : Response.json({
+              error: false,
+              success: true,
+              data: [{ custom_fields: custom, email: [] }],
+            });
       if (fullEnrich) {
         assert.equal(url.pathname, resultPath);
         assert.equal(url.search, '');
@@ -198,7 +294,13 @@ try {
             method: 'POST',
             pathTemplate: vendorPath,
             bodyTemplate: JSON.stringify(vendorBody),
-            responsePath: fullEnrich ? 'pomade.email.email' : 'email',
+            responsePath: apollo
+              ? 'pomade.mobile'
+              : dropcontact
+                ? 'pomade.email'
+                : fullEnrich
+                  ? 'pomade.email.email'
+                  : 'email',
             verification: {
               path: fullEnrich ? 'pomade.email.status' : 'qualification',
               acceptedValues: [fullEnrich ? 'DELIVERABLE' : 'valid'],
@@ -206,7 +308,7 @@ try {
           },
           step('/last'),
         ],
-        accept: 'verified-email',
+        accept: dropcontact || apollo ? 'nonempty' : 'verified-email',
         continueOnError: false,
         winnerColumnId: 'provider',
         statusColumnId: 'email_status',
@@ -256,7 +358,7 @@ try {
   ]);
   assert.match(
     (await db.prepare('SELECT state FROM waterfall_progress').first()).state,
-    /saved-search-1/,
+    apollo ? /-1039995589705121900/ : /saved-search-1/,
   );
   await api('/api/jobs', { action: 'pause', jobId: job.id }, 'PATCH');
   await tick();

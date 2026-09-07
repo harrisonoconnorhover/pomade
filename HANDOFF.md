@@ -2,37 +2,38 @@
 
 ## Finished
 
-- Find → verify → fallback now fits inside one waterfall. Each finder can use an existing email verifier or Trestle phone validator; pending results hold later steps, rejected candidates fall back, and saved finders are reused on resume.
-- Added per-sheet provider performance in Run history: accepted and extra fallback matches, lookup/verification counts, waiting/errors, elapsed time and observed credits. Polls/reused steps do not inflate matches; unknown costs remain unknown.
-- Schedules now queue durable jobs, retain completed source refreshes, and wait for enrichment before CRM writes and transfers. Recurring occurrences get fresh IDs.
-- Background runs shows waiting and next-check time, Resume saved run, Finish scheduled steps and Cancel run. Interrupted post-run work reuses completed enrichment/CRM batches. Unexecuted stale CRM previews refresh safely before confirmation.
+- Added row/action run preview: conditions, missing inputs/connections, finder/verifier order and maximum submissions.
+- Added Dropcontact named-work-email and Apollo mobile adapters with saved polling and resume; fixed Parallel's current endpoint/authentication.
+- Live 15-person benchmark: 12 accepted emails (9 Hunter + 3 Prospeo fallback); one mobile among the three original contacts.
+- Imported the HubSpot segment, joined enrichment, updated one contact in each dev CRM and verified native readback. Repeat previews were unchanged; repeat imports kept three contacts.
 
 ## Try It
 
-In **Provider waterfall**, choose a finder and its **Verify this result before accepting it** option. Connect the required keys before running. Use **Run history → Provider performance** to compare observed results. Schedule the workflow normally; manage waiting, pause/resume and cancellation in **Background runs**. A new run deliberately makes fresh lookups.
+- Open the DemandDrive benchmark tables locally at http://localhost:8798. Select a few rows and an external action to see the new run preview.
+- Account → Connections exposes Dropcontact and Apollo's optional public callback URL. The waterfall builder includes their presets.
+- Read `docs/live-benchmark-2026-09-07.md`; private results and table IDs are in ignored `outputs/demanddrive/2026-09-07-workflow-benchmark/manifest.json`.
 
 ## Checks
 
-- 244 focused tests passed across 15 files; the 20 waterfall tests passed again after correcting the winning-result label. TypeScript, lint and diff checks passed.
-- Built Worker/D1 tests passed for scheduled source import, inline asynchronous verification, fallback, restart/resume, simulated HubSpot write/readback, transfer recovery, reporting, cancellation and fresh runs. Existing FullEnrich and Enrow restart exercises passed. All outbound traffic intercepted.
-- Compiled account test passed: owner plus three synthetic friends, separate keys/data, and the new performance endpoint cannot expose another account’s results.
-- Local build passed and is running at `http://localhost:8798`. Private Sites version 24 is live at `https://pomade.deleteddeleted.chatgpt.site` from runtime commit `096cd5a`; owner-only access and environment revision 8 are unchanged.
-- Final HTTP checks passed; the served feature bundle matches the packaged build. All 19 local and 11 hosted table row/column counts and configured connection IDs, including seven hosted connections, match the baseline.
+- All 237 focused provider, research, preview and account tests passed across 12 files.
+- Typecheck, lint and diff whitespace checks passed. Local and hosted builds passed.
+- Compiled Worker/D1 tests passed for Dropcontact and Apollo phone across pause/restart/saved-ID polling/fallback; all requests were synthetic.
+- Live Hunter/Prospeo, research, HubSpot and Salesforce checks passed as detailed in the benchmark report. Apollo People returned a Free-plan 403.
 
 ## Decisions
 
-- Reuse existing verifiers and row jobs; add three run-job columns and update per-account schema version. No new service or provider subscription.
-- Up to four finders plus optional verifiers; scheduled budgets include both stages and possible source additions. Frozen recipe/destination settings must match when resuming.
-- Provider credits are vendor-specific observations. Synthetic tests do not establish live coverage, entitlement or billing accuracy.
+- Keep candidate quality distinct from independent verification, and account balances distinct from per-request cost.
+- Require a caller-controlled public callback URL for Apollo; retain owner-private hosting and existing synchronous email behavior.
+- Preserve raw contact data and receipts outside Git. No GitHub push or paid plan purchase.
 
 ## Remaining
 
-- Live provider comparison using connected keys and a small repeatable dataset.
-- Fifteen core providers remain; Dropcontact is next. This change adds workflow capabilities, not another vendor.
-- Local server/clock or hosted wakeups must run. Ambiguous provider submissions and uncertain CRM writes still need native-result review.
+- Release the verified source to the existing owner-private site and refresh the local build.
+- Apollo live phone validation needs eligible API access and a public receiver; Dropcontact needs a key.
+- Fourteen core providers remain; Icypeas is next. Research citations still require review; this sample is not market-wide coverage proof.
 
 ## Review First
 
-- `lib/provider-waterfall.ts` and `lib/provider-performance.ts`.
-- `db/schedule-runner.ts`, `db/run-job-control.ts` and `db/scheduled-crm.ts`.
-- `scripts/test-workflow-worker.mjs` and the three new focused test files.
+- `lib/dropcontact-request.ts`, `lib/apollo-phone-request.ts` and their tests.
+- `lib/run-preview.ts`, `components/run-preview.tsx` and the live benchmark report.
+- `scripts/test-enrow-worker.mjs` and the CRM evidence summaries.

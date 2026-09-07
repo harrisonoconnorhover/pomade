@@ -1,3 +1,5 @@
+import { APOLLO_PHONE_CONNECTION, apolloPhoneStep } from './apollo-phone';
+import { DROPCONTACT_CONNECTION, dropcontactStep } from './dropcontact';
 import { FULLENRICH_CONNECTION, fullEnrichStep } from './fullenrich';
 import { ENROW_CONNECTION } from './enrow';
 import {
@@ -50,6 +52,27 @@ export type ContactProviderPreset = {
   step: (bindings: ContactBindings) => HttpProviderStep;
 };
 export const CONTACT_PROVIDER_PRESETS: ContactProviderPreset[] = [
+  {
+    id: 'dropcontact-email',
+    label: 'Dropcontact · find named work email',
+    provider: 'Dropcontact',
+    connectionId: DROPCONTACT_CONNECTION,
+    inputs: ['first_name', 'last_name', 'domain'],
+    accept: 'email',
+    note: 'Background lookup with 30-second result checks. Accepts nominative@pro only. Add a separate verifier for strict verified-email acceptance. Account balance is not counted as request cost; live API access is untested.',
+    step: ({ first_name, last_name, domain }) =>
+      dropcontactStep(first_name, last_name, domain),
+  },
+  {
+    id: 'apollo-mobile',
+    label: 'Apollo · find mobile (provider validity)',
+    provider: 'Apollo',
+    connectionId: APOLLO_PHONE_CONNECTION,
+    inputs: ['person', 'domain'],
+    accept: 'phone',
+    note: 'Background phone lookup. Requires your public HTTPS callback URL and Apollo people/phone/polling access. Accepts MOBILE with valid_number status, without claiming independent ownership verification. Does not enable Apollo third-party waterfalls.',
+    step: ({ person, domain }) => apolloPhoneStep(person, domain),
+  },
   {
     id: 'fullenrich-email',
     label: 'FullEnrich · find verified work email',

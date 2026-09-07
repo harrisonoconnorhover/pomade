@@ -24,6 +24,12 @@ const api = (
 });
 export const CONNECTIONS: ConnectionDefinition[] = [
   api(
+    'dropcontact',
+    'Dropcontact',
+    'DROPCONTACT_API_KEY',
+    'Named work-email finding with saved background polling. Add a separate email verifier for strict acceptance. Tested with sample responses; live API access needs validation.',
+  ),
+  api(
     'fullenrich',
     'FullEnrich',
     'FULLENRICH_API_KEY',
@@ -35,12 +41,18 @@ export const CONNECTIONS: ConnectionDefinition[] = [
     'ENROW_API_KEY',
     'Background email finding, email verification and phone finding. Search IDs are saved for polling and resume. Tested with sample responses; live access and phone entitlement still need validation.',
   ),
-  api(
-    'apollo',
-    'Apollo',
-    'APOLLO_API_KEY',
-    'Company and person enrichment. Use a key from your own Apollo account.',
-  ),
+  {
+    id: 'apollo',
+    name: 'Apollo',
+    help: 'Company and person enrichment. Mobile lookups also require people/phone and webhook-result API access, plus a public HTTPS callback URL you control. Pomade retrieves saved results by polling; an owner-private Sites URL cannot receive Apollo callbacks.',
+    fields: [
+      { key: 'APOLLO_API_KEY', label: 'API key', required: true },
+      {
+        key: 'APOLLO_WEBHOOK_URL',
+        label: 'Public HTTPS callback URL (optional; required for mobile)',
+      },
+    ],
+  },
   api(
     'hunter',
     'Hunter',

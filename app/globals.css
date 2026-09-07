@@ -4497,3 +4497,18 @@ button {
   margin-top: 0.3rem;
   min-width: 9rem;
 }
+
+.run-preview { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--background); }
+.run-preview-heading { padding: 12px 14px; display: flex; gap: 16px; align-items: start; justify-content: space-between; }
+.run-preview-heading p,.run-preview-note { font-size: 12px; color: var(--muted-foreground); margin: 4px 0 0; }
+.run-preview-heading button { font-size: 12px; white-space: nowrap; text-decoration: underline; cursor: pointer; }
+.run-preview-scroll { max-height: 260px; overflow: auto; }
+.run-preview table { width: 100%; text-align: left; font-size: 12px; border-collapse: collapse; }
+.run-preview th { position: sticky; top: 0; background: var(--muted); padding: 8px 12px; font-weight: 500; }
+.run-preview td { padding: 10px 12px; vertical-align: top; border-top: 1px solid var(--border); }
+.run-preview td small { display: block; margin-top: 4px; color: var(--muted-foreground); }
+.run-preview-state { display: inline-block; border-radius: 4px; padding: 2px 6px; background: var(--muted); white-space: nowrap; }
+.run-preview-state.state-ready { color: #166534; background: #dcfce7; }
+.run-preview-state.state-setup,.run-preview-state.state-input { color: #92400e; background: #fef3c7; }
+.run-preview-state.state-dependent { color: #1e40af; background: #dbeafe; }
+.run-preview-note { padding: 10px 14px; }

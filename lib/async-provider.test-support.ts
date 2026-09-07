@@ -96,6 +96,9 @@ export function asyncProviderFixture(presetId: string, surrounding = false) {
   const connections = [
     ...configuredHttpConnections({
       ENROW_API_KEY: 'synthetic-private-key',
+      DROPCONTACT_API_KEY: 'synthetic-private-key',
+      APOLLO_API_KEY: 'synthetic-private-key',
+      APOLLO_WEBHOOK_URL: 'https://callback.example.test/apollo',
       FULLENRICH_API_KEY: 'synthetic-private-key',
     }),
     ...['first', 'last'].map((id) => ({

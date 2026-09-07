@@ -128,6 +128,7 @@ import {
 } from '@/lib/local-recipe-engine';
 import { moveWorkspaceColumn, resizeWorkspaceColumn } from '@/lib/grid-columns';
 import { createPeopleListWorkspace } from '@/lib/people-list-builder';
+import RunPreview from '@/components/run-preview';
 import type {
   ApolloEnrichmentResult,
   CrmProvider,
@@ -4942,6 +4943,8 @@ export default function PomadeWorkspace({
               <strong>{pendingListRowLimit}</strong>
             </div>
           </div>
+          <RunPreview workspace={workspace} rowIds={pendingRunRowIds} columnIds={pendingRunColumnIds} research={researchStatus} />
+          {pendingWebResearchColumns.some(hasAsyncProvider) && <p className="research-safety">Background providers save each request ID and wait for its result before continuing the waterfall. Resume checks that saved request without submitting it again.</p>}
           {pendingResearchActionCount > pendingResearchActionLimit ? (
             <p className="research-warning" role="alert">
               {pendingRunMode === 'background'

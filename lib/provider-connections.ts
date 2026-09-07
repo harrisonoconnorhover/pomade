@@ -1,3 +1,5 @@
+import { DROPCONTACT_CONNECTION } from './dropcontact';
+import { APOLLO_PHONE_CONNECTION, validApolloCallback } from './apollo-phone';
 import { FULLENRICH_CONNECTION } from './fullenrich';
 import { ENROW_CONNECTION } from './enrow';
 import { httpConnections, type HttpConnection } from './http-enrichment';
@@ -19,6 +21,8 @@ import {
 export function configuredHttpConnections(env: {
   POMADE_HTTP_CONNECTIONS?: string;
   APOLLO_API_KEY?: string;
+  APOLLO_WEBHOOK_URL?: string;
+  DROPCONTACT_API_KEY?: string;
   HUNTER_API_KEY?: string;
   LEADMAGIC_API_KEY?: string;
   FINDYMAIL_API_KEY?: string;
@@ -34,6 +38,8 @@ export function configuredHttpConnections(env: {
 }): HttpConnection[] {
   const custom = httpConnections(env.POMADE_HTTP_CONNECTIONS);
   const reserved = [
+    DROPCONTACT_CONNECTION,
+    APOLLO_PHONE_CONNECTION,
     ENROW_CONNECTION,
     FULLENRICH_CONNECTION,
     LEADMAGIC_CONNECTION,
@@ -55,6 +61,26 @@ export function configuredHttpConnections(env: {
       'Built-in provider connection IDs are reserved. Rename the custom connection.',
     );
   const connections: HttpConnection[] = [...custom];
+  if (env.DROPCONTACT_API_KEY?.trim())
+    connections.push({
+      id: DROPCONTACT_CONNECTION,
+      label: 'Dropcontact',
+      origin: 'https://api.dropcontact.com',
+      methods: ['POST', 'GET'],
+      headers: { 'X-Access-Token': env.DROPCONTACT_API_KEY.trim() },
+    });
+  if (
+    env.APOLLO_API_KEY?.trim() &&
+    validApolloCallback(env.APOLLO_WEBHOOK_URL?.trim())
+  )
+    connections.push({
+      id: APOLLO_PHONE_CONNECTION,
+      label: 'Apollo mobile enrichment',
+      origin: 'https://api.apollo.io',
+      methods: ['POST', 'GET'],
+      headers: { 'x-api-key': env.APOLLO_API_KEY.trim() },
+      callbackUrl: env.APOLLO_WEBHOOK_URL!.trim(),
+    });
   if (env.FULLENRICH_API_KEY?.trim())
     connections.push({
       id: FULLENRICH_CONNECTION,

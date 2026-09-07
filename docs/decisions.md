@@ -1081,3 +1081,12 @@ Implement the three selected workflow improvements before adding another vendor.
 Attribute performance using stable per-job/row/column/stage operation IDs. Aggregate the latest 100 sheet run receipts, count repeated polls as result checks, retain vendor-specific observed credit totals and mark unreported cost unknown. Do not invent historical match attribution or infer live coverage from synthetic results.
 
 Replace single-pass scheduled enrichment with existing persisted row jobs. Store the job ID, successful source-refresh checkpoint and frozen recipe/destination configuration on the schedule; queue one occurrence and wait for job completion before captured CRM writes and transfers. A new recurring occurrence gets a new ID. Pause/resume updates both job and schedule; cancellation permits deliberate fresh work. Keep the existing CRM verification and uncertain-outcome review behavior. Add only three run-job columns and upgrade account-scoped schemas; no new queue service, SDK or paid scheduler. This supersedes the earlier Enrow/FullEnrich restriction on asynchronous schedules. Existing local clocks and hosted wakeups remain necessary.
+
+
+## 2026-09-07 — Preview actual row readiness and extend saved provider polling
+
+Reuse the existing conditions, provider presets and request ceiling in a row/action preview; do not discount the consent maximum using stale conditions. Missing values that an earlier selected recipe may fill are dependencies, not definite failures. The preview checks configured connections without consuming provider credits.
+
+Dropcontact qualification identifies a named work email, so strict verified-email acceptance needs a separate verifier. Its balance cannot establish a per-operation cost. Apollo mobile uses a separate connection from synchronous email so existing email workflows stay synchronous. The phone connection requires a caller-controlled public HTTPS callback URL; a private Sites address is not an eligible receiver. Reuse saved polling state rather than introduce a public relay or change the site's audience. Preserve Apollo request IDs as exact strings and leave provider-native waterfalls off.
+
+The live benchmark exposed an outdated Parallel endpoint/header. Use the current official Chat API path and `x-api-key`; retain the prior failed receipts. Source-linked leadership research is checked against company pages before contact enrichment. Raw contact data and CRM receipts stay in ignored outputs and private tables; the repository report contains aggregate results only.

@@ -1,3 +1,15 @@
+import {
+  APOLLO_PHONE_CONNECTION,
+  parseApolloJson,
+  validApolloCallback,
+  validateApolloPhoneRequest,
+} from './apollo-phone';
+import {
+  DROPCONTACT_CONNECTION,
+  validateDropcontactRequest,
+} from './dropcontact';
+import { executeApolloPhoneRequest } from './apollo-phone-request';
+import { executeDropcontactRequest } from './dropcontact-request';
 import { ENROW_CONNECTION } from './enrow';
 import { FULLENRICH_CONNECTION } from './fullenrich';
 import {
@@ -32,10 +44,11 @@ export type HttpConnection = {
   requestTimeoutMs?: number;
   // Only server-created connections can supply query credentials.
   secretQuery?: Record<string, string>;
+  callbackUrl?: string;
 };
 export type HttpConnectionSummary = Omit<
   HttpConnection,
-  'headers' | 'secretQuery'
+  'headers' | 'secretQuery' | 'callbackUrl'
 >;
 export function httpConnections(raw?: string): HttpConnection[] {
   if (!raw?.trim()) return [];
@@ -219,6 +232,16 @@ export function prepareHttpRequest(
     body = JSON.stringify(visit(template));
     headers.set('Content-Type', 'application/json');
   }
+  if (connection.id === DROPCONTACT_CONNECTION)
+    validateDropcontactRequest(url, body);
+  if (connection.id === APOLLO_PHONE_CONNECTION) {
+    const input = validateApolloPhoneRequest(url, body);
+    if (!validApolloCallback(connection.callbackUrl))
+      throw new Error(
+        'Apollo phone enrichment needs your public HTTPS callback URL in Account → Connections → Apollo.',
+      );
+    body = JSON.stringify({ ...input, webhook_url: connection.callbackUrl });
+  }
   validateContactProviderRequest(connection.id, url, body);
   return {
     url: url.toString(),
@@ -327,7 +350,10 @@ export function createHttpColumns(
         }),
   }));
 }
-export async function boundedJson(response: Response) {
+export async function boundedJson(
+  response: Response,
+  parse: (text: string) => unknown = JSON.parse,
+) {
   const reader = response.body?.getReader();
   if (!reader) throw new Error('Empty response body.');
   const chunks: Uint8Array[] = [];
@@ -350,7 +376,7 @@ export async function boundedJson(response: Response) {
     offset += chunk.byteLength;
   }
   try {
-    return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+    return parse(new TextDecoder().decode(bytes));
   } catch {
     throw new Error('Response is not valid JSON.');
   }
@@ -397,7 +423,26 @@ export async function executeHttpRecipe(
           signal: AbortSignal.timeout(connection.requestTimeoutMs ?? 15_000),
         });
       };
-      if (connection.id === FULLENRICH_CONNECTION) {
+      if (
+        [DROPCONTACT_CONNECTION, APOLLO_PHONE_CONNECTION].includes(
+          connection.id,
+        )
+      ) {
+        const execute =
+          connection.id === DROPCONTACT_CONNECTION
+            ? executeDropcontactRequest
+            : executeApolloPhoneRequest;
+        const result = await execute(request, asyncContext, send, (response) =>
+          boundedJson(
+            response,
+            connection.id === APOLLO_PHONE_CONNECTION
+              ? parseApolloJson
+              : JSON.parse,
+          ),
+        );
+        data = result.data;
+        credits = result.credits;
+      } else if (connection.id === FULLENRICH_CONNECTION) {
         const result = await executeFullEnrichRequest(
           request,
           asyncContext,

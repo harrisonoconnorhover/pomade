@@ -222,6 +222,7 @@ describe('private accounts', () => {
     ['bounceban', 'BOUNCEBAN_API_KEY'],
     ['enrow', 'ENROW_API_KEY'],
     ['fullenrich', 'FULLENRICH_API_KEY'],
+    ['dropcontact', 'DROPCONTACT_API_KEY'],
   ])(
     'isolates %s through save and disconnect without owner fallback',
     async (provider, key) => {

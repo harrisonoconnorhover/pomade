@@ -1,7 +1,12 @@
 import type { PomadeColumn } from './pomade-types';
 import type { WaterfallProgress } from '../db/waterfall-progress';
 
-export const ASYNC_PROVIDER_CONNECTIONS = ['pomade_enrow', 'pomade_fullenrich'];
+export const ASYNC_PROVIDER_CONNECTIONS = [
+  'pomade_enrow',
+  'pomade_fullenrich',
+  'pomade_dropcontact',
+  'pomade_apollo_phone',
+];
 export function hasAsyncProvider(column: PomadeColumn) {
   return (
     column.providerWaterfall?.steps.some(
@@ -15,6 +20,8 @@ export type AsyncProviderRequest = {
   phase: 'submitting' | 'waiting';
   requestId?: string;
   correlationId?: string;
+  personId?: string;
+  terminalError?: string;
   submittedAt: number;
   nextPollAt: number;
   pollCount: number;

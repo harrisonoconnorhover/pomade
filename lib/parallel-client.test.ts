@@ -46,9 +46,9 @@ describe('Parallel web research client', () => {
       stream: boolean;
     };
 
-    expect(url).toBe('https://api.parallel.ai/chat/completions');
+    expect(url).toBe('https://api.parallel.ai/v1beta/chat/completions');
     expect(request.headers).toMatchObject({
-      authorization: 'Bearer test-parallel-key',
+      'x-api-key': 'test-parallel-key',
     });
     expect(body).toMatchObject({ model: 'speed', stream: false });
     expect(body.messages.map((message) => message.role)).toEqual([
@@ -125,28 +125,26 @@ it('requests native structured output, retains complete JSON and extracts its so
 });
 
 it('uses an object-root schema for list research and unwraps cited rows', async () => {
-  const fetchImpl = vi
-    .fn<typeof fetch>()
-    .mockResolvedValue(
-      Response.json({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: [
-                  {
-                    company: 'Example',
-                    _pomade_citations: [
-                      { url: 'https://example.com', title: 'Company' },
-                    ],
-                  },
-                ],
-              }),
-            },
+  const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+    Response.json({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              results: [
+                {
+                  company: 'Example',
+                  _pomade_citations: [
+                    { url: 'https://example.com', title: 'Company' },
+                  ],
+                },
+              ],
+            }),
           },
-        ],
-      }),
-    );
+        },
+      ],
+    }),
+  );
   const client = new ParallelWebResearchClient({ apiKey: 'test', fetchImpl });
   const result = await client.research(
     'Find Example',
