@@ -27,7 +27,7 @@ export type RunPreviewEntry = {
   rowLabel: string;
   columnId: string;
   columnLabel: string;
-  state: 'ready' | 'dependent' | 'setup' | 'input' | 'skipped';
+  state: 'ready' | 'dependent' | 'setup' | 'input' | 'skipped' | 'unchecked';
   details: string[];
   steps: string[];
   maximum: number;
@@ -42,7 +42,7 @@ export function previewRun(
   const columns = workspace.columns.filter(
     (c) =>
       (c.kind === 'enrichment' || c.kind === 'formula') &&
-      (!columnIds.length || columnIds.includes(c.id)),
+      columnIds.includes(c.id),
   );
   const titles = new Map(workspace.columns.map((c) => [c.id, c.title]));
   const entries: RunPreviewEntry[] = [];
@@ -71,7 +71,8 @@ export function previewRun(
       steps: string[] = [];
     let setup = false,
       missing = false,
-      dependent = false;
+      dependent = false,
+      unchecked = false;
     const maximum = countMaximumExternalActions([row], [column]);
     const conditionDependency = conditionFields(column.runCondition).some(
       (field) => preceding.has(field),
@@ -102,6 +103,10 @@ export function previewRun(
       }
     };
     const checkConnection = (id: string, label: string) => {
+      if (!connections.http) {
+        unchecked = true;
+        details.push(`${label}: connection has not been checked.`);
+      }
       if (connections.http && !connections.http.some((c) => c.id === id)) {
         setup = true;
         details.push(
@@ -118,6 +123,10 @@ export function previewRun(
       );
       const label = provider?.label ?? id ?? 'Research provider';
       steps.push(label);
+      if (!connections.research) {
+        unchecked = true;
+        details.push('Research connection has not been checked.');
+      }
       if (
         connections.research &&
         !(
@@ -186,9 +195,11 @@ export function previewRun(
           ? 'setup'
           : missing
             ? 'input'
-            : dependent
-              ? 'dependent'
-              : 'ready',
+            : unchecked
+              ? 'unchecked'
+              : dependent
+                ? 'dependent'
+                : 'ready',
       details: skipped ? ['Current condition skips this action.'] : details,
       steps,
       maximum,

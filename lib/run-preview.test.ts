@@ -42,6 +42,15 @@ const w = () => {
   );
   return t;
 };
+const connected = {
+  http: ['pomade_hunter', 'pomade_prospeo'].map((id) => ({
+    id,
+    label: id,
+    origin: 'https://example.test',
+    methods: ['GET' as const],
+  })),
+  research: { provider: 'parallel', configured: true },
+};
 describe('run preview', () => {
   it('shows finder/verifier order, missing inputs and missing fallback connections without reducing the consent ceiling', () => {
     const t = w();
@@ -81,7 +90,7 @@ describe('run preview', () => {
       width: 100,
     });
     expect(
-      previewRun(t, ['a'], ['qualified', 'found_email'], {})[0].state,
+      previewRun(t, ['a'], ['qualified', 'found_email'], connected)[0].state,
     ).toBe('dependent');
     t.columns.unshift({
       id: 'person',
@@ -91,7 +100,7 @@ describe('run preview', () => {
       prompt: 'Find a person',
       width: 100,
     });
-    const p = previewRun(t, ['b'], ['person', 'found_email'], {});
+    const p = previewRun(t, ['b'], ['person', 'found_email'], connected);
     expect(p[1].state).toBe('dependent');
     expect(p[1].details.join(' ')).toContain('waiting for Person');
   });
@@ -112,5 +121,21 @@ describe('run preview', () => {
       state: 'skipped',
       maximum: 0,
     });
+  });
+  it('does not claim readiness while connections are unknown and keeps empty scope empty', () => {
+    const t = w();
+    expect(previewRun(t, ['a'], ['found_email'], {})[0].state).toBe(
+      'unchecked',
+    );
+    expect(previewRun(t, ['a'], ['found_email'], { http: [] })[0].state).toBe(
+      'setup',
+    );
+    expect(previewRun(t, ['a'], ['found_email'], connected)[0].state).toBe(
+      'ready',
+    );
+    expect(previewRun(t, ['b'], ['found_email'], connected)[0].state).toBe(
+      'input',
+    );
+    expect(previewRun(t, ['a'], [], connected)).toEqual([]);
   });
 });

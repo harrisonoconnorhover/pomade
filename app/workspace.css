@@ -1747,3 +1747,27 @@
 .export-hidden { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .export-hidden input { accent-color: #17613c; }
 .export-summary { color: #17613c; font-size: 13px; font-weight: 650; }
+
+.research-confirm-dialog { max-height: calc(100dvh - 32px); overflow-y: auto; }
+.run-scope-picker { display: grid; gap: 10px; }
+.run-scope-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
+.run-scope-heading small { color: #68776e; font-weight: 400; margin-left: 6px; }
+.run-scope-heading > span { display: flex; gap: 12px; white-space: nowrap; }
+.run-scope-heading button { color: #216043; text-decoration: underline; text-underline-offset: 3px; font-size: 12px; cursor: pointer; }
+.run-scope-columns { max-height: 172px; overflow-y: auto; border: 1px solid #dce5de; border-radius: 9px; }
+.run-scope-columns label { display: flex; gap: 10px; align-items: center; padding: 9px 12px; border-bottom: 1px solid #eaf0eb; cursor: pointer; }
+.run-scope-columns label:last-child { border-bottom: 0; }
+.run-scope-columns label:has(input:checked) { background: #f4f9f5; }
+.run-scope-columns label span { display: grid; gap: 3px; min-width: 0; }
+.run-scope-columns strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.run-scope-columns small { font-size: 11px; color: #68766e; }
+.run-scope-picker input { accent-color: #226448; }
+.run-mode-picker { display: flex; gap: 20px; border: 0; padding: 0; margin: 0; }
+.run-mode-picker legend { font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+.run-mode-picker label { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.run-mode-picker label:has(input:disabled) { opacity: .5; }
+.run-mode-note { font-size: 11px; color: #64726a; margin: 0; }
+.run-preview-state.state-unchecked { color: #5b6470; background: #edf0f3; }
+@media(max-width: 500px) { .run-scope-heading { align-items: flex-start; } .run-scope-heading strong small { display: block; margin: 3px 0 0; } }
+
+.research-confirm-dialog .research-confirm-actions { position: sticky; bottom: -16px; background: #fff; padding: 12px 0; border-top: 1px solid #e2e8e3; z-index: 1; }

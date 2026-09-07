@@ -2,16 +2,13 @@ import { controlRunJob } from '@/db/run-job-control';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { ensureDatabase } from '@/db/ensure';
 import { versionedWorkspaceStatements } from '@/db/workspace-store';
-import {
-  countMaximumExternalActions,
-  isExternalRecipe,
-} from '@/lib/external-recipes';
 import type {
   RunJob,
   RunJobStatus,
   WorkspaceSnapshot,
 } from '@/lib/pomade-types';
-import { MAX_BACKGROUND_RESEARCH_ACTIONS, createRunJob } from '@/lib/run-job';
+import { createRunJob } from '@/lib/run-job';
+import { runBudget } from '@/lib/run-budget';
 
 type RunJobRecord = {
   id: string;
@@ -32,8 +29,6 @@ type RunJobRecord = {
   created_at: number;
   updated_at: number;
 };
-
-const MAX_RESEARCH_ACTIONS_PER_ROW = 10;
 
 function isWorkspaceSnapshot(value: unknown): value is WorkspaceSnapshot {
   if (!value || typeof value !== 'object') return false;
@@ -169,32 +164,10 @@ export async function POST(request: Request) {
       );
     }
     const targetRows = workspace.rows.filter((row) => rowIds.includes(row.id));
-    const researchColumns = selectedRecipes.filter(isExternalRecipe);
-    const researchActionCount = countMaximumExternalActions(
-      targetRows,
-      researchColumns,
-    );
-    const oversizedRow = targetRows.some(
-      (row) =>
-        countMaximumExternalActions([row], researchColumns) >
-        MAX_RESEARCH_ACTIONS_PER_ROW,
-    );
-    if (oversizedRow) {
-      return Response.json(
-        {
-          error: `A queued row can run at most ${MAX_RESEARCH_ACTIONS_PER_ROW} external recipes.`,
-        },
-        { status: 400 },
-      );
-    }
-    if (researchActionCount > MAX_BACKGROUND_RESEARCH_ACTIONS) {
-      return Response.json(
-        {
-          error: `This job would make ${researchActionCount} external requests. Reduce the scope to ${MAX_BACKGROUND_RESEARCH_ACTIONS} or fewer.`,
-        },
-        { status: 400 },
-      );
-    }
+    const budget = runBudget(targetRows, selectedRecipes);
+    const researchActionCount = budget.total;
+    if (!budget.backgroundAllowed)
+      return Response.json({ error: budget.backgroundIssue }, { status: 400 });
     if (researchActionCount > 0 && !confirmExternalResearch) {
       return Response.json(
         { error: 'Confirm the background provider requests before queuing.' },

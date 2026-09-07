@@ -17,10 +17,8 @@ import { signalBatchStatements } from '@/db/signal-store';
 import { executeProviderWaterfall } from '@/lib/provider-waterfall';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { env } from 'cloudflare:workers';
-import {
-  countMaximumExternalActions,
-  isExternalRecipe,
-} from '@/lib/external-recipes';
+import { isExternalRecipe } from '@/lib/external-recipes';
+import { runBudget } from '@/lib/run-budget';
 import { executeHttpRecipe } from '@/lib/http-enrichment';
 import { executeRecipePipeline } from '@/lib/recipe-pipeline';
 
@@ -44,7 +42,6 @@ import {
 } from '@/lib/web-research';
 
 const RESEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1_000;
-const MAX_RESEARCH_ACTIONS = 10;
 
 function hasRunnableWorkspace(value: unknown): value is WorkspaceSnapshot {
   if (!value || typeof value !== 'object') return false;
@@ -201,17 +198,13 @@ export async function POST(request: Request) {
         isExternalRecipe(column) &&
         (!columnIds || columnIds.includes(column.id)),
     );
-    const maximumRequests = countMaximumExternalActions(
+    const budget = runBudget(
       originalTargetRows,
-      externalColumns,
+      workspace.columns.filter((column) => columnIds.includes(column.id)),
     );
-    if (maximumRequests > MAX_RESEARCH_ACTIONS)
-      return Response.json(
-        {
-          error: `This run allows up to ${maximumRequests} external requests. Select a scope of ${MAX_RESEARCH_ACTIONS} or fewer.`,
-        },
-        { status: 400 },
-      );
+    const maximumRequests = budget.total;
+    if (!budget.immediateAllowed)
+      return Response.json({ error: budget.immediateIssue }, { status: 400 });
     if (maximumRequests > 0 && !confirmedResearch)
       return Response.json(
         { error: 'Confirm the external requests before running.' },

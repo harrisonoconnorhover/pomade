@@ -57,6 +57,8 @@ import {
 import dynamic from 'next/dynamic';
 import CsvImportDialog from '@/components/csv-import-dialog';
 import CsvExportDialog from '@/components/csv-export-dialog';
+import RunScopePicker from '@/components/run-scope-picker';
+import { runBudget } from '@/lib/run-budget';
 import { applyGridEdits, visibleSelection } from '@/lib/grid-edits';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -1122,28 +1124,36 @@ export default function PomadeWorkspace({
     () => workspace.columns.filter(isExternalRecipe),
     [workspace.columns],
   );
-  const pendingWebResearchColumns = useMemo(
-    () =>
-      pendingRunColumnIds.length
-        ? webResearchColumns.filter((column) =>
-            pendingRunColumnIds.includes(column.id),
-          )
-        : webResearchColumns,
-    [pendingRunColumnIds, webResearchColumns],
+  const pendingRecipeColumns = recipeColumns.filter((column) =>
+    pendingRunColumnIds.includes(column.id),
   );
+  const pendingWebResearchColumns =
+    pendingRecipeColumns.filter(isExternalRecipe);
+  const pendingRows = workspace.rows.filter((row) =>
+    pendingRunRowIds.includes(row.id),
+  );
+  const pendingBudget = runBudget(pendingRows, pendingRecipeColumns);
+  const pendingRequiresBackground = pendingRecipeColumns.some(
+    (column) =>
+      hasAsyncProvider(column) ||
+      (deployment.hosted &&
+        column.recipe === 'web-research' &&
+        (column.researchProvider ?? researchStatus?.provider) === 'codex'),
+  );
+  const effectiveRunMode = pendingRequiresBackground
+    ? 'background'
+    : pendingRunMode;
+  const pendingBudgetIssue =
+    effectiveRunMode === 'background'
+      ? pendingBudget.backgroundIssue
+      : pendingBudget.immediateIssue;
   const connectedCount = [
     apolloStatus?.configured,
     researchStatus?.configured,
     crmCatalog.providers.hubspot.configured,
     crmCatalog.providers.salesforce.configured,
   ].filter(Boolean).length;
-  const pendingResearchActionCount = useMemo(() => {
-    const pending = new Set(pendingRunRowIds);
-    return countMaximumExternalActions(
-      workspace.rows.filter((row) => pending.has(row.id)),
-      pendingWebResearchColumns,
-    );
-  }, [pendingRunRowIds, pendingWebResearchColumns, workspace.rows]);
+  const pendingResearchActionCount = pendingBudget.total;
   const pendingListRowLimit = useMemo(() => {
     const pending = new Set(pendingRunRowIds);
     const pendingRows = workspace.rows.filter((row) => pending.has(row.id));
@@ -1157,12 +1167,6 @@ export default function PomadeWorkspace({
         0,
       );
   }, [pendingRunRowIds, pendingWebResearchColumns, workspace.rows]);
-  const maximumResearchActions =
-    researchStatus?.capabilities.maximumActionsPerRun ?? 10;
-  const pendingResearchActionLimit =
-    pendingRunMode === 'background'
-      ? MAX_BACKGROUND_RESEARCH_ACTIONS
-      : maximumResearchActions;
   const latestRunJob = runJobs[0];
   const currentRunJob =
     latestRunJob &&
@@ -2326,7 +2330,7 @@ export default function PomadeWorkspace({
     confirmExternalResearch = false,
     columnIds?: string[],
   ) {
-    if (running || rowIds.length === 0) return;
+    if (running || rowIds.length === 0 || columnIds?.length === 0) return;
     if (
       workspace.columns.some(
         (column) =>
@@ -2342,13 +2346,15 @@ export default function PomadeWorkspace({
     const target = new Set(rowIds);
     const eligibleResearchActions = countMaximumExternalActions(
       workspace.rows.filter((row) => target.has(row.id)),
-      columnIds?.length
+      columnIds
         ? webResearchColumns.filter((column) => columnIds.includes(column.id))
         : webResearchColumns,
     );
     if (eligibleResearchActions > 0 && !confirmExternalResearch) {
       setPendingRunRowIds(rowIds);
-      setPendingRunColumnIds(columnIds ?? []);
+      setPendingRunColumnIds(
+        columnIds ?? recipeColumns.map((column) => column.id),
+      );
       setPendingRunMode('immediate');
       setResearchConfirmOpen(true);
       return;
@@ -2422,7 +2428,7 @@ export default function PomadeWorkspace({
     confirmExternalResearch = false,
     columnIds?: string[],
   ) {
-    if (jobSaving || !rowIds.length) return;
+    if (jobSaving || !rowIds.length || columnIds?.length === 0) return;
     if (rowIds.length > MAX_BACKGROUND_ROWS) {
       setJobError(
         `Select ${MAX_BACKGROUND_ROWS} rows or fewer for one background run.`,
@@ -2441,7 +2447,7 @@ export default function PomadeWorkspace({
       return;
     }
     const target = new Set(rowIds);
-    const scopedResearchColumns = columnIds?.length
+    const scopedResearchColumns = columnIds
       ? webResearchColumns.filter((column) => columnIds.includes(column.id))
       : webResearchColumns;
     const researchActionCount = countMaximumExternalActions(
@@ -2450,7 +2456,9 @@ export default function PomadeWorkspace({
     );
     if (researchActionCount > 0 && !confirmExternalResearch) {
       setPendingRunRowIds(rowIds);
-      setPendingRunColumnIds(columnIds ?? []);
+      setPendingRunColumnIds(
+        columnIds ?? recipeColumns.map((column) => column.id),
+      );
       setPendingRunMode('background');
       setResearchConfirmOpen(true);
       return;
@@ -5541,17 +5549,18 @@ export default function PomadeWorkspace({
         <DialogContent className="research-confirm-dialog">
           <DialogHeader>
             <DialogTitle>
-              {pendingRunMode === 'background'
-                ? 'Queue external requests?'
-                : 'Run external requests?'}
+              {effectiveRunMode === 'background'
+                ? 'Review background run'
+                : 'Review recipe run'}
             </DialogTitle>
             <DialogDescription>
-              These recipes send configured row values to research providers or
-              HTTP connections. Each request may consume provider credits or
-              have effects defined by the endpoint
-              {pendingRunMode === 'background'
-                ? '. Background jobs continue while Pomade’s local server is running.'
-                : '.'}
+              {pendingResearchActionCount > 0
+                ? 'Selected providers receive configured row values. Requests may consume provider credits; review the scope before running.'
+                : 'Only local recipes are selected. These run inside Pomade without provider requests.'}
+              {effectiveRunMode === 'background' &&
+                (deployment.hosted
+                  ? ' Background jobs continue on your hosted workspace; Codex research also needs its local companion.'
+                  : ' Background jobs continue while Pomade’s local server is running.')}
             </DialogDescription>
           </DialogHeader>
           {pendingWebResearchColumns.some(
@@ -5563,6 +5572,15 @@ export default function PomadeWorkspace({
               onRefresh={() => setResearchStatusRevision((value) => value + 1)}
             />
           ) : null}
+          <RunScopePicker
+            columns={recipeColumns}
+            rows={pendingRows}
+            selectedIds={pendingRunColumnIds}
+            onChange={setPendingRunColumnIds}
+            mode={effectiveRunMode}
+            onModeChange={setPendingRunMode}
+            requiresBackground={pendingRequiresBackground}
+          />
           <div className="research-run-summary">
             <div>
               <span>Rows</span>
@@ -5598,21 +5616,20 @@ export default function PomadeWorkspace({
               without submitting it again.
             </p>
           )}
-          {pendingResearchActionCount > pendingResearchActionLimit ? (
-            <p className="research-warning" role="alert">
-              {pendingRunMode === 'background'
-                ? `One background job allows ${pendingResearchActionLimit} external requests across up to ${MAX_BACKGROUND_ROWS} rows.`
-                : `This immediate run allows ${pendingResearchActionLimit} external requests.`}{' '}
-              Select fewer rows or external recipe columns.
-            </p>
-          ) : (
-            <p className="research-safety">
-              The maximum includes steps whose conditions may become true after
-              an earlier result. HTTP recipes send only configured inputs;
-              research may use row context. Receipts show results and unknown
-              costs. List recipes replace only their earlier child rows.
-            </p>
-          )}
+          {pendingBudgetIssue ? (
+            <div className="research-warning" role="alert">
+              <p>{pendingBudgetIssue}</p>
+              {effectiveRunMode === 'immediate' &&
+                pendingBudget.backgroundAllowed && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setPendingRunMode('background')}
+                  >
+                    Use background
+                  </Button>
+                )}
+            </div>
+          ) : null}
           <div className="research-confirm-actions">
             <Button
               variant="outline"
@@ -5624,7 +5641,7 @@ export default function PomadeWorkspace({
               onClick={() => {
                 const rowIds = pendingRunRowIds;
                 const columnIds = pendingRunColumnIds;
-                const mode = pendingRunMode;
+                const mode = effectiveRunMode;
                 setResearchConfirmOpen(false);
                 setPendingRunRowIds([]);
                 setPendingRunColumnIds([]);
@@ -5632,14 +5649,14 @@ export default function PomadeWorkspace({
                 if (mode === 'background') {
                   void queueBackgroundRun(
                     rowIds,
-                    true,
-                    columnIds.length ? columnIds : undefined,
+                    pendingResearchActionCount > 0,
+                    columnIds,
                   );
                 } else {
                   void runEnrichment(
                     rowIds,
-                    true,
-                    columnIds.length ? columnIds : undefined,
+                    pendingResearchActionCount > 0,
+                    columnIds,
                   );
                 }
               }}
@@ -5659,13 +5676,12 @@ export default function PomadeWorkspace({
                           )?.configured ?? researchStatus?.configured
                         ),
                     ))) ||
-                pendingResearchActionCount === 0 ||
-                pendingResearchActionCount > pendingResearchActionLimit ||
+                Boolean(pendingBudgetIssue) ||
                 jobSaving
               }
             >
               <Globe2 />
-              {pendingRunMode === 'background'
+              {effectiveRunMode === 'background'
                 ? `Queue ${pendingRunRowIds.length} rows`
                 : `Run ${pendingRunRowIds.length} rows`}
             </Button>

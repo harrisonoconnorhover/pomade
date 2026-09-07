@@ -4,8 +4,10 @@ import type { WorkspaceSnapshot } from '@/lib/pomade-types';
 import type { HttpConnectionSummary } from '@/lib/http-enrichment';
 import type { ResearchProviderStatus } from './research-connection-status';
 import { previewRun } from '@/lib/run-preview';
+import { isExternalRecipe } from '@/lib/external-recipes';
 const labels = {
   ready: 'Ready now',
+  unchecked: 'Not checked',
   dependent: 'After earlier step',
   setup: 'Needs setup',
   input: 'Missing input',
@@ -25,9 +27,15 @@ export default function RunPreview({
   const [http, setHttp] = useState<HttpConnectionSummary[]>();
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
+  const hasExternal = workspace.columns.some(
+    (c) => columnIds.includes(c.id) && isExternalRecipe(c),
+  );
   useEffect(() => {
+    if (!hasExternal) return;
     const controller = new AbortController();
-    fetch('/api/providers/http', { signal: controller.signal })
+    fetch('/api/providers/http', {
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+    })
       .then(async (r) => {
         const data = (await r.json()) as {
           connections?: HttpConnectionSummary[];
@@ -40,7 +48,7 @@ export default function RunPreview({
         if (!controller.signal.aborted) setError(e.message);
       });
     return () => controller.abort();
-  }, [revision]);
+  }, [revision, hasExternal]);
   const entries = useMemo(
     () => previewRun(workspace, rowIds, columnIds, { http, research }),
     [workspace, rowIds, columnIds, http, research],
@@ -48,6 +56,16 @@ export default function RunPreview({
   const needsAttention = entries.filter(
     (e) => e.state === 'setup' || e.state === 'input',
   ).length;
+  if (!entries.length)
+    return (
+      <section className="run-preview" aria-label="Run preview">
+        <p className="run-preview-note">
+          {columnIds.length
+            ? 'Selected recipes run locally without provider requests.'
+            : 'Choose a recipe column above to preview its run.'}
+        </p>
+      </section>
+    );
   return (
     <section className="run-preview" aria-label="Run preview">
       <div className="run-preview-heading">
@@ -71,38 +89,46 @@ export default function RunPreview({
         </button>
       </div>
       {!http && <output>{error || 'Checking provider connections…'}</output>}
-      <div className="run-preview-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Row / action</th>
-              <th>Readiness</th>
-              <th>Provider order</th>
-              <th>Up to</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.slice(0, 80).map((e) => (
-              <tr key={`${e.rowId}:${e.columnId}`}>
-                <td>
-                  <strong>{e.rowLabel}</strong>
-                  <small>{e.columnLabel}</small>
-                </td>
-                <td>
-                  <span className={`run-preview-state state-${e.state}`}>
-                    {labels[e.state]}
-                  </span>
-                  {e.details.map((d, i) => (
-                    <small key={i}>{d}</small>
-                  ))}
-                </td>
-                <td>{e.steps.join(' → ')}</td>
-                <td>{e.maximum}</td>
+      {!entries.length ? (
+        <p className="run-preview-note">
+          {columnIds.length
+            ? 'Selected recipes run locally without provider requests.'
+            : 'Choose a recipe column above to preview its run.'}
+        </p>
+      ) : (
+        <div className="run-preview-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Row / action</th>
+                <th>Readiness</th>
+                <th>Provider order</th>
+                <th>Up to</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {entries.slice(0, 80).map((e) => (
+                <tr key={`${e.rowId}:${e.columnId}`}>
+                  <td>
+                    <strong>{e.rowLabel}</strong>
+                    <small>{e.columnLabel}</small>
+                  </td>
+                  <td>
+                    <span className={`run-preview-state state-${e.state}`}>
+                      {labels[e.state]}
+                    </span>
+                    {e.details.map((d, i) => (
+                      <small key={i}>{d}</small>
+                    ))}
+                  </td>
+                  <td>{e.steps.join(' → ')}</td>
+                  <td>{e.maximum}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <p className="run-preview-note">
         {entries.length > 80 ? `Showing 80 of ${entries.length} actions. ` : ''}
         Maximums include conditional fallbacks and verification. Actual requests

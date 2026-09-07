@@ -1103,3 +1103,9 @@ Selecting a CSV opens a preview rather than overwriting the active sheet. New sh
 - Current row actions and checkbox selection are bounded to the visible view. A view with no matches has no active record. Saved schedule scopes remain unchanged.
 - CSV export defaults to selected rows or the current view, with explicit entire-sheet and hidden-column options. Ordered CSV matrices retain duplicate column titles. Blank-row creation stops at the existing 5,000-row save capacity.
 - Verified 27 focused unit tests and eight actual browser checks covering multi-cell paste/clear, filtered actions/details, CSV contents, mobile fit, and reload persistence.
+
+### 2026-09-07 — Choose run scope before provider execution
+- Run confirmation now captures explicit recipe columns, including local formulas, and allows switching between immediate and background execution. Clearing all columns means no run; it never silently expands to the full sheet.
+- UI and API share provider-submission ceilings: 10 immediate, 50 per background job, 10 per background row, and 100 background rows. Finder/verifier/fallback steps count separately. Selected asynchronous providers keep background mode mandatory.
+- Unknown or failed connection checks no longer claim a provider is ready. Recheck recovers in place. Local-only runs send no external-provider confirmation.
+- Sixteen focused tests and eight browser checks passed, including an actual eleven-row local formula run, saved results after reload, connection-check failure/recovery, and the mobile run dialog.
