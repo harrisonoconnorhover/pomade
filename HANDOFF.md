@@ -16,7 +16,8 @@
 ## Checks
 
 - 48 focused provider/preset/HTTP/account tests passed, including valid-result stop, no-match/catch-all fallback, 403/429 stop, missing-key/input behavior, mobile normalization and private-key save/disconnect.
-- Typecheck and lint passed. Local/hosted build and deployment checks are next.
+- Typecheck, lint, local/hosted builds, package validation and diff whitespace checks passed.
+- Private version 19 is live (runtime commit `546e0b4`). HTTP 200 checks and the served provider bundle matched the build. All 11 hosted tables, seven configured connections and 19 local tables were preserved. LeadMagic is offered but remains unconnected.
 - Research read Clay's public documentation and 39 provider pages. The signed-in Clay workbook was located; no enrichments were configured or run.
 - No live LeadMagic API calls, purchases, or browser visual QA.
 
@@ -28,7 +29,6 @@
 
 ## Remaining
 
-- Finish private/local release verification.
 - Live LeadMagic access, response quality, credit use and incremental matches need an account/key.
 - Independent validators and additional provider adapters remain in the tracker. Asynchronous provider results need more than a request preset.
 
