@@ -16,7 +16,8 @@ Open **Provider waterfall → Quick setup**, select a FullEnrich preset and map 
 - 216 focused tests passed across 11 files, including FullEnrich, Enrow, contact presets, account isolation, waterfall, HTTP, pipelines, schedules, templates, workbook runs and usage.
 - TypeScript, lint, hosted build, script syntax and diff checks passed.
 - Built Worker with disposable persistent D1 passed for both FullEnrich and Enrow: submit, pause, process restart, saved-ID polling, earlier-step reuse, completed-miss fallback and downstream execution. All outbound traffic was intercepted.
-- Before release: 19 local tables, 11 hosted tables, seven configured hosted connections; no active jobs. Local and hosted release checks are pending.
+- Local build passed; `http://localhost:8798` is running. All 19 local table row/column counts and connection IDs are preserved.
+- Private Sites version 22 is live at `https://pomade.deleteddeleted.chatgpt.site` from runtime commit `bb0aba6`. All 11 hosted table row/column counts and seven configured connections are preserved. The served provider bundle matches the packaged build; FullEnrich is offered but unconnected. Owner-only access is unchanged.
 
 ## Decisions
 
