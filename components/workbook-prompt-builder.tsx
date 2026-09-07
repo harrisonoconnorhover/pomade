@@ -9,7 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { DEMANDDRIVE_EXAMPLE, type WorkbookPlan } from '@/lib/workbook-planner';
+import type { WorkbookPlan } from '@/lib/workbook-planner';
+import { DEMANDDRIVE_EXAMPLE } from '@/lib/workbook-examples';
 import type { TableSummary } from '@/lib/workbook';
 
 export default function WorkbookPromptBuilder({

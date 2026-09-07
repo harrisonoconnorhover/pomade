@@ -55,8 +55,6 @@ import {
   Workflow,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import CsvImportDialog from '@/components/csv-import-dialog';
-import CsvExportDialog from '@/components/csv-export-dialog';
 import RunScopePicker from '@/components/run-scope-picker';
 import { runBudget } from '@/lib/run-budget';
 import { runJobLocksWorkspace } from '@/lib/run-job';
@@ -196,6 +194,30 @@ import {
   runJobPercent,
 } from '@/lib/run-job';
 import { createSampleWorkspace } from '@/lib/sample-workspace';
+
+function CsvDialogLoading() {
+  return (
+    <Dialog open>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>Opening CSV tools…</DialogTitle>
+          <DialogDescription>
+            Loading the preview and column controls.
+          </DialogDescription>
+        </DialogHeader>
+        <LoaderCircle className="spin" aria-label="Loading CSV tools" />
+      </DialogContent>
+    </Dialog>
+  );
+}
+const CsvImportDialog = dynamic(
+  () => import('@/components/csv-import-dialog'),
+  { ssr: false, loading: CsvDialogLoading },
+);
+const CsvExportDialog = dynamic(
+  () => import('@/components/csv-export-dialog'),
+  { ssr: false, loading: CsvDialogLoading },
+);
 
 const PomadeDataGrid = dynamic(() => import('@/components/pomade-data-grid'), {
   ssr: false,

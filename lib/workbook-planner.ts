@@ -126,9 +126,7 @@ export type WorkbookPlanGuide = {
   steps: WorkbookPlanStep[];
   tables: { id: string; name: string }[];
 };
-export const DEMANDDRIVE_EXAMPLE = `Build a HeroDevs prospecting workbook for 3 ICP-fit companies. HeroDevs provides security patches and support for end-of-life open-source software such as AngularJS. Use HealthEdge (healthedge.com), Clearwater Security (clearwatersecurity.com), and Solera (solera.com) as the starting companies and verify their fit.
-Include 3 custom buying signals with source evidence, why each matters, and how to verify it: use of end-of-life technology in company-owned software, security or operational risk, and an active modernization or maintenance trigger. Define a transparent 1–100 scoring rubric, combine the signal points, and assign High / Medium / Low tiers. Hold accounts with insufficient evidence for review.
-For the strongest accounts, create a separate buyer committee sheet with the likely economic buyer, champion, technical evaluator, security approver, and commercial approver. Find current people where public evidence supports their role; label unnamed roles as hypotheses. Explain how to find and enrich these contacts. Keep verified facts separate from hypotheses and include source links. Prepare the tables for a walkthrough; recording and sharing the walkthrough are separate tasks.`;
+export { DEMANDDRIVE_EXAMPLE } from './workbook-examples';
 
 export function workbookPlanningPrompt(request: string) {
   if (!request.trim() || request.length > 5000)

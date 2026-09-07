@@ -1115,3 +1115,8 @@ Selecting a CSV opens a preview rather than overwriting the active sheet. New sh
 - Paused runs lock editing only while an in-flight lease is still valid. Version restore waits for successfully saved edits so the existing backup promise remains true.
 - Hosted execution copy describes observed wakeups: Pomade polling or a connected companion advances jobs; ChatGPT research needs its Mac helper.
 - Ten focused tests and eight browser resilience checks passed. Seven additional CRM browser checks confirmed empty-segment save, row/recipe preservation, and manual refresh using saved settings; CRM responses were mocked and no external CRM writes occurred.
+
+### 2026-09-07 — Defer optional workbook code
+- Import/export dialogs and PapaParse now load when opened. The DemandDrive example lives separately from server-side Zod planning validation.
+- Local workbook entry decreased from 677,966 to 505,685 bytes; computed gzip decreased from 196,409 to 144,613 bytes (26.4%). This measures artifacts, not a claimed timing improvement.
+- Four browser checks confirmed CSV chunks are absent during initial sheet loading, load on demand, and keep preview/export and example filling usable. Fourteen CSV/planner tests, typecheck, lint and local build passed.
