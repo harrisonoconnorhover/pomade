@@ -3,6 +3,7 @@ import { createHttpColumns } from './http-enrichment';
 import type { HttpProviderStep, WorkspaceSnapshot } from './pomade-types';
 export const APOLLO_COMPANY_CONNECTION = 'pomade_apollo_company';
 export const APOLLO_PEOPLE_CONNECTION = 'pomade_apollo_people';
+export const FINDYMAIL_CONNECTION = 'pomade_findymail';
 export const LEADMAGIC_CONNECTION = 'pomade_leadmagic';
 export const PROSPEO_CONNECTION = 'pomade_prospeo';
 export const HUNTER_CONNECTION = 'pomade_hunter';
@@ -228,5 +229,42 @@ export function leadMagicMobileStep(email = 'email'): HttpProviderStep {
     pathTemplate: '/v1/people/mobile-finder',
     bodyTemplate: JSON.stringify({ work_email: `{{${email}}}` }),
     responsePath: 'mobile_number',
+  };
+}
+
+// Finder responses do not expose a verification status. Keep their acceptance
+// separate from the explicit boolean returned by /api/verify.
+export function findymailEmailStep(
+  person = 'person',
+  domain = 'domain',
+): HttpProviderStep {
+  return {
+    connectionId: FINDYMAIL_CONNECTION,
+    method: 'POST',
+    pathTemplate: '/api/search/name',
+    bodyTemplate: JSON.stringify({
+      name: `{{${person}}}`,
+      domain: `{{${domain}}}`,
+    }),
+    responsePath: 'contact.email',
+  };
+}
+export function findymailPhoneStep(profile = 'profile'): HttpProviderStep {
+  return {
+    connectionId: FINDYMAIL_CONNECTION,
+    method: 'POST',
+    pathTemplate: '/api/search/phone',
+    bodyTemplate: JSON.stringify({ linkedin_url: `{{${profile}}}` }),
+    responsePath: 'phone',
+  };
+}
+export function findymailVerifyStep(email = 'email'): HttpProviderStep {
+  return {
+    connectionId: FINDYMAIL_CONNECTION,
+    method: 'POST',
+    pathTemplate: '/api/verify',
+    bodyTemplate: JSON.stringify({ email: `{{${email}}}` }),
+    responsePath: 'email',
+    verification: { path: 'verified', acceptedValues: ['true'] },
   };
 }

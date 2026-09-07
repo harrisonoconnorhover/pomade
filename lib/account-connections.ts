@@ -48,6 +48,12 @@ export const CONNECTIONS: ConnectionDefinition[] = [
     'Email and mobile lookup presets. Tested with sample responses; live API access is not yet verified. Mobile lookups do not include independent phone verification.',
   ),
   api(
+    'findymail',
+    'Findymail',
+    'FINDYMAIL_API_KEY',
+    'Email lookup, US phone lookup, and email verification. Tested with sample responses; live access still needs validation.',
+  ),
+  api(
     'pdl',
     'People Data Labs',
     'PDL_API_KEY',

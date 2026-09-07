@@ -30,7 +30,7 @@ lead to the current actions supporting each row.
 | [Prospeo](https://www.clay.com/integrations/data-provider/prospeo) | Work | Mobile | Email and verified-mobile presets exist; mobile entitlement still needs a live check. |
 | [People Data Labs](https://www.clay.com/integrations/data-provider/people-data-labs) | Work*; personal | Mobile | Company adapter exists; person/email/mobile presets remain a gap. |
 | [LeadMagic](https://www.clay.com/integrations/data-provider/leadmagic) | Work; personal | Mobile | NEW: work-email and mobile-by-work-email presets; fixture-tested, no live key/test. |
-| [Findymail](https://www.clay.com/integrations/data-provider/findymail) | Work | Mobile | Planned. Good next candidate for another email and mobile source. |
+| [Findymail](https://www.clay.com/integrations/data-provider/findymail) | Work | Mobile | Email lookup, US phone lookup and independent email verification implemented and fixture-tested. Finder outputs use format-only acceptance; the verifier requires `verified=true`. No live account test. |
 | [Enrow](https://www.clay.com/integrations/data-provider/enrow) | Work | Mobile | Planned. Includes a separate email validation action in Clay. |
 | [Dropcontact](https://www.clay.com/integrations/data-provider/dropcontact) | Work | — | Planned. Confirm current direct API request/result lifecycle before wiring. |
 | [Icypeas](https://www.clay.com/integrations/data-provider/icypeas) | Work | — | Planned. Includes email verification and domain email discovery. |
@@ -73,7 +73,7 @@ Pomade. Current verified-email presets inspect the lookup provider's own status.
 | [Debounce](https://www.clay.com/integrations/data-provider/debounce) | Email validation | Verifier adapter |
 | [Enrichley](https://www.clay.com/integrations/data-provider/enrichley) | Email validation | Verifier adapter |
 | [Hunter](https://www.clay.com/integrations/data-provider/hunter) | Email validation in addition to discovery | Standalone verification preset |
-| [Findymail](https://www.clay.com/integrations/data-provider/findymail) | Email validation in addition to discovery | Finder plus verifier adapters |
+| [Findymail](https://www.clay.com/integrations/data-provider/findymail) | Email validation in addition to discovery | Findymail finder and verifier presets implemented; fixture-tested, live access pending. |
 | [Enrow](https://www.clay.com/integrations/data-provider/enrow) | Work-email validation | Finder plus verifier adapters |
 | [Icypeas](https://www.clay.com/integrations/data-provider/icypeas) | Email verification | Finder plus verifier adapters |
 | [LeadMagic](https://www.clay.com/integrations/data-provider/leadmagic) | Email validation in addition to discovery | Standalone verifier; new finder checks its own returned status only |
@@ -163,3 +163,9 @@ unversioned routes and different status descriptions. No new key or plan purchas
 4. Revisit the current **one-to-four provider-step** limit only when a tested
    waterfall needs more steps. Do not equate a provider inventory with usable
    coverage or spend time registering every service before testing incremental value.
+
+### Findymail (September 7, 2026)
+
+Added name/domain email discovery, professional-profile US phone lookup, and an independent email-verifier preset using the [official API reference](https://app.findymail.com/docs/). Finder responses do not contain an explicit verification status. The phone endpoint documents US coverage and can return landlines. These lookup presets therefore check format only; the separate verifier requires the returned boolean `verified=true`. HTTP-200 error bodies stop the chain instead of masquerading as no-match results. API-key setup is available per account or through `FINDYMAIL_API_KEY`; no real credential or vendor call was used to develop this adapter.
+
+All preset setups can now be saved before connecting keys. Missing connections stop their step at execution; they are never silently skipped. Portable templates keep input mappings and omit credentials.

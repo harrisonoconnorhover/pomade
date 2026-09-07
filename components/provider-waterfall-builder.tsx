@@ -13,14 +13,13 @@ import {
   verifiedAcceptance,
 } from '@/lib/provider-waterfall';
 import {
-  emailProviderStep,
-  leadMagicMobileStep,
-  LEADMAGIC_CONNECTION,
-  prospeoMobileStep,
-  HUNTER_CONNECTION,
-  PROSPEO_CONNECTION,
-  APOLLO_PEOPLE_CONNECTION,
-} from '@/lib/provider-presets';
+  CONTACT_INPUTS,
+  CONTACT_PROVIDER_PRESETS,
+  contactPreset,
+  missingContactInputs,
+  type ContactBindings,
+  type ContactInput,
+} from '@/lib/contact-provider-presets';
 import type { HttpConnectionSummary } from '@/lib/http-enrichment';
 import type {
   PomadeColumn,
@@ -28,22 +27,7 @@ import type {
   HttpProviderStep,
   ProviderWaterfall,
 } from '@/lib/pomade-types';
-type EmailProvider =
-  | Parameters<typeof emailProviderStep>[0]
-  | 'prospeo-mobile'
-  | 'leadmagic-mobile';
-const presetStep = (
-  provider: EmailProvider,
-  person: string,
-  domain: string,
-  email: string,
-) =>
-  provider === 'prospeo-mobile'
-    ? prospeoMobileStep(person, domain)
-    : provider === 'leadmagic-mobile'
-      ? leadMagicMobileStep(email)
-      : emailProviderStep(provider, person, domain);
-type StepDraft = HttpProviderStep & { quickSetup?: EmailProvider };
+type StepDraft = HttpProviderStep & { quickSetup?: string };
 const blank = (): StepDraft => ({
   connectionId: '',
   method: 'GET',
@@ -72,22 +56,15 @@ export default function ProviderWaterfallBuilder({
   const inputColumns = workspace.columns.filter(
     (column) => column.kind !== 'status',
   );
-  const [personColumn, setPersonColumn] = useState(
-    inputColumns.some((column) => column.id === 'person') ? 'person' : '',
+  const [bindings, setBindings] = useState<ContactBindings>(
+    () =>
+      Object.fromEntries(
+        Object.keys(CONTACT_INPUTS).map((key) => [
+          key,
+          inputColumns.some((c) => c.id === key) ? key : '',
+        ]),
+      ) as ContactBindings,
   );
-  const [domainColumn, setDomainColumn] = useState(
-    inputColumns.some((column) => column.id === 'domain') ? 'domain' : '',
-  );
-  const [emailColumn, setEmailColumn] = useState(
-    inputColumns.some((column) => column.id === 'email') ? 'email' : '',
-  );
-  const emailInputReady = inputColumns.some(
-    (column) => column.id === emailColumn,
-  );
-  const presetInputsReady =
-    [personColumn, domainColumn].every((id) =>
-      inputColumns.some((column) => column.id === id),
-    ) && personColumn !== domainColumn;
   const [accept, setAccept] = useState<ProviderWaterfall['accept']>('nonempty');
   const [continueOnError, setContinueOnError] = useState(false);
   const [connectionRevision, setConnectionRevision] = useState(0);
@@ -134,22 +111,24 @@ export default function ProviderWaterfallBuilder({
   let columns: PomadeColumn[] | undefined;
   let validation = '';
   try {
-    if (
-      steps.some(
-        (step) => step.quickSetup && step.quickSetup !== 'leadmagic-mobile',
-      ) &&
-      !presetInputsReady
-    )
-      throw new Error(
-        'Choose separate name and website columns for the presets.',
-      );
-    if (
-      steps.some((step) => step.quickSetup === 'leadmagic-mobile') &&
-      !emailInputReady
-    )
-      throw new Error(
-        'Choose a work email column for LeadMagic mobile lookup.',
-      );
+    for (const step of steps) {
+      const preset = contactPreset(step.quickSetup);
+      if (preset) {
+        const missing = missingContactInputs(preset, bindings, inputColumns);
+        if (missing.length)
+          throw new Error(
+            `Choose ${missing.map((key) => CONTACT_INPUTS[key].toLowerCase()).join(' and ')} for ${preset.provider}.`,
+          );
+        if (
+          preset.inputs.includes('person') &&
+          preset.inputs.includes('domain') &&
+          bindings.person === bindings.domain
+        )
+          throw new Error(
+            'Choose separate full-name and company-domain columns.',
+          );
+      }
+    }
     columns = createProviderWaterfall(workspace, {
       id,
       title,
@@ -160,6 +139,7 @@ export default function ProviderWaterfallBuilder({
     if (
       steps.some(
         (step) =>
+          !step.quickSetup &&
           !connections.some(
             (c) =>
               c.id === step.connectionId && c.methods.includes(step.method),
@@ -177,25 +157,30 @@ export default function ProviderWaterfallBuilder({
       ),
     );
   }
-  function updatePresetInputs(
-    person: string,
-    domain: string,
-    email = emailColumn,
-  ) {
-    setPersonColumn(person);
-    setDomainColumn(domain);
-    setEmailColumn(email);
+  function updatePresetInput(input: ContactInput, columnId: string) {
+    const next = { ...bindings, [input]: columnId };
+    setBindings(next);
     setSteps((current) =>
-      current.map((step) =>
-        step.quickSetup
-          ? {
-              ...presetStep(step.quickSetup, person, domain, email),
-              quickSetup: step.quickSetup,
-            }
-          : step,
-      ),
+      current.map((step) => {
+        const preset = contactPreset(step.quickSetup);
+        return preset ? { ...preset.step(next), quickSetup: preset.id } : step;
+      }),
     );
   }
+  const neededConnections = [
+    ...new Set(
+      steps
+        .filter(
+          (step) =>
+            step.connectionId &&
+            !connections.some((c) => c.id === step.connectionId),
+        )
+        .map(
+          (step) =>
+            contactPreset(step.quickSetup)?.provider ?? step.connectionId,
+        ),
+    ),
+  ];
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent className="template-dialog provider-waterfall-dialog">
@@ -212,68 +197,38 @@ export default function ProviderWaterfallBuilder({
           <input value={title} onChange={(e) => setTitle(e.target.value)} />
         </label>
         <fieldset>
-          <legend>Person lookup inputs</legend>
-          <div className="http-output-grid">
-            <label>
-              Person’s full name
-              <select
-                value={personColumn}
-                onChange={(e) =>
-                  updatePresetInputs(e.target.value, domainColumn)
-                }
-              >
-                <option value="">Choose a column</option>
-                {inputColumns.map((column) => (
-                  <option key={column.id} value={column.id}>
-                    {column.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Company domain (example.com)
-              <select
-                value={domainColumn}
-                onChange={(e) =>
-                  updatePresetInputs(personColumn, e.target.value)
-                }
-              >
-                <option value="">Choose a column</option>
-                {inputColumns.map((column) => (
-                  <option key={column.id} value={column.id}>
-                    {column.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label>
-            Work email (for LeadMagic mobile)
-            <select
-              value={emailColumn}
-              onChange={(e) =>
-                updatePresetInputs(personColumn, domainColumn, e.target.value)
-              }
-            >
-              <option value="">Choose a column</option>
-              {inputColumns.map((column) => (
-                <option key={column.id} value={column.id}>
-                  {column.title}
-                </option>
-              ))}
-            </select>
-          </label>
+          <legend>Lookup inputs</legend>
           <p>
-            Choose work email or mobile. Prospeo mobile lookup uses up to 10
-            credits for a verified result, and no credits for no match.
+            Map the inputs your selected presets need. Unused inputs can stay
+            empty.
           </p>
+          <div className="http-output-grid">
+            {(Object.entries(CONTACT_INPUTS) as [ContactInput, string][]).map(
+              ([input, label]) => (
+                <label key={input}>
+                  {label}
+                  <select
+                    value={bindings[input]}
+                    onChange={(e) => updatePresetInput(input, e.target.value)}
+                  >
+                    <option value="">Choose a column</option>
+                    {inputColumns.map((column) => (
+                      <option key={column.id} value={column.id}>
+                        {column.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ),
+            )}
+          </div>
         </fieldset>
         {loading ? (
           <output>Checking available providers…</output>
         ) : !connections.length ? (
           <p>
-            No provider connections are available. Add a key in Account on the
-            hosted site, or in your local server settings and restart Pomade.
+            You can prepare presets now. Connect a key in Account, or in your
+            local server settings, before running them.
           </p>
         ) : null}
         {!loading && error ? (
@@ -300,107 +255,35 @@ export default function ProviderWaterfallBuilder({
                 disabled={loading}
                 onChange={(e) => {
                   if (e.target.value) {
-                    const provider = e.target.value as EmailProvider;
+                    const preset = contactPreset(e.target.value);
+                    if (!preset) return;
                     setSteps((current) =>
                       current.map((item, i) =>
                         i === index
                           ? {
-                              ...presetStep(
-                                provider,
-                                personColumn,
-                                domainColumn,
-                                emailColumn,
-                              ),
-                              quickSetup: provider,
+                              ...preset.step(bindings),
+                              quickSetup: preset.id,
                             }
                           : item,
                       ),
                     );
-                    setAccept(
-                      provider === 'prospeo-mobile'
-                        ? 'verified-phone'
-                        : provider === 'leadmagic-mobile'
-                          ? 'phone'
-                          : 'verified-email',
-                    );
+                    setAccept(preset.accept);
                   } else edit(index, {});
                 }}
               >
                 <option value="">Custom request or choose a preset</option>
-                <option
-                  value="hunter"
-                  disabled={
-                    !presetInputsReady ||
-                    !connections.some((c) => c.id === HUNTER_CONNECTION)
-                  }
-                >
-                  Hunter verified email
-                </option>
-                <option
-                  value="apollo"
-                  disabled={
-                    !presetInputsReady ||
-                    !connections.some((c) => c.id === APOLLO_PEOPLE_CONNECTION)
-                  }
-                >
-                  Apollo verified email
-                </option>
-                <option
-                  value="prospeo-mobile"
-                  disabled={
-                    !presetInputsReady ||
-                    !connections.some((c) => c.id === PROSPEO_CONNECTION)
-                  }
-                >
-                  Prospeo verified mobile
-                </option>
-                <option
-                  value="prospeo"
-                  disabled={
-                    !presetInputsReady ||
-                    !connections.some((c) => c.id === PROSPEO_CONNECTION)
-                  }
-                >
-                  Prospeo verified email
-                </option>
-                <option
-                  value="leadmagic"
-                  disabled={
-                    !presetInputsReady ||
-                    !connections.some((c) => c.id === LEADMAGIC_CONNECTION)
-                  }
-                >
-                  LeadMagic verified email
-                  {!connections.some((c) => c.id === LEADMAGIC_CONNECTION)
-                    ? ' · API key needed'
-                    : ''}
-                </option>
-                <option
-                  value="leadmagic-mobile"
-                  disabled={
-                    !emailInputReady ||
-                    !connections.some((c) => c.id === LEADMAGIC_CONNECTION)
-                  }
-                >
-                  LeadMagic mobile · format only
-                  {!connections.some((c) => c.id === LEADMAGIC_CONNECTION)
-                    ? ' · API key needed'
-                    : ''}
-                </option>
+                {CONTACT_PROVIDER_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label}
+                    {connections.some((c) => c.id === preset.connectionId)
+                      ? ''
+                      : ' · API key needed'}
+                  </option>
+                ))}
               </select>
             </label>
-            {step.quickSetup?.startsWith('leadmagic') ? (
-              <p>
-                LeadMagic presets are tested with sample responses; live access
-                still needs validation. Mobile lookup checks number format only
-                and does not establish ownership or reachability.
-              </p>
-            ) : null}
-            {!presetInputsReady ? (
-              <p>
-                Name and website are required for email/Prospeo presets;
-                LeadMagic mobile uses the work email column.
-              </p>
+            {contactPreset(step.quickSetup)?.note ? (
+              <p>{contactPreset(step.quickSetup)?.note}</p>
             ) : null}
             <details
               className="provider-request-settings"
@@ -421,6 +304,13 @@ export default function ProviderWaterfallBuilder({
                     }
                   >
                     <option value="">Choose provider</option>
+                    {step.quickSetup &&
+                    !connections.some((c) => c.id === step.connectionId) ? (
+                      <option value={step.connectionId}>
+                        {contactPreset(step.quickSetup)?.provider} · API key
+                        needed
+                      </option>
+                    ) : null}
                     {connections.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.label}
@@ -581,6 +471,12 @@ export default function ProviderWaterfallBuilder({
           Verified phone status does not establish whether a number is a mobile
           number or a company switchboard.
         </p>
+        {!loading && neededConnections.length ? (
+          <p>
+            Needs connection: {neededConnections.join(', ')}. You can save this
+            setup now. A missing connection stops that step when run.
+          </p>
+        ) : null}
         {!loading && (error || validation) ? (
           <p role="alert">{error || validation}</p>
         ) : null}

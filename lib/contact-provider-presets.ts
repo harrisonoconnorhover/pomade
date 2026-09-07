@@ -1,0 +1,134 @@
+import {
+  emailProviderStep,
+  prospeoMobileStep,
+  leadMagicMobileStep,
+  findymailEmailStep,
+  findymailPhoneStep,
+  findymailVerifyStep,
+  APOLLO_PEOPLE_CONNECTION,
+  HUNTER_CONNECTION,
+  PROSPEO_CONNECTION,
+  LEADMAGIC_CONNECTION,
+  FINDYMAIL_CONNECTION,
+} from './provider-presets';
+import type { HttpProviderStep, ProviderWaterfall } from './pomade-types';
+
+export const CONTACT_INPUTS = {
+  person: 'Person’s full name',
+  domain: 'Company domain (example.com)',
+  email: 'Email address',
+  profile: 'Professional profile URL',
+  phone: 'Phone number with country code',
+} as const;
+export type ContactInput = keyof typeof CONTACT_INPUTS;
+export type ContactBindings = Record<ContactInput, string>;
+export type ContactProviderPreset = {
+  id: string;
+  label: string;
+  provider: string;
+  connectionId: string;
+  inputs: ContactInput[];
+  accept: ProviderWaterfall['accept'];
+  note?: string;
+  step: (bindings: ContactBindings) => HttpProviderStep;
+};
+export const CONTACT_PROVIDER_PRESETS: ContactProviderPreset[] = [
+  {
+    id: 'hunter',
+    label: 'Hunter · find verified email',
+    provider: 'Hunter',
+    connectionId: HUNTER_CONNECTION,
+    inputs: ['person', 'domain'],
+    accept: 'verified-email',
+    step: ({ person, domain }) => emailProviderStep('hunter', person, domain),
+  },
+  {
+    id: 'apollo',
+    label: 'Apollo · find verified email',
+    provider: 'Apollo',
+    connectionId: APOLLO_PEOPLE_CONNECTION,
+    inputs: ['person', 'domain'],
+    accept: 'verified-email',
+    step: ({ person, domain }) => emailProviderStep('apollo', person, domain),
+  },
+  {
+    id: 'prospeo',
+    label: 'Prospeo · find verified email',
+    provider: 'Prospeo',
+    connectionId: PROSPEO_CONNECTION,
+    inputs: ['person', 'domain'],
+    accept: 'verified-email',
+    step: ({ person, domain }) => emailProviderStep('prospeo', person, domain),
+  },
+  {
+    id: 'prospeo-mobile',
+    label: 'Prospeo · find verified mobile',
+    provider: 'Prospeo',
+    connectionId: PROSPEO_CONNECTION,
+    inputs: ['person', 'domain'],
+    accept: 'verified-phone',
+    step: ({ person, domain }) => prospeoMobileStep(person, domain),
+  },
+  {
+    id: 'leadmagic',
+    label: 'LeadMagic · find verified email',
+    provider: 'LeadMagic',
+    connectionId: LEADMAGIC_CONNECTION,
+    inputs: ['person', 'domain'],
+    accept: 'verified-email',
+    step: ({ person, domain }) =>
+      emailProviderStep('leadmagic', person, domain),
+  },
+  {
+    id: 'leadmagic-mobile',
+    label: 'LeadMagic · find mobile (format only)',
+    provider: 'LeadMagic',
+    connectionId: LEADMAGIC_CONNECTION,
+    inputs: ['email'],
+    accept: 'phone',
+    note: 'Uses a work email. The response has no independent phone verification status.',
+    step: ({ email }) => leadMagicMobileStep(email),
+  },
+  {
+    id: 'findymail',
+    label: 'Findymail · find email (format only)',
+    provider: 'Findymail',
+    connectionId: FINDYMAIL_CONNECTION,
+    inputs: ['person', 'domain'],
+    accept: 'email',
+    note: 'Findymail describes its finder emails as verified, but this response has no verification status. Add a separate verification column for an explicit check.',
+    step: ({ person, domain }) => findymailEmailStep(person, domain),
+  },
+  {
+    id: 'findymail-phone',
+    label: 'Findymail · find US phone (format only)',
+    provider: 'Findymail',
+    connectionId: FINDYMAIL_CONNECTION,
+    inputs: ['profile'],
+    accept: 'phone',
+    note: 'The documented API supports US numbers and may return mobile or landline. Number format does not establish ownership or reachability.',
+    step: ({ profile }) => findymailPhoneStep(profile),
+  },
+  {
+    id: 'findymail-verify',
+    label: 'Findymail · verify existing email',
+    provider: 'Findymail',
+    connectionId: FINDYMAIL_CONNECTION,
+    inputs: ['email'],
+    accept: 'verified-email',
+    note: 'Checks an existing email and accepts only verified=true. Each attempt may use verifier credits.',
+    step: ({ email }) => findymailVerifyStep(email),
+  },
+];
+export function contactPreset(id?: string) {
+  return CONTACT_PROVIDER_PRESETS.find((preset) => preset.id === id);
+}
+export function missingContactInputs(
+  preset: ContactProviderPreset,
+  bindings: ContactBindings,
+  columns: { id: string }[],
+) {
+  return preset.inputs.filter(
+    (input) => !columns.some((column) => column.id === bindings[input]),
+  );
+}

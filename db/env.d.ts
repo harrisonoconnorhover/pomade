@@ -16,6 +16,7 @@ declare namespace Cloudflare {
     APOLLO_API_KEY?: string;
     HUNTER_API_KEY?: string;
     LEADMAGIC_API_KEY?: string;
+    FINDYMAIL_API_KEY?: string;
     PROSPEO_API_KEY?: string;
     POMADE_RESEARCH_PROVIDER?: string;
     POMADE_CODEX_URL?: string;

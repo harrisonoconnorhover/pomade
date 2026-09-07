@@ -392,6 +392,16 @@ export async function executeHttpRecipe(
       );
     }
     if (!providerMiss) data = await boundedJson(response);
+    // Findymail documents application errors even with an HTTP 200 response.
+    // Never treat account/credit failures as a miss and silently spend on fallback.
+    if (connection.id === 'pomade_findymail' && jsonPath(data, 'error')) {
+      const reason = jsonPath(data, 'error');
+      throw new Error(
+        reason === 'Not enough credits' || reason === 'Subscription is paused'
+          ? `Findymail: ${reason}`
+          : 'Findymail rejected the request. Check the account and request inputs.',
+      );
+    }
     if (config.preset === 'apollo-company' || config.preset === 'pdl-company') {
       const expected = new URL(request.url).searchParams.get(
         config.preset === 'apollo-company' ? 'domain' : 'website',

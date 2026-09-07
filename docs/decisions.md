@@ -1051,3 +1051,7 @@ verification field and must stay format-only. Configure keys through the existin
 per-account vault and local environment. Test mapping, fallthrough, error stops,
 and credential isolation using synthetic responses; do not claim live coverage or
 billing validation without an account. No migration or new service is required.
+
+## 2026-09-07 — Prepare provider presets before connecting credentials
+
+Keep presets available without an API key so users can build and reuse workflows before choosing a subscription. Saving a preset performs no lookup; execution still resolves credentials in the current account. Findymail finder responses get format-only acceptance because the documented schema has no verification status; its independent verifier requires the returned `verified` boolean. Preserve application errors even when their HTTP status is 200. A small shared preset list drives input requirements and the UI as the provider catalogue grows.

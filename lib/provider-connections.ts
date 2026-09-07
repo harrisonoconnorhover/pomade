@@ -1,6 +1,7 @@
 import { httpConnections, type HttpConnection } from './http-enrichment';
 import {
   LEADMAGIC_CONNECTION,
+  FINDYMAIL_CONNECTION,
   APOLLO_COMPANY_CONNECTION,
   APOLLO_PEOPLE_CONNECTION,
   HUNTER_CONNECTION,
@@ -12,12 +13,14 @@ export function configuredHttpConnections(env: {
   APOLLO_API_KEY?: string;
   HUNTER_API_KEY?: string;
   LEADMAGIC_API_KEY?: string;
+  FINDYMAIL_API_KEY?: string;
   PROSPEO_API_KEY?: string;
   PDL_API_KEY?: string;
 }): HttpConnection[] {
   const custom = httpConnections(env.POMADE_HTTP_CONNECTIONS);
   const reserved = [
     LEADMAGIC_CONNECTION,
+    FINDYMAIL_CONNECTION,
     APOLLO_COMPANY_CONNECTION,
     APOLLO_PEOPLE_CONNECTION,
     HUNTER_CONNECTION,
@@ -79,6 +82,14 @@ export function configuredHttpConnections(env: {
       origin: 'https://api.leadmagic.io',
       methods: ['POST'],
       headers: { 'X-API-Key': env.LEADMAGIC_API_KEY.trim() },
+    });
+  if (env.FINDYMAIL_API_KEY?.trim())
+    connections.push({
+      id: FINDYMAIL_CONNECTION,
+      label: 'Findymail',
+      origin: 'https://app.findymail.com',
+      methods: ['POST'],
+      headers: { Authorization: `Bearer ${env.FINDYMAIL_API_KEY.trim()}` },
     });
   return connections;
 }
