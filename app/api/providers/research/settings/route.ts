@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   const db = await ensureDatabase();
   const defaults = await readResearchDefaults(db, env);
   try {
-    if (researchConfiguration(env).provider !== 'codex')
+    if (!researchConfiguration({...env,POMADE_RESEARCH_PROVIDER:'codex'}).configured)
       return Response.json({ defaults, models: [], updatedAt: 0 });
     const catalog = await readResearchModels(
       env,

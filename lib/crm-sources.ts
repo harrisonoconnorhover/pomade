@@ -1,3 +1,4 @@
+import { salesforceFetch, type SalesforceAuth } from './salesforce-auth';
 import {
   readHubSpotSegmentPage,
   HubSpotSegmentError,
@@ -9,7 +10,7 @@ import type {
   CrmSourcePreview,
 } from './pomade-types';
 
-export type CrmSourceOptions = {
+export type CrmSourceOptions = SalesforceAuth & {
   objectType?: CrmObjectType;
   segmentId?: string;
   after?: string;
@@ -123,7 +124,7 @@ function salesforceLead(value: unknown): CrmSourceContact | null {
 async function readHubSpot(
   limit: number,
   options: CrmSourceOptions,
-): Promise<CrmSourceContact[]> {
+): Promise<{ contacts: CrmSourceContact[]; nextAfter?: string }> {
   const token = options.hubSpotAccessToken?.trim();
   if (!token) throw new Error('HubSpot is not configured.');
   const company = options.objectType === 'company';
@@ -140,6 +141,7 @@ async function readHubSpot(
   ];
   url.searchParams.set('properties', properties.join(','));
   url.searchParams.set('archived', 'false');
+  if (options.after) url.searchParams.set('after', options.after);
 
   const ids = options.recordIds;
   if (ids?.length) {
@@ -171,7 +173,7 @@ async function readHubSpot(
       `HubSpot ${object} read failed with HTTP ${response.status}.${safeDetail(payload)}`,
     );
   }
-  return body.results
+  const contacts = body.results
     .map((value: unknown) => {
       const rawProperties = record(record(value)?.properties);
       const extra = options.fields?.length
@@ -202,12 +204,20 @@ async function readHubSpot(
         : null;
     })
     .filter((contact): contact is CrmSourceContact => Boolean(contact));
+  const after = record(record(record(body.paging)?.next))?.after;
+  return {
+    contacts,
+    nextAfter:
+      !ids?.length && (typeof after === 'string' || typeof after === 'number')
+        ? String(after)
+        : undefined,
+  };
 }
 
 async function readSalesforce(
   limit: number,
   options: CrmSourceOptions,
-): Promise<CrmSourceContact[]> {
+): Promise<{ contacts: CrmSourceContact[]; nextAfter?: string }> {
   const token = options.salesforceAccessToken?.trim();
   const instanceUrl = options.salesforceInstanceUrl?.trim();
   if (!token || !instanceUrl) throw new Error('Salesforce is not configured.');
@@ -234,15 +244,17 @@ async function readSalesforce(
       ...(options.fields ?? []),
     ]),
   ].join(', ');
-  const where = options.recordIds?.length
+  let where = options.recordIds?.length
     ? ` WHERE Id IN (${options.recordIds.map((id) => "'" + id + "'").join(',')})`
     : object === 'Lead'
       ? ' WHERE IsConverted = FALSE'
       : '';
-  const query = `SELECT ${fields} FROM ${object}${where} ORDER BY LastModifiedDate DESC LIMIT ${limit}`;
+  if (options.after)
+    where += `${where ? ' AND' : ' WHERE'} Id > '${options.after}'`;
+  const query = `SELECT ${fields} FROM ${object}${where} ORDER BY Id ASC LIMIT ${limit}`;
   const url = new URL(`${origin}/services/data/v${apiVersion}/query`);
   url.searchParams.set('q', query);
-  const response = await (options.fetchImpl ?? fetch)(url, {
+  const response = await salesforceFetch(options, url, {
     headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
     signal: AbortSignal.timeout(30_000),
     cache: 'no-store',
@@ -254,7 +266,7 @@ async function readSalesforce(
       `Salesforce ${object} read failed with HTTP ${response.status}.${safeDetail(payload)}`,
     );
   }
-  return body.records
+  const contacts = body.records
     .map((value: unknown) => {
       const item = record(value);
       if (!item) return null;
@@ -298,6 +310,13 @@ async function readSalesforce(
         : null;
     })
     .filter((contact): contact is CrmSourceContact => Boolean(contact));
+  return {
+    contacts,
+    nextAfter:
+      !options.recordIds?.length && body.records.length >= limit
+        ? stringValue(record(body.records.at(-1))?.Id) || undefined
+        : undefined,
+  };
 }
 
 function extractProperties(
@@ -356,8 +375,19 @@ export async function readCrmSource(
       ))
   )
     throw new Error('Choose up to 20 valid CRM property names.');
+  if (
+    options.after !== undefined &&
+    (typeof options.after !== 'string' ||
+      !(
+        provider === 'hubspot'
+          ? /^\d{1,30}$/
+          : /^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/
+      ).test(options.after) ||
+      options.recordIds)
+  )
+    throw new Error('Invalid CRM pagination cursor.');
   const limit = normalizeLimit(requestedLimit);
-  if (options.segmentId !== undefined || options.after !== undefined) {
+  if (options.segmentId !== undefined) {
     if (
       provider !== 'hubspot' ||
       typeof options.segmentId !== 'string' ||
@@ -377,7 +407,13 @@ export async function readCrmSource(
     );
     // An empty segment must never fall through to the unfiltered CRM reader.
     const members = page.recordIds.length
-      ? await readHubSpot(limit, { ...options, recordIds: page.recordIds })
+      ? (
+          await readHubSpot(limit, {
+            ...options,
+            after: undefined,
+            recordIds: page.recordIds,
+          })
+        ).contacts
       : [];
     const byId = new Map(members.map((member) => [member.nativeId, member]));
     return {
@@ -394,7 +430,7 @@ export async function readCrmSource(
       readAt: (options.now ?? (() => new Date()))().toISOString(),
     };
   }
-  const contacts =
+  const page =
     provider === 'hubspot'
       ? await readHubSpot(limit, options)
       : await readSalesforce(limit, options);
@@ -403,8 +439,9 @@ export async function readCrmSource(
     objectType: object,
     fields: options.fields,
     sourceLabel: `${provider === 'hubspot' ? 'HubSpot' : 'Salesforce'} ${object === 'company' ? 'companies' : object + 's'}`,
-    contacts,
-    truncated: contacts.length >= limit,
+    contacts: page.contacts,
+    nextAfter: page.nextAfter,
+    truncated: Boolean(page.nextAfter),
     readAt: (options.now ?? (() => new Date()))().toISOString(),
   };
 }

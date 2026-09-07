@@ -87,6 +87,17 @@ export async function ensureDatabaseSchema(db: D1Database) {
       created_at INTEGER NOT NULL,
       expires_at INTEGER NOT NULL
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS crm_refreshes (
+      workspace_id TEXT PRIMARY KEY NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      state TEXT NOT NULL, status TEXT NOT NULL, next_run_at INTEGER, lease_until INTEGER, updated_at INTEGER NOT NULL
+    )`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_crm_refreshes_due ON crm_refreshes(status,next_run_at)`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS workbook_runs (
+      id TEXT PRIMARY KEY NOT NULL, workbook_id TEXT NOT NULL, status TEXT NOT NULL,
+      state TEXT NOT NULL, lease_until INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+    )`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_workbook_runs_workbook_created ON workbook_runs(workbook_id,created_at)`),
+    db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_workbook_runs_active ON workbook_runs(workbook_id) WHERE status IN ('running','paused','needs_attention')`),
     db.prepare(`CREATE TABLE IF NOT EXISTS run_jobs (
       id TEXT PRIMARY KEY NOT NULL,
       workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -111,6 +122,8 @@ export async function ensureDatabaseSchema(db: D1Database) {
   const columns = await db
     .prepare('PRAGMA table_info(run_jobs)')
     .all<{ name: string }>();
+  if (!columns.results.some((column) => column.name === 'workbook_run_id'))
+    await db.prepare('ALTER TABLE run_jobs ADD COLUMN workbook_run_id TEXT').run();
   if (!columns.results.some((column) => column.name === 'resume_column_ids'))
     await db
       .prepare('ALTER TABLE run_jobs ADD COLUMN resume_column_ids TEXT')

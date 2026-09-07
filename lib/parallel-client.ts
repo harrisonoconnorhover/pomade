@@ -151,7 +151,18 @@ function researchSchema(
     additionalProperties: false,
   };
   return cardinality === 'list'
-    ? { type: 'array', items: item, maxItems: Math.min(25, Math.max(1, limit)) }
+    ? {
+        type: 'object',
+        properties: {
+          results: {
+            type: 'array',
+            items: item,
+            description: `Up to ${Math.min(25, Math.max(1, limit))} researched records.`,
+          },
+        },
+        required: ['results'],
+        additionalProperties: false,
+      }
     : item;
 }
 function structuredCitations(answer: string): ParallelCitation[] {
@@ -176,8 +187,15 @@ function parseCompletion(
   payload: ParallelChatCompletion,
   fallbackModel: string,
   structured = false,
+  cardinality: ResearchOutputCardinality = 'record',
 ): WebResearchResult {
-  const answer = messageText(payload.choices?.[0]?.message);
+  let answer = messageText(payload.choices?.[0]?.message);
+  if (structured && cardinality === 'list') {
+    const parsed = JSON.parse(answer);
+    if (!Array.isArray(parsed?.results))
+      throw new Error('Parallel did not return the requested results list.');
+    answer = JSON.stringify(parsed.results);
+  }
   if (!answer) throw new Error('Parallel returned no research answer.');
 
   const candidates = [
@@ -261,6 +279,9 @@ export class ParallelWebResearchClient {
                 input +
                 (fields.length
                   ? '\nInclude source links supporting populated claims in _pomade_citations. Null fields and an empty citations list are appropriate when evidence is unavailable.'
+                  : '') +
+                (fields.length && cardinality === 'list'
+                  ? '\nWrap the result array in an object with a results property: {"results":[...]}. The response schema takes precedence over the earlier array formatting instruction.'
                   : ''),
             },
           ],
@@ -286,6 +307,7 @@ export class ParallelWebResearchClient {
         payload as ParallelChatCompletion,
         this.model,
         fields.length > 0,
+        cardinality,
       );
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {

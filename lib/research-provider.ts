@@ -96,3 +96,12 @@ export function createResearchClient(
     model,
   });
 }
+
+export function columnResearchEnvironment(
+  env: ResearchEnvironment,
+  column: { researchProvider?: 'codex' | 'parallel' | 'gemini' },
+) {
+  return column.researchProvider
+    ? { ...env, POMADE_RESEARCH_PROVIDER: column.researchProvider }
+    : env;
+}

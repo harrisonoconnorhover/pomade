@@ -64,9 +64,19 @@ export function createProviderWaterfall(
 ): PomadeColumn[] {
   if (!/^[a-zA-Z0-9_-]{1,80}$/.test(options.id))
     throw new Error('Choose a name containing letters or numbers.');
-  if (options.steps.length < 2 || options.steps.length > 4)
-    throw new Error('Choose two to four provider steps.');
+  if (options.steps.length < 1 || options.steps.length > 4)
+    throw new Error('Choose one to four provider steps.');
   validateAcceptance(options);
+  if (
+    options.steps.some(
+      (s) =>
+        s.verification?.revealedPath &&
+        !/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/.test(
+          s.verification.revealedPath,
+        ),
+    )
+  )
+    throw new Error('Choose a valid revealed-status path.');
   for (const step of options.steps)
     createHttpColumns(workspace, {
       id: options.id,
@@ -116,7 +126,7 @@ export async function executeProviderWaterfall(
 ) {
   const config = column.providerWaterfall;
   const row = workspace.rows.find((r) => r.id === rowId);
-  if (!config || !row || config.steps.length < 2 || config.steps.length > 4)
+  if (!config || !row || config.steps.length < 1 || config.steps.length > 4)
     throw new Error('Provider waterfall configuration is incomplete.');
   validateAcceptance(config);
   const started = Date.now();
@@ -130,6 +140,7 @@ export async function executeProviderWaterfall(
       connections.find((c) => c.id === step.connectionId)?.label ||
       step.connectionId;
     const verificationId = `${column.id}__verification`;
+    const revealedId = `${column.id}__revealed`;
     const virtual: PomadeColumn = {
       ...column,
       recipe: 'http-api',
@@ -138,6 +149,14 @@ export async function executeProviderWaterfall(
         ...step,
         outputs: [
           { path: step.responsePath, outputColumnId: column.id },
+          ...(step.verification?.revealedPath
+            ? [
+                {
+                  path: step.verification.revealedPath,
+                  outputColumnId: revealedId,
+                },
+              ]
+            : []),
           ...(verifiedAcceptance(config.accept)
             ? [
                 {
@@ -174,7 +193,10 @@ export async function executeProviderWaterfall(
       step.verification!.acceptedValues.some(
         (value) => value.trim().toLowerCase() === verification.toLowerCase(),
       );
-    const accepted = !receipt.error && shapeMatches && verified;
+    const revealed =
+      !step.verification?.revealedPath ||
+      receipt.outputValues?.[revealedId]?.trim().toLowerCase() === 'true';
+    const accepted = !receipt.error && shapeMatches && verified && revealed;
     receipt.status = accepted ? 'passed' : 'review';
     receipt.evidence = [
       ...(receipt.evidence ?? []),

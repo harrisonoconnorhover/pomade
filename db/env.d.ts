@@ -27,6 +27,10 @@ declare namespace Cloudflare {
     HUBSPOT_ACCESS_TOKEN?: string;
     SALESFORCE_INSTANCE_URL?: string;
     SALESFORCE_ACCESS_TOKEN?: string;
+    SALESFORCE_REFRESH_TOKEN?: string;
+    SALESFORCE_CLIENT_ID?: string;
+    SALESFORCE_CLIENT_SECRET?: string;
+    SALESFORCE_LOGIN_URL?: string;
     SALESFORCE_API_VERSION?: string;
   }
 }

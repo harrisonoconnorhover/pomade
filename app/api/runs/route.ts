@@ -28,6 +28,7 @@ import { versionedWorkspaceStatements } from '@/db/workspace-store';
 import {
   researchConfiguration,
   createResearchClient,
+  columnResearchEnvironment,
 } from '@/lib/research-provider';
 import { ParallelWebResearchClient } from '@/lib/parallel-client';
 import type {
@@ -223,8 +224,12 @@ export async function POST(request: Request) {
       : [];
     const research = researchConfiguration(env);
     if (
-      research.companion &&
-      externalColumns.some((column) => column.recipe === 'web-research') &&
+      externalColumns.some(
+        (column) =>
+          column.recipe === 'web-research' &&
+          researchConfiguration(columnResearchEnvironment(env, column))
+            .companion,
+      ) &&
       new URL(request.url).hostname !== 'pomade.internal'
     )
       return Response.json(
@@ -235,8 +240,14 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     const researchProvider = research.provider;
-    const defaults =
-      researchProvider === 'codex' ? await readResearchDefaults(db, env) : {};
+    const defaults = externalColumns.some(
+      (c) =>
+        c.recipe === 'web-research' &&
+        researchConfiguration(columnResearchEnvironment(env, c)).provider ===
+          'codex',
+    )
+      ? await readResearchDefaults(db, env)
+      : {};
     let catalog: Awaited<ReturnType<typeof readResearchModels>> | undefined;
 
     if (workspace.signalFeedFields) {
@@ -272,6 +283,9 @@ export async function POST(request: Request) {
             column,
             connections,
           );
+        const selectedEnv = columnResearchEnvironment(env, column);
+        const research = researchConfiguration(selectedEnv);
+        const researchProvider = research.provider;
         const actionStartedAt = Date.now();
         const currentRow = currentWorkspace.rows.find(
           (row) => row.id === rowId,
@@ -297,13 +311,13 @@ export async function POST(request: Request) {
           const resolved = settings
             ? resolveCodexSettings(catalog!.models, settings)
             : undefined;
-          const researchClient = createResearchClient(env, resolved);
+          const researchClient = createResearchClient(selectedEnv, resolved);
           const model = resolved
             ? codexCacheIdentity(resolved, research.browser)
             : research.model;
           const cacheModel =
             researchProvider === 'parallel' && column.outputFields?.length
-              ? `${model}:structured-v1`
+              ? `${model}:structured-v2`
               : model;
           const cacheKey = await webResearchCacheKey(cacheModel, prompt);
           const now = Date.now();

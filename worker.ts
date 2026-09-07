@@ -1,3 +1,10 @@
+import { salesforceRenewalEnvironment } from '@/lib/salesforce-auth';
+import {
+  columnResearchEnvironment,
+  researchConfiguration,
+} from './lib/research-provider';
+import { runDueCrmRefreshes } from './db/crm-refresh';
+import { runWorkbooks, workbookJobAllowed } from './db/workbook-runner';
 import { authorizeDeployment, deploymentStatus } from './lib/deployment';
 import { handleCompanion } from './db/companion-handler';
 import { companionStatus } from './lib/companion-research';
@@ -36,6 +43,7 @@ type WorkspaceRecord = {
 type RunJobRecord = {
   id: string;
   workspace_id: string;
+  workbook_run_id: string | null;
   status: string;
   row_ids: string;
   column_ids: string | null;
@@ -203,6 +211,7 @@ export async function runDueSchedules(
         {
           hubSpotAccessToken: env.HUBSPOT_ACCESS_TOKEN,
           salesforceAccessToken: env.SALESFORCE_ACCESS_TOKEN,
+          ...salesforceRenewalEnvironment(env),
           salesforceInstanceUrl: env.SALESFORCE_INSTANCE_URL,
           salesforceApiVersion: env.SALESFORCE_API_VERSION,
         },
@@ -357,7 +366,7 @@ export async function runQueuedJobs(
   ctx: ExecutionContext,
 ) {
   const records = await env.DB.prepare(
-    `SELECT id, workspace_id, status, row_ids, column_ids, resume_column_ids, cursor,
+    `SELECT id, workspace_id, workbook_run_id, status, row_ids, column_ids, resume_column_ids, cursor,
             completed_count, skipped_count, confirm_external_research,
             lease_until, updated_at
      FROM run_jobs
@@ -394,6 +403,17 @@ export async function runQueuedJobs(
       const workspace = JSON.parse(
         workspaceRecord.snapshot,
       ) as WorkspaceSnapshot;
+      if (
+        job.workbook_run_id &&
+        !(await workbookJobAllowed(env.DB, job.workbook_run_id, workspace))
+      ) {
+        await env.DB.prepare(
+          "UPDATE run_jobs SET status=CASE WHEN EXISTS(SELECT 1 FROM workbook_runs WHERE id=run_jobs.workbook_run_id AND status='cancelled') THEN 'cancelled' ELSE 'paused' END, lease_until=NULL, updated_at=? WHERE id=? AND status='running'",
+        )
+          .bind(Date.now(), job.id)
+          .run();
+        continue;
+      }
       if (!workspace.rows.some((row) => row.id === rowId)) {
         await finishRunJobStep(env, job, { skipped: true });
         continue;
@@ -404,10 +424,11 @@ export async function runQueuedJobs(
         : undefined;
       const hasMacResearch =
         env.POMADE_DEPLOYMENT === 'hosted' &&
-        env.POMADE_RESEARCH_PROVIDER === 'codex' &&
         workspace.columns.some(
           (column) =>
             column.recipe === 'web-research' &&
+            researchConfiguration(columnResearchEnvironment(env, column))
+              .provider === 'codex' &&
             (!columnIds || columnIds.includes(column.id)),
         );
       const connection = hasMacResearch ? await companionStatus(env.DB) : null;
@@ -502,7 +523,20 @@ async function runBackgroundWork(
     await ingestWebhookEvents(env.DB);
     await runDueSchedules(scheduledTime, env, ctx);
   }
+  await runDueCrmRefreshes(
+    env.DB,
+    {
+      hubSpotAccessToken: env.HUBSPOT_ACCESS_TOKEN,
+      salesforceAccessToken: env.SALESFORCE_ACCESS_TOKEN,
+      ...salesforceRenewalEnvironment(env),
+      salesforceInstanceUrl: env.SALESFORCE_INSTANCE_URL,
+      salesforceApiVersion: env.SALESFORCE_API_VERSION,
+    },
+    scheduledTime,
+  );
+  await runWorkbooks(env.DB, scheduledTime);
   await runQueuedJobs(scheduledTime, env, ctx);
+  await runWorkbooks(env.DB);
 }
 
 export default {
@@ -514,7 +548,14 @@ export default {
       new URL(request.url).pathname === '/api/companion'
     ) {
       const response = await handleCompanion(request, env.DB);
-      if (response.ok) ctx.waitUntil(runQueuedJobs(Date.now(), env, ctx));
+      if (response.ok)
+        ctx.waitUntil(
+          (async () => {
+            await runWorkbooks(env.DB);
+            await runQueuedJobs(Date.now(), env, ctx);
+            await runWorkbooks(env.DB);
+          })(),
+        );
       return response;
     }
     return app.fetch(request, env, ctx);

@@ -1,3 +1,4 @@
+import { salesforceRenewalEnvironment } from '@/lib/salesforce-auth';
 import { HubSpotSegmentError } from '@/lib/hubspot-segments';
 import { env } from 'cloudflare:workers';
 
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
       hubSpotAccessToken: env.HUBSPOT_ACCESS_TOKEN,
       salesforceInstanceUrl: env.SALESFORCE_INSTANCE_URL,
       salesforceAccessToken: env.SALESFORCE_ACCESS_TOKEN,
+      ...salesforceRenewalEnvironment(env),
       salesforceApiVersion: env.SALESFORCE_API_VERSION,
     });
     return Response.json({ preview });

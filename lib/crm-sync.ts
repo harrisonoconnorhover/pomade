@@ -1,3 +1,4 @@
+import { salesforceFetch } from './salesforce-auth';
 import {
   parseCrmFields,
   normalizeCrmValue,
@@ -163,7 +164,7 @@ export class CrmSyncClient {
         ? this.options.hubSpotAccessToken
         : this.options.salesforceAccessToken;
     if (!token) throw new Error('CRM connection is not configured.');
-    const r = await (this.options.fetchImpl || fetch)(this.base + path, {
+    const init: RequestInit = {
       method,
       headers: {
         authorization: `Bearer ${token}`,
@@ -171,7 +172,11 @@ export class CrmSyncClient {
       },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(30000),
-    });
+    };
+    const r =
+      this.config.provider === 'salesforce'
+        ? await salesforceFetch(this.options, this.base + path, init)
+        : await (this.options.fetchImpl || fetch)(this.base + path, init);
     const text = await r.text();
     let data;
     try {

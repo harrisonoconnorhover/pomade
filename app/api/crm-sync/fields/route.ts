@@ -1,3 +1,4 @@
+import { salesforceRenewalEnvironment } from '@/lib/salesforce-auth';
 import { env } from 'cloudflare:workers';
 import { CrmSyncClient, type CrmSyncConfig } from '@/lib/crm-sync';
 export async function GET(request: Request) {
@@ -11,6 +12,7 @@ export async function GET(request: Request) {
     const client = new CrmSyncClient(config, {
       hubSpotAccessToken: env.HUBSPOT_ACCESS_TOKEN,
       salesforceAccessToken: env.SALESFORCE_ACCESS_TOKEN,
+      ...salesforceRenewalEnvironment(env),
       salesforceInstanceUrl: env.SALESFORCE_INSTANCE_URL,
       salesforceApiVersion: env.SALESFORCE_API_VERSION,
     });

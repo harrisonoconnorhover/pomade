@@ -3,6 +3,9 @@ const port = process.argv.find((arg) => /^\d+$/.test(arg)) ?? '8787';
 if (Number(port) < 1 || Number(port) > 65535)
   throw new Error('Choose a valid local Worker port.');
 const once = process.argv.includes('--once');
+const intervalArg=process.argv.find(a=>a.startsWith('--interval='))?.split('=')[1];
+const interval=intervalArg?Number(intervalArg):60000;
+if(!Number.isFinite(interval)||interval<5000||interval>3600000) throw new Error('Choose a clock interval from 5 seconds to 1 hour.');
 let stopping = false;
 process.on('SIGINT', () => {
   stopping = true;
@@ -24,6 +27,6 @@ async function tick() {
     console.error(`Local clock: ${error.message}. Start npm run start first.`);
     if (once) process.exitCode = 1;
   }
-  if (!once && !stopping) setTimeout(tick, 60_000);
+  if (!once && !stopping) setTimeout(tick, interval);
 }
 await tick();

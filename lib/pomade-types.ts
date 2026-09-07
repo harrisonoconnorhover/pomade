@@ -67,7 +67,7 @@ export type HttpProviderStep = {
   pathTemplate: string;
   bodyTemplate?: string;
   responsePath: string;
-  verification?: { path: string; acceptedValues: string[] };
+  verification?: { path: string; acceptedValues: string[]; revealedPath?: string };
 };
 export type ProviderWaterfall = {
   steps: HttpProviderStep[];
@@ -77,6 +77,7 @@ export type ProviderWaterfall = {
   statusColumnId: string;
 };
 export type PomadeColumn = {
+  researchProvider?: 'codex' | 'parallel' | 'gemini';
   rubricScore?: import('./rubric-score').RubricScore;
   codexResearch?: import('./codex-models.mjs').CodexResearchSettings;
   functionInstance?: {
@@ -194,6 +195,7 @@ export type RecipeSchedule = {
 };
 
 export type RunJobStatus =
+  | 'cancelled'
   | 'queued'
   | 'running'
   | 'paused'

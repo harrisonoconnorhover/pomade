@@ -944,3 +944,30 @@ contact enrichment and presentation tasks separately when this planner cannot
 wire them. Score evidence with a local points rubric totaling 100; absent or
 invalid points and failed qualification gates remain in Review. Clear original
 request/guide metadata from templates and duplicates to avoid stale navigation.
+
+## 2026-09-06 — Workbook execution, CRM refresh, and free-provider usability
+
+Reuse the existing row job queue for prompt-built workbook steps. Store an ordered
+run, captured recipe/route configuration, scoped row IDs, current job, and cursor
+in one additive workbook_runs table. Commit transfers and cursor updates together;
+preserve the previous cursor when a transaction fails. An active workbook is unique,
+and pause/cancel does not reset an in-flight row lease. Reserve worst-case external
+requests before queuing and charge explicit failed-row retries against that bound.
+Finish local routing/empty steps in a bounded loop between actual provider work.
+Completion means processing finished, not that all research is qualified.
+
+CRM refresh stores its source selection, interval, state and summary separately
+from the workbook snapshot. Fetch bounded pages, merge by native CRM identity,
+preserve recipe-owned outputs, and retain departed records with membership labels.
+Only a complete source read establishes absence. Use Salesforce ID pagination,
+validate cursors, and renew sessions from existing server-side OAuth credentials
+only after HTTP 401; never retry ambiguous writes. Source refresh schedules are
+opt-in and independent of the hosted copy's disabled legacy recipe schedules.
+
+Start the local clock with npm start. Per-column provider choices make Parallel
+and ChatGPT usable together without changing the installation default. Parallel
+list schemas use an object root and are unwrapped for the existing list parser;
+the live API rejected the previous array-root schema. Prospeo verified-mobile
+presets require verified status, an explicit reveal, and a full international
+number. Provider balance endpoints expose quota fields only; Parallel's balance
+remains dashboard-only. No paid account, topup, outreach or public publishing.

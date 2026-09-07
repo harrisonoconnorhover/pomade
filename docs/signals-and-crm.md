@@ -20,8 +20,8 @@
    add qualification and allow their recurring writes. Each destination supports
    at most 25 qualifying rows. Recipes finish first, CRM writes follow, then table
    transfers. A failure stops later work; already verified CRM writes remain.
-5. Start the built local server on port 8798 and `npm run clock -- 8798` for local
-   recurring runs. `npm run clock -- 8798 --once` delivers one tick. Keep both
+5. Start the built local server with `npm start -- --port 8798` for local
+   recurring runs; its scheduler starts automatically. `npm run clock -- 8798 --once` delivers one tick. Keep both
    processes running for local schedules; this is not a hosted always-on service.
 
 Schedules capture mappings and conditions. Later mapping edits take effect after

@@ -1,4 +1,11 @@
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+import {
+  uniqueIndex,
+  index,
+  integer,
+  sqliteTable,
+  text,
+} from 'drizzle-orm/sqlite-core';
 
 export const workspaces = sqliteTable('workspaces', {
   id: text('id').primaryKey(),
@@ -60,6 +67,7 @@ export const runJobs = sqliteTable(
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
+    workbookRunId: text('workbook_run_id'),
     status: text('status').notNull(),
     rowIds: text('row_ids').notNull(),
     columnIds: text('column_ids'),
@@ -218,3 +226,40 @@ export const researchSettings = sqliteTable('research_settings', {
   id: integer('id').primaryKey(),
   settings: text('settings').notNull(),
 });
+
+export const workbookRuns = sqliteTable(
+  'workbook_runs',
+  {
+    id: text('id').primaryKey(),
+    workbookId: text('workbook_id').notNull(),
+    status: text('status').notNull(),
+    state: text('state').notNull(),
+    leaseUntil: integer('lease_until'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_workbook_runs_workbook_created').on(
+      table.workbookId,
+      table.createdAt,
+    ),
+    uniqueIndex('idx_workbook_runs_active')
+      .on(table.workbookId)
+      .where(sql`${table.status} IN ('running','paused','needs_attention')`),
+  ],
+);
+
+export const crmRefreshes = sqliteTable(
+  'crm_refreshes',
+  {
+    workspaceId: text('workspace_id')
+      .primaryKey()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    state: text('state').notNull(),
+    status: text('status').notNull(),
+    nextRunAt: integer('next_run_at'),
+    leaseUntil: integer('lease_until'),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [index('idx_crm_refreshes_due').on(table.status, table.nextRunAt)],
+);

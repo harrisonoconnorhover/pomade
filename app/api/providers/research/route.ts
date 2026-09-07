@@ -33,6 +33,9 @@ export async function GET() {
     }
     return Response.json({
       ...status,
+      alternatives: (['codex', 'parallel', 'gemini'] as const).map((provider) =>
+        researchConfiguration({ ...env, POMADE_RESEARCH_PROVIDER: provider }),
+      ),
       ready,
       error,
       capabilities: {

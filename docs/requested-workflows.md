@@ -5,7 +5,7 @@ Implemented code, passing fixtures and live provider access are separate claims.
 
 | Requirement | Available locally now | Remaining to reach the request |
 |---|---|---|
-| Sequential verified email/phone fallback | Provider order, status + format checks, stop at first valid result; Hunter/Prospeo/Apollo email presets; verified-phone configuration | Live 3-contact fallback found 1 verified email and retained 2 review results. Verified-phone reveal and broader match coverage remain. Existing Apollo People access returned 403. |
+| Sequential verified email/phone fallback | Provider order, status + format checks, stop at first valid result; Hunter/Prospeo/Apollo email presets; verified-phone configuration | Live 3-contact fallback found 1 verified email and retained 2 review results. Prospeo Free mobile reveal also returned 1 verified number out of 3, leaving 90 credits; broader match coverage remains. Existing Apollo People access returned 403. |
 | Firmographics/technographics | Apollo size, numeric/display revenue, location and technology lists live for all 3 companies; funding for 2; PDL adapter | PDL key and broader coverage; Solera funding absent. Provider technology observations do not prove install dates. |
 | Hiring trends/open roles | Repeatable focused research, source-linked baselines, scheduled set comparisons; direct Workday/ATS availability checks | Broader career-site support and research relevance. Live check rejected an expired job; a current but off-focus role was manually excluded. No qualifying RevOps hiring claim is retained. |
 | Leadership changes | Current-team research preset, named-person title comparisons, first-observed additions, source links | Consistent automated coverage and explicit hire/promotion evidence. Final 3-company roster was manually checked; raw AI misses/unsupported dates remain in receipts. |
@@ -22,6 +22,6 @@ acceptance fixture** for synthetic intent-to-formula testing. Setup and limits:
 [signals and scheduled CRM](signals-and-crm.md), [provider choices](enrichment-providers.md), [Codex subscription research](codex-research.md).
 
 The automation acceptance run completed once and is now stopped. Local recurring
-runs need the local server plus `npm run clock -- 8798`. No public publishing or
+runs now start with `npm start -- --port 8798`. No public publishing or
 outreach occurred. Authorized local execution now includes the connected Hunter/Prospeo Free tiers and the signed-in Codex subscription alongside Parallel/Apollo; new paid
 services, upgrades or subscriptions need an approved budget.

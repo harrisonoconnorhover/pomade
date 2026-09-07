@@ -6,7 +6,7 @@ The Local/Hosted label identifies the installation you are using.
 
 ## Build and run
 
-- Local: `npm run build`, then `npm start`. Keep the existing local database.
+- Local: `npm run build`, then `npm start` (or `npm start -- --port 8798`). The local scheduler starts and stops with the app. Keep the existing local database.
 - Hosted: `npm run build:hosted`. It builds in a clean temporary directory and
   writes `dist-hosted/dist`, leaving the local `dist` and `.wrangler/state` alone.
   Package `dist-hosted` with the Sites packaging helper and deploy the saved version
@@ -61,7 +61,7 @@ claim of exactly-once execution across every possible interruption.
 ## Automation and copies
 
 Hosted scheduled automations start disabled (`POMADE_SCHEDULES_ENABLED=false`);
-manual and explicitly queued runs still work. Imported tables have schedules
+manual and explicitly queued runs still work. Saved CRM source refresh has its own opt-in daily/weekly schedule in **Refresh settings**, independent of that legacy recipe-schedule switch. It starts off on both installations. Imported tables have schedules
 paused. Keep any existing local schedules as their current owner. Deliberately
 move a schedule's ownership before enabling it on another installation.
 

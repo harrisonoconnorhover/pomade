@@ -2,38 +2,37 @@
 
 ## Finished
 
-- Added **Build from a prompt**: paste a brief, review an AI plan, and create linked sheets with research columns, scoring and transfers.
-- Added an ordered run guide to generated sheets. Research and transfer steps use the existing runners.
-- Added a local 100-point rubric that holds missing or invalid evidence for review.
-- Added text-only ChatGPT planning through the local helper and hosted companion queue.
-- Created the real ChatGPT DemandDrive plan locally and on the private website: Request, Accounts and Buyer Committee; 63 columns total.
+- Added **Run workbook** with linked-sheet progress, pause/resume/cancel, scoped routing, request limits, and saved checkpoints.
+- Added saved CRM source refresh, daily/weekly schedules, complete/partial membership labels, and Salesforce session renewal.
+- Added Prospeo verified-mobile presets and private provider balance cards. The live three-contact test found one verified mobile; 90 Prospeo credits remain.
+- Added per-column ChatGPT/Parallel/Gemini selection and fixed Parallel list output compatibility.
+- Made the local scheduler start with Pomade and kept the workbook controls compact above the grid.
 
 ## Try It
 
-- Open [the hosted example](https://pomade.deleteddeleted.chatgpt.site/?table=plan_1e1de86e-67ad-4871-b0b8-42702c08874f_requests) or [the local example](http://localhost:8798/?table=plan_8d5f4538-b463-4193-a677-9c798a2ad155_requests). To start another workbook, choose **Build from a prompt → Use DemandDrive example → Plan workbook**.
-- Review and create the proposed sheets. Use **Run step**, then **Preview route → Transfer matching rows**, and open the next sheet from its guide.
-- Keep the ChatGPT helper running for local planning, and the Mac companion for hosted planning. See [the feature guide](docs/prompt-to-workbook.md).
+- Open [Pomade](https://pomade.deleteddeleted.chatgpt.site) or the [local assignment workbook](http://localhost:8798/?table=plan_8d5f4538-b463-4193-a677-9c798a2ad155_requests). Use **Run workbook**, then expand **Steps and linked sheets**.
+- On a CRM-imported sheet, use **Refresh now** or **Refresh settings**. In **Provider presets**, choose **Prospeo · verified mobile**. In column settings, choose **Research with**.
+- `npm start -- --port 8798` now starts the server and scheduler together. ChatGPT research still needs the existing helper/companion.
 
 ## Checks
 
-- Typecheck and lint passed. The focused 73-test suite passed; the final planner/helper/queue check passed all 18 tests after normalization changes.
-- Local and hosted production builds passed. Diff whitespace checks passed. Browser visual QA was not run.
-- Real ChatGPT planning returned a valid three-sheet plan in 137 seconds. Local and hosted API readback verified the original brief, blank research rows, saved routes, safe creation replay and unchanged existing table summaries.
-- The queue migration passed its SQLite fixture and private deployment succeeded. A second live planning request completed through the website and Mac companion in 37 seconds, returning a valid two-sheet plan. It created no additional sheets.
+- 60 focused tests, typecheck, lint, local build, hosted build, and diff whitespace checks passed. No browser visual QA was performed.
+- Live Prospeo lookup, provider balances, HubSpot segment refresh, and Salesforce token-renewal request passed. Final Worker CRM checks and private release checks are being recorded in ignored `outputs/workflow-polish/`.
+- Mixed ChatGPT/Parallel workbook execution researched and routed all three named accounts. Qualification research is still running; insufficient evidence remains Review.
 
 ## Decisions
 
-- ChatGPT plans the workbook in text-only mode; later research uses the installation's normal provider.
-- Compile supported steps into existing Pomade columns and routes; keep CRM, enrichment and presentation tasks visible as separate work.
-- Create a new workbook and require the usual run controls for subsequent research and transfers.
+- Reuse the row job queue; commit routes and cursors together. Keep unrelated destination rows outside the run.
+- Preserve CRM rows and enrichment; source absence requires complete pagination. Refresh schedules are opt-in and separate per installation.
+- Use existing free allowances and the saved Salesforce authorization. No purchases, topups, public publishing, outreach, or GitHub pushes.
 
 ## Remaining
 
-- The plan guides execution one step at a time; unattended execution across every sheet is future work.
-- Direct CRM/enrichment configuration from the brief and editing the proposed plan in place remain future improvements.
+- Finish the private deployment and final live checks.
+- Brief-to-CRM configuration, native sequence enrollment, broader provider coverage, and factual research quality remain separate improvements.
 
 ## Review First
 
-- `components/workbook-prompt-builder.tsx` and `components/workbook-plan-guide.tsx`.
-- `lib/workbook-planner.ts` and `app/api/workbook-plans/route.ts`.
-- `docs/prompt-to-workbook.md` and the generated example.
+- `db/workbook-runner.ts` and `lib/workbook-run.test.ts`.
+- `lib/crm-refresh.ts`, `lib/salesforce-auth.ts`, and their focused tests.
+- `components/workbook-plan-guide.tsx` and `components/crm-refresh-panel.tsx`.

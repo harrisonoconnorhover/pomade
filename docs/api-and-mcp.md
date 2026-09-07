@@ -130,10 +130,13 @@ operation's error status. Reads are paginated to at most 100 rows per response.
   it does not configure a web-based ChatGPT/Claude MCP connector.
 - Salesforce access tokens can expire. Refresh from the existing Salesforce CLI
   login with `sf org auth show-access-token --target-org <alias> --json`, then update
-  the private credential binding. Rebuild/restart locally and redeploy the saved
-  hosted version after changing its Sites secret. The CLI's `org display` output
-  contains a redacted placeholder, not a usable token. Automatic OAuth token
-  refresh inside Pomade is not implemented yet.
+  the private credential binding. For unattended use, configure the existing OAuth
+  app's SALESFORCE_REFRESH_TOKEN and SALESFORCE_CLIENT_ID, plus the optional
+  SALESFORCE_CLIENT_SECRET and SALESFORCE_LOGIN_URL. Pomade renews a rejected
+  session and retries only HTTP 401 requests. Network/5xx writes are not retried.
+  The CLI's `org auth show-sfdx-auth-url` can export an existing development
+  authorization; keep its refresh token private. Rebuild/restart locally and
+  redeploy after updating Sites secrets.
 
 The design follows the [official MCP SDK](https://ts.sdk.modelcontextprotocol.io/).
 [The Firmable example](https://connect.firmable.ai/) combines its database with an

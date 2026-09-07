@@ -1,3 +1,4 @@
+import { createProviderWaterfall } from './provider-waterfall';
 import { createHttpColumns } from './http-enrichment';
 import type { HttpProviderStep, WorkspaceSnapshot } from './pomade-types';
 export const APOLLO_COMPANY_CONNECTION = 'pomade_apollo_company';
@@ -162,4 +163,45 @@ export function createPdlCompanyColumns(
   columns[3].valueType = 'number';
   columns[0].outputFields![3].valueType = 'number';
   return columns;
+}
+
+export function prospeoMobileStep(
+  person = 'person',
+  domain = 'domain',
+): HttpProviderStep {
+  return {
+    connectionId: PROSPEO_CONNECTION,
+    method: 'POST',
+    pathTemplate: '/enrich-person',
+    bodyTemplate: JSON.stringify({
+      only_verified_mobile: true,
+      data: { full_name: `{{${person}}}`, company_website: `{{${domain}}}` },
+    }),
+    responsePath: 'person.mobile.mobile',
+    verification: {
+      path: 'person.mobile.status',
+      acceptedValues: ['VERIFIED'],
+      revealedPath: 'person.mobile.revealed',
+    },
+  };
+}
+export function createProspeoMobileColumns(
+  workspace: WorkspaceSnapshot,
+  person: string,
+  domain: string,
+) {
+  if (
+    !person ||
+    !domain ||
+    person === domain ||
+    ![person, domain].every((id) => workspace.columns.some((c) => c.id === id))
+  )
+    throw new Error('Choose separate full-name and company-domain columns.');
+  return createProviderWaterfall(workspace, {
+    id: 'verified_mobile',
+    title: 'Verified mobile',
+    steps: [prospeoMobileStep(person, domain)],
+    accept: 'verified-phone',
+    continueOnError: false,
+  });
 }

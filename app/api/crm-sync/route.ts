@@ -1,3 +1,4 @@
+import { salesforceRenewalEnvironment } from '@/lib/salesforce-auth';
 import { env } from 'cloudflare:workers';
 import { ensureDatabase } from '@/db/ensure';
 import {
@@ -11,6 +12,7 @@ import type { WorkspaceSnapshot } from '@/lib/pomade-types';
 const options = () => ({
   hubSpotAccessToken: env.HUBSPOT_ACCESS_TOKEN,
   salesforceAccessToken: env.SALESFORCE_ACCESS_TOKEN,
+  ...salesforceRenewalEnvironment(env),
   salesforceInstanceUrl: env.SALESFORCE_INSTANCE_URL,
   salesforceApiVersion: env.SALESFORCE_API_VERSION,
 });

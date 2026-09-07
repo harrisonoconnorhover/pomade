@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/dialog';
 import {
   createApolloCompanyColumns,
+  createProspeoMobileColumns,
+  PROSPEO_CONNECTION,
   APOLLO_COMPANY_CONNECTION,
   createPdlCompanyColumns,
   PDL_COMPANY_CONNECTION,
@@ -25,6 +27,9 @@ export default function ProviderPresetBuilder({
   onAdd: (columns: PomadeColumn[]) => void;
 }) {
   const [provider, setProvider] = useState('apollo');
+  const [person, setPerson] = useState(
+    workspace.columns.some((c) => c.id === 'person') ? 'person' : '',
+  );
   const [detailed, setDetailed] = useState(true);
   const [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false),
@@ -55,14 +60,20 @@ export default function ProviderPresetBuilder({
   let issue = '';
   try {
     columns =
-      provider === 'apollo'
-        ? createApolloCompanyColumns(workspace, domain, detailed)
-        : createPdlCompanyColumns(workspace, domain);
+      provider === 'mobile'
+        ? createProspeoMobileColumns(workspace, person, domain)
+        : provider === 'apollo'
+          ? createApolloCompanyColumns(workspace, domain, detailed)
+          : createPdlCompanyColumns(workspace, domain);
   } catch (e) {
     issue = e instanceof Error ? e.message : 'Choose an input.';
   }
   const configured = connectionIds.includes(
-    provider === 'apollo' ? APOLLO_COMPANY_CONNECTION : PDL_COMPANY_CONNECTION,
+    provider === 'mobile'
+      ? PROSPEO_CONNECTION
+      : provider === 'apollo'
+        ? APOLLO_COMPANY_CONNECTION
+        : PDL_COMPANY_CONNECTION,
   );
   return (
     <>
@@ -72,11 +83,10 @@ export default function ProviderPresetBuilder({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="template-dialog">
           <DialogHeader>
-            <DialogTitle>Company enrichment</DialogTitle>
+            <DialogTitle>Enrichment presets</DialogTitle>
             <DialogDescription>
-              Append company size, revenue, location and funding from a domain.
-              Apollo can also return technologies and funding history. Coverage
-              depends on the provider. Adding columns makes no requests.
+              Add company details or a verified mobile lookup using your
+              connected accounts. Choose input columns and run when ready.
             </DialogDescription>
           </DialogHeader>
           <label>
@@ -85,7 +95,8 @@ export default function ProviderPresetBuilder({
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
             >
-              <option value="apollo">Apollo</option>
+              <option value="mobile">Prospeo · verified mobile</option>
+              <option value="apollo">Apollo · company details</option>
               <option value="pdl">People Data Labs</option>
             </select>
           </label>
@@ -102,7 +113,7 @@ export default function ProviderPresetBuilder({
           <p>
             {configured
               ? 'Provider key configured. API access still depends on its scope and your account.'
-              : `Set ${provider === 'apollo' ? 'APOLLO_API_KEY' : 'PDL_API_KEY'} in the local server environment and restart to enable this preset. The key stays on the server.`}
+              : `Set ${provider === 'mobile' ? 'PROSPEO_API_KEY' : provider === 'apollo' ? 'APOLLO_API_KEY' : 'PDL_API_KEY'} in the local server environment and restart to enable this preset. The key stays on the server.`}
           </p>
           <label>
             Domain input
@@ -117,24 +128,45 @@ export default function ProviderPresetBuilder({
                 ))}
             </select>
           </label>
-          <p>
-            Website URLs are normalized to domains. A missing or mismatched
-            response domain is withheld for review. Missing enrichment fields
-            remain blank and flagged.
-          </p>
-          <p>
-            Each provider charges according to its plan. Apollo currently lists
-            one credit per organization. This preset makes one request per
-            eligible row; actual credits are not inferred from a successful
-            response.{' '}
-            <a
-              href="https://docs.apollo.io/reference/organization-enrichment"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Apollo endpoint and pricing details
-            </a>
-          </p>
+          {provider === 'mobile' ? (
+            <>
+              <label>
+                Person’s full name
+                <select
+                  value={person}
+                  onChange={(e) => setPerson(e.target.value)}
+                >
+                  <option value="">Choose a full-name column</option>
+                  {workspace.columns
+                    .filter((c) => c.kind !== 'status')
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <p>
+                Prospeo returns a mobile number only when it is verified and
+                revealed. No-match, masked, or unverified results stay blank. A
+                successful mobile lookup uses up to 10 credits; no match is
+                free. Previously revealed data may use fewer credits.
+              </p>
+              <a
+                href="https://prospeo.io/api-docs/enrich-person"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Prospeo mobile lookup details
+              </a>
+            </>
+          ) : (
+            <p>
+              Website URLs are normalized to domains. Missing or mismatched
+              company details are held for review. This makes one request per
+              eligible row; provider credits depend on your plan.
+            </p>
+          )}
           {issue ? (
             <p role="alert">{issue}</p>
           ) : (
@@ -149,7 +181,13 @@ export default function ProviderPresetBuilder({
               }
             }}
           >
-            Add {provider === 'apollo' ? 'Apollo' : 'PDL'} company columns
+            Add{' '}
+            {provider === 'mobile'
+              ? 'verified mobile'
+              : provider === 'apollo'
+                ? 'Apollo company'
+                : 'PDL company'}{' '}
+            columns
           </Button>
           {error ? <output>{error}</output> : null}
         </DialogContent>

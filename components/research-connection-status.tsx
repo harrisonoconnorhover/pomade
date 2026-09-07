@@ -4,6 +4,7 @@ import { Globe2, LoaderCircle, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 
 export type ResearchProviderStatus = {
+  alternatives?: {provider:'codex'|'parallel'|'gemini';configured:boolean;label:string}[];
   provider: 'parallel' | 'gemini' | 'codex' | null;
   configured: boolean;
   ready?: boolean;

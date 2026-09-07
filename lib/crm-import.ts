@@ -390,11 +390,10 @@ export function mergeCrmSourcePages(
   page: CrmSourcePreview,
 ): CrmSourcePreview {
   if (
-    !current.segment ||
-    !page.segment ||
     current.provider !== page.provider ||
-    current.segment.id !== page.segment.id ||
-    current.segment.objectType !== page.segment.objectType
+    current.segment?.id !== page.segment?.id ||
+    current.objectType !== page.objectType ||
+    JSON.stringify(current.fields ?? []) !== JSON.stringify(page.fields ?? [])
   ) {
     throw new Error('The preview source changed. Start a fresh preview.');
   }

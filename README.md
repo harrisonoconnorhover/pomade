@@ -9,6 +9,13 @@ what changed. It is an original product built on the open-source
 
 ## Current vertical slice
 
+- Run a prompt-built workbook across its linked sheets with saved progress,
+  pause/resume, request limits, and scoped transfers.
+- Refresh a saved HubSpot segment or Salesforce source manually, daily, or weekly;
+  preserve enrichment fields and mark source membership without deleting rows.
+- Add verified mobile lookup through Prospeo, inspect free provider balances,
+  and choose ChatGPT, Parallel, or Gemini separately for each research column.
+
 - Import any CSV and edit cells in a fast, virtualized grid with persistent
   column widths, safe drag reordering, stable-ID header renaming, and
   dependency-aware column deletion.
@@ -401,15 +408,11 @@ npm run build
 npm run start
 ```
 
-Then, in another terminal in this project:
-
-```bash
-npm run clock
-```
-
-The clock calls only the local Worker on port 8787 once per minute, after the
-previous request finishes. For another port use `npm run clock -- 8798`; add
-`--once` for a single tick. Keep both processes running and stop them with Ctrl+C.
+`npm start` now starts the local scheduler with the server. For the existing
+personal preview use `npm start -- --port 8798`. The clock ticks every 15 seconds
+after its previous request finishes. Ctrl+C stops both processes. Do not start a
+second clock for the same app. For a standalone diagnostic tick use
+`npm run clock -- 8798 --once`.
 Ticks process enabled webhook sources, due schedules and queued jobs, including
 provider requests already approved in those schedules/jobs. `npm run dev` remains
 the editor development preview; it does not itself supply a recurring clock.

@@ -14,6 +14,7 @@ import {
 } from '@/lib/provider-waterfall';
 import {
   emailProviderStep,
+  prospeoMobileStep,
   HUNTER_CONNECTION,
   PROSPEO_CONNECTION,
   APOLLO_PEOPLE_CONNECTION,
@@ -25,7 +26,11 @@ import type {
   HttpProviderStep,
   ProviderWaterfall,
 } from '@/lib/pomade-types';
-type EmailProvider = Parameters<typeof emailProviderStep>[0];
+type EmailProvider = Parameters<typeof emailProviderStep>[0] | 'prospeo-mobile';
+const presetStep = (provider: EmailProvider, person: string, domain: string) =>
+  provider === 'prospeo-mobile'
+    ? prospeoMobileStep(person, domain)
+    : emailProviderStep(provider, person, domain);
 type StepDraft = HttpProviderStep & { quickSetup?: EmailProvider };
 const blank = (): StepDraft => ({
   connectionId: '',
@@ -113,7 +118,7 @@ export default function ProviderWaterfallBuilder({
   try {
     if (steps.some((step) => step.quickSetup) && !presetInputsReady)
       throw new Error(
-        'Choose separate name and website columns for the email presets.',
+        'Choose separate name and website columns for the presets.',
       );
     columns = createProviderWaterfall(workspace, {
       id,
@@ -149,7 +154,7 @@ export default function ProviderWaterfallBuilder({
       current.map((step) =>
         step.quickSetup
           ? {
-              ...emailProviderStep(step.quickSetup, person, domain),
+              ...presetStep(step.quickSetup, person, domain),
               quickSetup: step.quickSetup,
             }
           : step,
@@ -172,7 +177,7 @@ export default function ProviderWaterfallBuilder({
           <input value={title} onChange={(e) => setTitle(e.target.value)} />
         </label>
         <fieldset>
-          <legend>Email preset inputs</legend>
+          <legend>Person lookup inputs</legend>
           <div className="http-output-grid">
             <label>
               Person’s full name
@@ -208,8 +213,8 @@ export default function ProviderWaterfallBuilder({
             </label>
           </div>
           <p>
-            Quick setup uses these columns for verified work email. Mobile
-            lookup is not included in these presets.
+            Choose work email or mobile. Prospeo mobile lookup uses up to 10
+            credits for a verified result, and no credits for no match.
           </p>
         </fieldset>
         {loading ? (
@@ -249,7 +254,7 @@ export default function ProviderWaterfallBuilder({
                       current.map((item, i) =>
                         i === index
                           ? {
-                              ...emailProviderStep(
+                              ...presetStep(
                                 provider,
                                 personColumn,
                                 domainColumn,
@@ -259,7 +264,11 @@ export default function ProviderWaterfallBuilder({
                           : item,
                       ),
                     );
-                    setAccept('verified-email');
+                    setAccept(
+                      provider === 'prospeo-mobile'
+                        ? 'verified-phone'
+                        : 'verified-email',
+                    );
                   } else edit(index, {});
                 }}
               >
@@ -279,6 +288,14 @@ export default function ProviderWaterfallBuilder({
                   }
                 >
                   Apollo verified email
+                </option>
+                <option
+                  value="prospeo-mobile"
+                  disabled={
+                    !connections.some((c) => c.id === PROSPEO_CONNECTION)
+                  }
+                >
+                  Prospeo verified mobile
                 </option>
                 <option
                   value="prospeo"
@@ -419,7 +436,7 @@ export default function ProviderWaterfallBuilder({
             </Button>{' '}
             <Button
               variant="outline"
-              disabled={steps.length <= 2}
+              disabled={steps.length <= 1}
               onClick={() =>
                 setSteps((current) => current.filter((_, i) => i !== index))
               }
@@ -488,7 +505,7 @@ export default function ProviderWaterfallBuilder({
             }
           }}
         >
-          Add provider waterfall
+          Add {steps.length === 1 ? 'provider lookup' : 'provider waterfall'}
         </Button>
       </DialogContent>
     </Dialog>

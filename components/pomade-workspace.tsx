@@ -59,6 +59,9 @@ import ProviderPresetBuilder from '@/components/provider-preset-builder';
 import ChangeSignals from '@/components/change-signals';
 import RecipeFunctionBuilder from '@/components/recipe-function-builder';
 import TableTransferBuilder from '@/components/table-transfer-builder';
+import ResearchProviderPicker from '@/components/research-provider-picker';
+import ProviderAccounts from '@/components/provider-accounts';
+import CrmRefreshPanel from '@/components/crm-refresh-panel';
 import WorkbookPlanGuide from '@/components/workbook-plan-guide';
 import ApiSourceBuilder from '@/components/api-source-builder';
 import WebhookInbox from '@/components/webhook-inbox';
@@ -555,7 +558,10 @@ export default function PomadeWorkspace({
   }>({ revision: -1 });
   const researchStatus = researchCheck.status;
   const codexSettings = useCodexResearchSettings(
-    researchStatus?.provider === 'codex' &&
+    Boolean(
+      researchStatus?.alternatives?.find((p) => p.provider === 'codex')
+        ?.configured ?? researchStatus?.provider === 'codex',
+    ) &&
       (researchBuilderOpen ||
         recipeSettingsOpen ||
         sourcesOpen ||
@@ -596,6 +602,7 @@ export default function PomadeWorkspace({
   const [pendingRunColumnIds, setPendingRunColumnIds] = useState<string[]>([]);
   const [pendingRunMode, setPendingRunMode] =
     useState<PendingRunMode>('immediate');
+  const [workbookRunning, setWorkbookRunning] = useState(false);
   const [runJobs, setRunJobs] = useState<RunJob[]>([]);
   const [jobSaving, setJobSaving] = useState(false);
   const [jobError, setJobError] = useState('');
@@ -1068,6 +1075,7 @@ export default function PomadeWorkspace({
       ? latestRunJob
       : undefined;
   const jobLocksWorkspace = Boolean(
+    workbookRunning ||
     running ||
     apolloRunning ||
     jobSaving ||
@@ -1345,7 +1353,10 @@ export default function PomadeWorkspace({
   function updateRecipeColumn(
     columnId: string,
     patch: Partial<
-      Pick<PomadeColumn, 'autoRun' | 'runCondition' | 'codexResearch'>
+      Pick<
+        PomadeColumn,
+        'autoRun' | 'runCondition' | 'codexResearch' | 'researchProvider'
+      >
     >,
   ) {
     setWorkspace((current) => {
@@ -2237,10 +2248,10 @@ export default function PomadeWorkspace({
     if (running || rowIds.length === 0) return;
     if (
       deployment.hosted &&
-      researchStatus?.companion &&
       workspace.columns.some(
         (column) =>
           column.recipe === 'web-research' &&
+          (column.researchProvider ?? researchStatus?.provider) === 'codex' &&
           (!columnIds || columnIds.includes(column.id)),
       )
     )
@@ -2809,6 +2820,7 @@ export default function PomadeWorkspace({
         workspace={workspace}
         ready={canLeaveTable && !jobLocksWorkspace}
         onOpenTable={onOpenTable}
+        onBusyChange={setWorkbookRunning}
         onRun={(columnId) => void runEnrichment(undefined, false, [columnId])}
       />
 
@@ -2938,6 +2950,18 @@ export default function PomadeWorkspace({
         </aside>
 
         <section className="grid-workspace">
+          <CrmRefreshPanel
+            key={`crm-refresh-${workspace.id}`}
+            workspace={workspace}
+            ready={canLeaveTable && !jobLocksWorkspace}
+            hosted={deployment.hosted}
+            onRefresh={(next) => {
+              lastSaved.current = next;
+              setSavedWorkspace(next);
+              setWorkspace(next);
+              setSaveState('Saved');
+            }}
+          />
           <div className="table-toolbar">
             <div className="toolbar-cluster">
               <input
@@ -2977,7 +3001,7 @@ export default function PomadeWorkspace({
                     updatedAt: Date.now(),
                   }));
                   setNotice(
-                    'Apollo company columns added. Review and run when ready.',
+                    'Provider columns added. Review and run when ready.',
                   );
                 }}
               />
@@ -3869,8 +3893,19 @@ export default function PomadeWorkspace({
                       )}
                     </div>
                   </div>
+                  {column.recipe === 'web-research' ? (
+                    <ResearchProviderPicker
+                      value={column.researchProvider}
+                      defaultProvider={researchStatus?.provider}
+                      disabled={jobLocksWorkspace}
+                      onChange={(researchProvider) =>
+                        updateRecipeColumn(column.id, { researchProvider })
+                      }
+                    />
+                  ) : null}
                   {column.recipe === 'web-research' &&
-                  researchStatus?.provider === 'codex' ? (
+                  (column.researchProvider ?? researchStatus?.provider) ===
+                    'codex' ? (
                     <CodexModelPicker
                       label={`${column.title} research`}
                       value={column.codexResearch}
@@ -4799,7 +4834,18 @@ export default function PomadeWorkspace({
                 (pendingWebResearchColumns.some(
                   (column) => column.recipe === 'web-research',
                 ) &&
-                  (researchStatusLoading || !researchStatus?.configured)) ||
+                  (researchStatusLoading ||
+                    pendingWebResearchColumns.some(
+                      (c) =>
+                        c.recipe === 'web-research' &&
+                        !(
+                          researchStatus?.alternatives?.find(
+                            (p) =>
+                              p.provider ===
+                              (c.researchProvider ?? researchStatus?.provider),
+                          )?.configured ?? researchStatus?.configured
+                        ),
+                    ))) ||
                 pendingResearchActionCount === 0 ||
                 pendingResearchActionCount > pendingResearchActionLimit ||
                 jobSaving
@@ -5606,6 +5652,7 @@ export default function PomadeWorkspace({
               them. This action only reads the CRM.
             </DialogDescription>
           </DialogHeader>
+          <ProviderAccounts active={sourcesOpen} />
           {savedSource ? (
             <section className="saved-crm-source">
               <div>
@@ -5883,8 +5930,19 @@ export default function PomadeWorkspace({
               used by recipes, views, or row data.
             </DialogDescription>
           </DialogHeader>
+          {editedColumn?.recipe === 'web-research' ? (
+            <ResearchProviderPicker
+              value={editedColumn.researchProvider}
+              defaultProvider={researchStatus?.provider}
+              disabled={jobLocksWorkspace}
+              onChange={(researchProvider) =>
+                updateRecipeColumn(editedColumn.id, { researchProvider })
+              }
+            />
+          ) : null}
           {editedColumn?.recipe === 'web-research' &&
-          researchStatus?.provider === 'codex' ? (
+          (editedColumn.researchProvider ?? researchStatus?.provider) ===
+            'codex' ? (
             <>
               <CodexModelPicker
                 label={`${editedColumn.title} research`}
