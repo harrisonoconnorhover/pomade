@@ -6,6 +6,7 @@
 - Added **Provider catalog** with provider/action search, Email/Phone/Company/Research filters, required inputs and account connection badges before selection.
 - Catalog choices open existing provider or research setup. Research selection persists for single answers, structured fields and lists. Company presets can be saved before connecting a key.
 - Added ordered related-sheet tabs from actual workbook membership, preserving account boundaries and navigation/save guards.
+- Released all three features locally at http://localhost:8798 and to the existing owner-private site (hosted version 29, source `da0d904`).
 
 ## Try It
 
@@ -17,7 +18,8 @@
 
 - 127 focused tests passed across eight files, covering hidden-column execution and merging, visible drag mapping, provider search and status, workbook membership, existing provider factories and recipe execution.
 - Typecheck, lint, diff checks, and both local/hosted production builds passed.
-- Local and private hosted release checks are pending.
+- Live checks passed: 24 local and 16 hosted table IDs preserved, seven hosted connections intact, managed Apollo callback unchanged, anonymous workbook access returns 401. Three related sheets expose correct plan membership in each version; catalog connection endpoints respond correctly.
+- Four served JavaScript/CSS assets per version match their respective production builds. Evidence: ignored `outputs/navigation/2026-09-07/release-check.json`.
 - No browser interaction or visual QA was performed for this implementation.
 
 ## Decisions
@@ -28,7 +30,6 @@
 
 ## Remaining
 
-- Verify deployed assets, saved tables and configured connections.
 - Real Apollo phone calls still require eligible API access; the callback service is unchanged.
 
 ## Review First
