@@ -1097,3 +1097,9 @@ Provider drafts can be saved using known presets even when the connection check 
 ## 2026-09-07 night shift: Previewed CSV imports
 
 Selecting a CSV opens a preview rather than overwriting the active sheet. New sheet is the default; appending requires explicit column mapping and preserves existing rows, recipes and source configuration. File/row/column limits and malformed rows are checked before mutation; new-sheet creation revalidates at the server boundary. CSV Status remains separate from run status. Imports support a 2 MB file, 5,000 rows and 99 CSV fields plus run status. Appends pause an active recipe schedule so new records cannot silently expand external work. Exports use an ordered cell matrix so duplicate display headers and hidden fields do not lose values.
+
+### 2026-09-07 — Visible row actions and explicit CSV exports
+- Apply grid cell edits to the latest stored row before recalculating formulas; Glide delivers paste/clear cells before React can refresh row props.
+- Current row actions and checkbox selection are bounded to the visible view. A view with no matches has no active record. Saved schedule scopes remain unchanged.
+- CSV export defaults to selected rows or the current view, with explicit entire-sheet and hidden-column options. Ordered CSV matrices retain duplicate column titles. Blank-row creation stops at the existing 5,000-row save capacity.
+- Verified 27 focused unit tests and eight actual browser checks covering multi-cell paste/clear, filtered actions/details, CSV contents, mobile fit, and reload persistence.

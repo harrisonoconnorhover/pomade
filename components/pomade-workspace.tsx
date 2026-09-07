@@ -56,7 +56,8 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import CsvImportDialog from '@/components/csv-import-dialog';
-import { workspaceCsv } from '@/lib/csv-import';
+import CsvExportDialog from '@/components/csv-export-dialog';
+import { applyGridEdits, visibleSelection } from '@/lib/grid-edits';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -485,7 +486,7 @@ export default function PomadeWorkspace({
     rows: [],
   }));
   const [activeRowId, setActiveRowId] = useState('sample-1');
-  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const [selectedRowStateIds, setSelectedRowIds] = useState<string[]>([]);
   const [runHistory, setRunHistory] = useState<RunReceipt[]>([]);
   const [latestRun, setLatestRun] = useState<RunReceipt>();
   const [receiptRun, setReceiptRun] = useState<RunReceipt>();
@@ -495,6 +496,7 @@ export default function PomadeWorkspace({
   const [filter, setFilter] = useState<FilterMode>('All');
   const [activeSavedViewId, setActiveSavedViewId] = useState('');
   const [query, setQuery] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
   const [sortAscending, setSortAscending] = useState(true);
   const [notice, setNotice] = useState('');
   const [toolGroup, setToolGroup] = useState<
@@ -1057,8 +1059,10 @@ export default function PomadeWorkspace({
     });
   }, [activeSavedView, filter, query, workspace.rows]);
 
-  const selected =
-    workspace.rows.find((row) => row.id === activeRowId) ?? workspace.rows[0];
+  const { selectedIds: selectedRowIds, active: selected } = useMemo(
+    () => visibleSelection(visibleRows, selectedRowStateIds, activeRowId),
+    [visibleRows, selectedRowStateIds, activeRowId],
+  );
   const selectedValues = selected?.values ?? {};
   const editedColumn = workspace.columns.find(
     (column) => column.id === columnEditorId,
@@ -1318,19 +1322,9 @@ export default function PomadeWorkspace({
 
   const updateVisibleRows = useCallback(
     (changedRows: PomadeRow[], editedColumnId?: string) => {
-      setWorkspace((current) => {
-        const changedById = new Map(
-          changedRows.map((row) => [
-            row.id,
-            recalculateAutomaticFormulas(row, current.columns, editedColumnId),
-          ]),
-        );
-        return {
-          ...current,
-          rows: current.rows.map((row) => changedById.get(row.id) ?? row),
-          updatedAt: Date.now(),
-        };
-      });
+      setWorkspace((current) =>
+        applyGridEdits(current, changedRows, editedColumnId),
+      );
     },
     [],
   );
@@ -1981,6 +1975,13 @@ export default function PomadeWorkspace({
   }
 
   function addBlankRow() {
+    if (jobLocksWorkspace) return;
+    if (workspace.rows.length >= 5_000) {
+      setNotice(
+        'This sheet has reached its 5,000-row limit. Start another sheet to add more records.',
+      );
+      return;
+    }
     const id = crypto.randomUUID();
     setWorkspace((current) => ({
       ...current,
@@ -2113,16 +2114,7 @@ export default function PomadeWorkspace({
   }
 
   function exportCsv() {
-    const blob = new Blob([workspaceCsv(workspace)], {
-      type: 'text/csv;charset=utf-8',
-    });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${slugify(workspace.name)}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setNotice(`${workspace.rows.length} rows exported.`);
+    setExportOpen(true);
   }
 
   function openControlTowerHandoff() {
@@ -3160,7 +3152,14 @@ export default function PomadeWorkspace({
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
                     onClick={addBlankRow}
-                    disabled={jobLocksWorkspace}
+                    disabled={
+                      jobLocksWorkspace || workspace.rows.length >= 5_000
+                    }
+                    title={
+                      workspace.rows.length >= 5_000
+                        ? '5,000-row limit reached; start another sheet.'
+                        : undefined
+                    }
                   >
                     <Plus /> Add blank row
                   </DropdownMenuItem>
@@ -3939,6 +3938,15 @@ export default function PomadeWorkspace({
         </aside>
       </div>
 
+      {exportOpen ? (
+        <CsvExportDialog
+          workspace={workspace}
+          visibleRowIds={visibleRows.map((row) => row.id)}
+          selectedRowIds={selectedRowIds}
+          onClose={() => setExportOpen(false)}
+          onExported={(count) => setNotice(`${count} rows exported.`)}
+        />
+      ) : null}
       {csvFile ? (
         <CsvImportDialog
           file={csvFile}

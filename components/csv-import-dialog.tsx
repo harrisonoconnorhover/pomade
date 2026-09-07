@@ -186,7 +186,8 @@ export default function CsvImportDialog({
               <details className="csv-column-mapping" open>
                 <summary>
                   Map {result.preview.columns.length} CSV columns ·{' '}
-                  {plan?.value?.added.length ?? 0} new fields
+                  {plan?.value?.added.length ?? 0} new{' '}
+                  {plan?.value?.added.length === 1 ? 'field' : 'fields'}
                 </summary>
                 <div>
                   {result.preview.columns.map((column, index) => (
