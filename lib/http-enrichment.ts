@@ -396,6 +396,16 @@ export async function executeHttpRecipe(
     }
     let data: unknown;
     let providerMiss = false;
+    if (
+      connection.id === 'pomade_pdl_people' &&
+      new URL(request.url).pathname === '/v5/person/enrich' &&
+      response.status === 404
+    ) {
+      await response.body?.cancel();
+      data = {};
+      providerMiss = true;
+      status = 'No matching person with the required field';
+    }
     if (connection.id === 'pomade_prospeo' && response.status === 400) {
       data = await boundedJson(response);
       const code = jsonPath(data, 'error_code');

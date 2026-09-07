@@ -9,6 +9,7 @@ export const FINDYMAIL_CONNECTION = 'pomade_findymail';
 export const LEADMAGIC_CONNECTION = 'pomade_leadmagic';
 export const PROSPEO_CONNECTION = 'pomade_prospeo';
 export const HUNTER_CONNECTION = 'pomade_hunter';
+export const PDL_PEOPLE_CONNECTION = 'pomade_pdl_people';
 export const PDL_COMPANY_CONNECTION = 'pomade_pdl_company';
 export function emailProviderStep(
   provider: 'hunter' | 'apollo' | 'prospeo' | 'leadmagic',
@@ -308,5 +309,17 @@ export function trestlePhoneStep(phone = 'phone'): HttpProviderStep {
     pathTemplate: `/3.0/phone_intel?phone={{${phone}}}`,
     responsePath: 'pomade.phone',
     verification: { path: 'is_valid', acceptedValues: ['true'] },
+  };
+}
+
+export function pdlPersonStep(
+  field: 'work_email' | 'mobile_phone' | 'recommended_personal_email',
+  profile = 'profile',
+): HttpProviderStep {
+  return {
+    connectionId: PDL_PEOPLE_CONNECTION,
+    method: 'GET',
+    pathTemplate: `/v5/person/enrich?profile={{${profile}}}&required=${field}&min_likelihood=6&data_include=${field}`,
+    responsePath: `data.${field}`,
   };
 }

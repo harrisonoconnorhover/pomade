@@ -403,3 +403,103 @@ describe('Trestle phone validity', () => {
     },
   );
 });
+
+describe('People Data Labs person fields', () => {
+  const connections = configuredHttpConnections({
+    PDL_API_KEY: 'private-pdl',
+    HUNTER_API_KEY: 'private-hunter',
+  }).map((c) => ({ ...c, requestDelayMs: 0 }));
+  it.each([
+    ['pdl-email', 'work_email', 'ada@example.com'],
+    ['pdl-mobile', 'mobile_phone', '+12025550123'],
+  ])('requests only the required %s field', async (id, field, value) => {
+    const { w, column } = fixture(id);
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (input, init) => {
+        const url = new URL(input instanceof Request ? input.url : input);
+        expect(url.origin + url.pathname).toBe(
+          'https://api.peopledatalabs.com/v5/person/enrich',
+        );
+        expect(url.searchParams.get('required')).toBe(field);
+        expect(url.searchParams.get('data_include')).toBe(field);
+        expect(url.searchParams.get('profile')).toBe(
+          w.rows[0].values.profile_url,
+        );
+        expect(new Headers(init?.headers).get('X-API-Key')).toBe('private-pdl');
+        return Response.json({
+          status: 200,
+          likelihood: 10,
+          data: { [field]: value },
+        });
+      });
+    const result = await executeProviderWaterfall(
+      w,
+      'a',
+      column,
+      connections,
+      fetcher,
+    );
+    expect(result.workspace.rows[0].values.result).toBe(value);
+    expect(result.receipt.status).toBe('passed');
+    expect(column.providerWaterfall?.accept).not.toContain('verified');
+  });
+  it('falls back for a documented 404, but withholds a low-confidence match', async () => {
+    const { w, column } = fixture('pdl-email', 'hunter');
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ status: 404 }, { status: 404 }))
+      .mockResolvedValueOnce(
+        Response.json({ data: { email: 'ada@example.com' } }),
+      );
+    const result = await executeProviderWaterfall(
+      w,
+      'a',
+      column,
+      connections,
+      fetcher,
+    );
+    expect(result.workspace.rows[0].values.result_provider).toBe('Hunter');
+    expect(result.receipt.attempts?.[0].error).toBeUndefined();
+    const bad = await executeProviderWaterfall(
+      w,
+      'a',
+      column,
+      connections,
+      async () =>
+        Response.json({
+          status: 200,
+          likelihood: 2,
+          data: { work_email: 'wrong@example.com' },
+        }),
+    );
+    expect(bad.receipt.error).toContain('confidence');
+    expect(bad.workspace.rows[0].values.result).toBe('');
+  });
+});
+
+it('does not mistake PDL free-plan availability flags for revealed contact data', async () => {
+  const { w, column } = fixture('pdl-email', 'hunter');
+  const connections = configuredHttpConnections({ PDL_API_KEY: 'fixture' }).map(
+    (c) => ({ ...c, requestDelayMs: 0 }),
+  );
+  const fetcher = vi
+    .fn<typeof fetch>()
+    .mockResolvedValue(
+      Response.json({
+        status: 200,
+        likelihood: 10,
+        data: { work_email: true },
+      }),
+    );
+  const result = await executeProviderWaterfall(
+    w,
+    'a',
+    column,
+    connections,
+    fetcher,
+  );
+  expect(result.workspace.rows[0].values.result).toBe('');
+  expect(result.receipt.error).toContain('plan did not reveal');
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});

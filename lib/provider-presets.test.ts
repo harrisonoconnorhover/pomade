@@ -205,7 +205,7 @@ describe('expanded company and verified email presets', () => {
       HUNTER_API_KEY: 'hunter-secret',
       PDL_API_KEY: 'pdl-secret',
     });
-    expect(configured).toHaveLength(2);
+    expect(configured).toHaveLength(3);
     expect(JSON.stringify(publicHttpConnections(configured))).not.toContain(
       'secret',
     );

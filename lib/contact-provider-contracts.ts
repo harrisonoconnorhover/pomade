@@ -12,6 +12,35 @@ export function normalizeContactProviderResponse(
   data: unknown,
 ): unknown {
   if (
+    connectionId === 'pomade_pdl_people' &&
+    url.pathname === '/v5/person/enrich'
+  ) {
+    const body = record(data);
+    if (body.status === 404) return {};
+    if (body.error || (typeof body.status === 'number' && body.status !== 200))
+      throw new Error(
+        'People Data Labs rejected the request. Check the account and request inputs.',
+      );
+    const minimum = Number(url.searchParams.get('min_likelihood') ?? 0);
+    if (
+      minimum > 0 &&
+      (typeof body.likelihood !== 'number' || body.likelihood < minimum)
+    )
+      throw new Error(
+        'People Data Labs did not meet the requested person-match confidence. Results withheld for review.',
+      );
+    const required = url.searchParams.get('required') ?? '';
+    if (
+      ['work_email', 'mobile_phone', 'recommended_personal_email'].includes(
+        required,
+      ) &&
+      typeof record(body.data)[required] === 'boolean'
+    )
+      throw new Error(
+        'People Data Labs returned a field-availability flag. Your plan did not reveal the contact value.',
+      );
+  }
+  if (
     connectionId === 'pomade_trestle' &&
     url.pathname === '/3.0/phone_intel'
   ) {

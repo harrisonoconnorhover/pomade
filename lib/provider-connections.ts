@@ -9,6 +9,7 @@ import {
   HUNTER_CONNECTION,
   PROSPEO_CONNECTION,
   PDL_COMPANY_CONNECTION,
+  PDL_PEOPLE_CONNECTION,
 } from './provider-presets';
 export function configuredHttpConnections(env: {
   POMADE_HTTP_CONNECTIONS?: string;
@@ -32,6 +33,7 @@ export function configuredHttpConnections(env: {
     HUNTER_CONNECTION,
     PROSPEO_CONNECTION,
     PDL_COMPANY_CONNECTION,
+    PDL_PEOPLE_CONNECTION,
   ];
   if (custom.some((c) => reserved.includes(c.id)))
     throw new Error(
@@ -114,6 +116,15 @@ export function configuredHttpConnections(env: {
       origin: 'https://api.trestleiq.com',
       methods: ['GET'],
       headers: { 'x-api-key': env.TRESTLE_API_KEY.trim() },
+    });
+  if (env.PDL_API_KEY?.trim())
+    connections.push({
+      id: PDL_PEOPLE_CONNECTION,
+      label: 'People Data Labs person enrichment',
+      origin: 'https://api.peopledatalabs.com',
+      methods: ['GET'],
+      headers: { 'X-API-Key': env.PDL_API_KEY.trim() },
+      requestDelayMs: 650,
     });
   return connections;
 }
