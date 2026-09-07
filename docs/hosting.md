@@ -61,7 +61,11 @@ claim of exactly-once execution across every possible interruption.
 ## Automation and copies
 
 Hosted scheduled automations start disabled (`POMADE_SCHEDULES_ENABLED=false`);
-manual and explicitly queued runs still work. Saved CRM source refresh has its own opt-in daily/weekly schedule in **Refresh settings**, independent of that legacy recipe-schedule switch. It starts off on both installations. Imported tables have schedules
+manual and explicitly queued runs still work. Saved CRM source refresh has its own opt-in daily/weekly schedule in **Refresh settings**, independent of that legacy recipe-schedule switch. It starts off on both installations.
+Native cron delivery was not observed on Sites during the live release check. The
+existing authenticated page polls and Mac companion also wake due refreshes and
+workbook jobs. Keep either active; missed refreshes catch up on the next wakeup.
+A fully unattended hosted timer with both closed is not yet verified. Imported tables have schedules
 paused. Keep any existing local schedules as their current owner. Deliberately
 move a schedule's ownership before enabling it on another installation.
 

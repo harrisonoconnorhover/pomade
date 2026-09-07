@@ -971,3 +971,13 @@ the live API rejected the previous array-root schema. Prospeo verified-mobile
 presets require verified status, an explicit reveal, and a full international
 number. Provider balance endpoints expose quota fields only; Parallel's balance
 remains dashboard-only. No paid account, topup, outreach or public publishing.
+
+## Hosted refresh wakeups (2026-09-06)
+
+The private Sites release did not deliver native cron events during the live
+refresh check. Reuse authenticated owner-page polls and the existing outbound
+Mac companion to advance due CRM refreshes and workbook jobs, with in-instance
+coalescing and existing database leases. This adds no scheduler service or new
+credentials. The UI states that either the website or companion must remain
+active; missed refreshes catch up. Keep the native scheduled handler for
+self-hosting, but do not claim unattended Sites timer delivery.

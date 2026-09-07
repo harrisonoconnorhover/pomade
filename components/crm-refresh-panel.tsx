@@ -166,7 +166,7 @@ export default function CrmRefreshPanel({
           </div>
           <p>
             {hosted
-              ? 'Automatic refresh runs on this hosted copy.'
+              ? 'This hosted copy refreshes while Pomade is open or your Mac connection is running. Missed refreshes catch up when either reconnects.'
               : 'Automatic refresh runs while Pomade and its local scheduler are running on your Mac.'}{' '}
             The first automatic refresh runs shortly after saving, then repeats
             at your chosen interval. Each copy keeps its own schedule.

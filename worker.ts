@@ -1,3 +1,4 @@
+import { createBackgroundWakeup } from './lib/background-wakeup';
 import { salesforceRenewalEnvironment } from '@/lib/salesforce-auth';
 import {
   columnResearchEnvironment,
@@ -539,6 +540,14 @@ async function runBackgroundWork(
   await runWorkbooks(env.DB);
 }
 
+// Sites may not deliver native cron events. Existing owner-page polling and
+// the outbound Mac connection also advance due work, without a paid scheduler.
+const requestWakeup = createBackgroundWakeup();
+function wakeHostedWork(env: Cloudflare.Env, ctx: ExecutionContext) {
+  const pending = requestWakeup(() => runBackgroundWork(Date.now(), env, ctx));
+  if (pending) ctx.waitUntil(pending);
+}
+
 export default {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext) {
     const denied = await authorizeDeployment(request, env);
@@ -548,17 +557,20 @@ export default {
       new URL(request.url).pathname === '/api/companion'
     ) {
       const response = await handleCompanion(request, env.DB);
-      if (response.ok)
-        ctx.waitUntil(
-          (async () => {
-            await runWorkbooks(env.DB);
-            await runQueuedJobs(Date.now(), env, ctx);
-            await runWorkbooks(env.DB);
-          })(),
-        );
+      if (response.ok) wakeHostedWork(env, ctx);
       return response;
     }
-    return app.fetch(request, env, ctx);
+    const response = await app.fetch(request, env, ctx);
+    if (
+      env.POMADE_DEPLOYMENT === 'hosted' &&
+      response.ok &&
+      request.method === 'GET' &&
+      ['/api/jobs', '/api/workbook-runs', '/api/crm-refresh'].includes(
+        new URL(request.url).pathname,
+      )
+    )
+      wakeHostedWork(env, ctx);
+    return response;
   },
   scheduled(
     controller: ScheduledController,
