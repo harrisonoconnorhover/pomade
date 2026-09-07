@@ -42,6 +42,9 @@ describe('find, verify and fallback in one waterfall', () => {
       new URL(f.fetcher.mock.calls[1][0] as string).searchParams.get('email'),
     ).toBe('fresh@example.com');
     expect(result.receipt.after).toBe('fresh@example.com');
+    expect(result.workspace.rows[0].values.result_status).toContain(
+      'independently verified',
+    );
     expect(
       result.receipt.attempts?.map((a) => [a.operationRole, a.outcome]),
     ).toEqual([
@@ -73,6 +76,9 @@ describe('find, verify and fallback in one waterfall', () => {
         'accepted',
       ]);
       expect(result.workspace.rows[0].values.result_provider).toBe('last');
+      expect(result.workspace.rows[0].values.result_status).not.toContain(
+        'independently verified',
+      );
     },
   );
   it('skips verification when the finder has no candidate', async () => {

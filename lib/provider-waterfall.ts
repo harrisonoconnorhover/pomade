@@ -358,6 +358,7 @@ export async function executeProviderWaterfall(
   }
   let value = '',
     winner = '',
+    winnerVerified = false,
     error: string | undefined,
     pending = false,
     stoppedEarly = false;
@@ -398,6 +399,7 @@ export async function executeProviderWaterfall(
         ? phoneNumber(found.value)
         : found.value;
       winner = found.label;
+      winnerVerified = Boolean(step.verifier);
       error = undefined;
       break;
     }
@@ -426,7 +428,7 @@ export async function executeProviderWaterfall(
       ? (attempts.at(-1)?.outputValues?.[config.statusColumnId] ??
         'Waiting for provider results')
       : winner
-        ? `Accepted after ${finderCount} ${finderCount === 1 ? 'attempt' : 'attempts'}${attempts.some((a) => a.operationRole === 'verification') ? ' · independently verified' : ''}`
+        ? `Accepted after ${finderCount} ${finderCount === 1 ? 'attempt' : 'attempts'}${winnerVerified ? ' · independently verified' : ''}`
         : stoppedEarly
           ? `Stopped: ${error}`
           : error
