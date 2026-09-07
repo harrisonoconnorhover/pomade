@@ -114,6 +114,13 @@ export default function ProviderWaterfallBuilder({
     for (const step of steps) {
       const preset = contactPreset(step.quickSetup);
       if (preset) {
+        if (
+          accept !== 'nonempty' &&
+          accept.includes('phone') !== preset.accept.includes('phone')
+        )
+          throw new Error(
+            'Use either email or phone presets in one waterfall, matching its acceptance rule.',
+          );
         const missing = missingContactInputs(preset, bindings, inputColumns);
         if (missing.length)
           throw new Error(
@@ -268,7 +275,12 @@ export default function ProviderWaterfallBuilder({
                           : item,
                       ),
                     );
-                    setAccept(preset.accept);
+                    // Adding a fallback must not silently weaken the existing
+                    // verification rule for earlier providers.
+                    if (
+                      !steps.some((step, i) => i !== index && step.connectionId)
+                    )
+                      setAccept(preset.accept);
                   } else edit(index, {});
                 }}
               >

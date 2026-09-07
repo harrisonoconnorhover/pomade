@@ -78,6 +78,12 @@ export const CONNECTIONS: ConnectionDefinition[] = [
     'Verified email by first name, last name and company domain; mobile by professional profile. Mobile format is checked without claiming verification. Sample-response tested; live access pending.',
   ),
   api(
+    'bounceban',
+    'BounceBan',
+    'BOUNCEBAN_API_KEY',
+    'Independent email verification using the synchronous waterfall API. Accepts deliverable results only; stops on pending or timed-out requests. Sample-response tested; live access pending.',
+  ),
+  api(
     'pdl',
     'People Data Labs',
     'PDL_API_KEY',

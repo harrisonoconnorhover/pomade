@@ -129,10 +129,7 @@ rollups are supported as described below; portable lookup export remains pending
 
 See the [Clay contact-provider tracker](docs/clay-contact-provider-tracker.md) for
 email finders, phone sources, verification services, evidence links, and Pomade gaps.
-The new LeadMagic email/mobile presets can be developed and fixture-tested without
-a key. To run them later, connect LeadMagic in **Account** on the hosted site or
-set `LEADMAGIC_API_KEY` locally; use **Provider waterfall → Quick setup**. Mobile
-lookup is explicitly format-only, not independent ownership verification.
+Contact-provider development can proceed without keys. **Provider waterfall → Quick setup** now offers 22 presets across Apollo, Hunter, Prospeo, LeadMagic, Findymail, People Data Labs, ContactOut, Upcell, ZeroBounce, BounceBan and Trestle. Save a setup before connecting its keys; no enrichment runs until you explicitly run the column. Six new account connections use the existing personal credential vault. New adapters are tested with synthetic responses, with live account checks still pending. See the [provider tracker](docs/clay-contact-provider-tracker.md) for exact capabilities, source contracts and remaining work.
 
 ## Research buying signals
 
@@ -354,25 +351,13 @@ not implemented.
 
 ## Provider fallback waterfalls
 
-Open **Recipe library → Provider waterfall** to configure two to four HTTP
-provider requests in order. Each step has its own connection, relative endpoint,
-GET/JSON POST inputs and response field. Choose either a nonempty result or an
-email-shaped result. The latter checks format only; it does not verify identity,
-mailbox existence or deliverability. No request occurs while building the recipe.
+Open **Provider waterfall** to configure one to four HTTP provider requests in order. Use **Quick setup** and map only the input columns the selected presets need, or enter a custom request. Presets can be saved before connecting their API keys. Missing credentials stop that step when run; saving does not call a provider.
 
-Run the waterfall like any other recipe. A miss or rejected value advances to
-the next provider; the first accepted result stops further requests. Technical
-errors stop by default, with an explicit continue-on-error setting. Every attempt
-is preserved in the run receipt with result, elapsed time and unknown cost.
-The winner and final status appear beside the result. All misses clear stale
-values and flag review. Unrecovered technical errors stop jobs/schedules.
+Choose email/phone format-only acceptance or an explicit verified provider status. Finder and verifier are separate operations: use an independent verifier in another action column bound to the found email/phone. Unknown and rejected statuses fall through; account errors, pending checks and rate limits stop by default. Adding a preset does not silently weaken an existing verification rule. A valid phone is not proof of ownership, mobile line type or recent activity.
 
-Confirmation and background/schedule limits include every possible step per row.
-Recent usage counts actual provider attempts separately from logical recipe
-actions. Same-installation templates remap inputs and outputs; portable export
-still requires connection remapping. Existing value-selection waterfalls remain
-local and do not call providers. Native provider presets and richer acceptance
-predicates remain future work; this builder uses configured HTTP connections.
+Run the waterfall like another recipe. The first acceptable result stops further requests. Each attempt records result, elapsed time and unknown cost; synthetic tests never establish real billing. Winner and final status appear beside the result. Unrecovered errors stop jobs and schedules. Run limits include every possible step. Same-installation templates remap inputs and outputs; portable export still needs connection remapping. Existing local value-selection waterfalls make no provider calls.
+
+See [the maintained provider tracker](docs/clay-contact-provider-tracker.md) for current adapters and asynchronous lifecycle gaps.
 
 ## Import lists from APIs
 

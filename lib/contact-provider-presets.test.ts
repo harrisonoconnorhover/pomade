@@ -700,3 +700,118 @@ describe('Upcell enrichment', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 });
+
+describe('BounceBan synchronous waterfall verification', () => {
+  const connections = configuredHttpConnections({
+    BOUNCEBAN_API_KEY: 'private-bounceban',
+    HUNTER_API_KEY: 'private-hunter',
+  });
+  it('uses the waterfall host and accepts deliverable after completed verification', async () => {
+    const { w, column } = fixture('bounceban-verify', 'hunter-verify');
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (input, init) => {
+        const url = new URL(input instanceof Request ? input.url : input);
+        expect(url.origin + url.pathname).toBe(
+          'https://api-waterfall.bounceban.com/v1/verify/single',
+        );
+        expect(url.searchParams.get('timeout')).toBe('30');
+        expect(url.searchParams.get('mode')).toBe('regular');
+        expect(new Headers(init?.headers).get('Authorization')).toBe(
+          'private-bounceban',
+        );
+        return Response.json({
+          status: 'success',
+          email: 'ada@example.com',
+          result: 'deliverable',
+        });
+      });
+    const result = await executeProviderWaterfall(
+      w,
+      'a',
+      column,
+      connections,
+      fetcher,
+    );
+    expect(result.receipt.status).toBe('passed');
+    expect(result.workspace.rows[0].values.result).toBe('ada@example.com');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it.each(['risky', 'unknown', 'undeliverable'])(
+    'rejects %s even with a high score',
+    async (result) => {
+      const { w, column } = fixture('bounceban-verify');
+      const run = await executeProviderWaterfall(
+        w,
+        'a',
+        column,
+        connections,
+        async () =>
+          Response.json({
+            status: 'success',
+            email: 'ada@example.com',
+            result,
+            score: 99,
+          }),
+      );
+      expect(run.receipt.status).toBe('review');
+      expect(run.workspace.rows[0].values.result).toBe('');
+    },
+  );
+  it.each([200, 408, 429])(
+    'does not resubmit or start fallback after incomplete HTTP %s',
+    async (status) => {
+      const { w, column } = fixture('bounceban-verify', 'hunter-verify');
+      const fetcher = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          Response.json(
+            { id: 'pending-fixture', status: 'verifying' },
+            { status },
+          ),
+        );
+      const result = await executeProviderWaterfall(
+        w,
+        'a',
+        column,
+        connections,
+        fetcher,
+      );
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(result.receipt.error).toBeTruthy();
+      expect(result.workspace.rows[0].values.result).toBe('');
+    },
+  );
+});
+
+it.each([
+  'findymail-verify',
+  'hunter-verify',
+  'leadmagic-verify',
+  'zerobounce-verify',
+  'bounceban-verify',
+  'trestle-verify',
+])('rejects malformed input locally for %s', async (id) => {
+  const { w, column } = fixture(id);
+  w.rows[0].values.work_email = 'not-an-email';
+  w.rows[0].values.mobile = '2025550123';
+  const connections = configuredHttpConnections({
+    FINDYMAIL_API_KEY: 'fake',
+    HUNTER_API_KEY: 'fake',
+    LEADMAGIC_API_KEY: 'fake',
+    ZEROBOUNCE_API_KEY: 'fake',
+    BOUNCEBAN_API_KEY: 'fake',
+    TRESTLE_API_KEY: 'fake',
+  });
+  const fetcher = vi.fn<typeof fetch>();
+  const result = await executeProviderWaterfall(
+    w,
+    'a',
+    column,
+    connections,
+    fetcher,
+  );
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(result.receipt.error).toMatch(/format|country code/);
+  expect(result.receipt.creditsConsumed).toBe(0);
+});

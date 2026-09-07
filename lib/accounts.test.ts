@@ -216,6 +216,10 @@ describe('private accounts', () => {
     ['leadmagic', 'LEADMAGIC_API_KEY'],
     ['findymail', 'FINDYMAIL_API_KEY'],
     ['zerobounce', 'ZEROBOUNCE_API_KEY'],
+    ['trestle', 'TRESTLE_API_KEY'],
+    ['contactout', 'CONTACTOUT_API_KEY'],
+    ['upcell', 'UPCELL_API_KEY'],
+    ['bounceban', 'BOUNCEBAN_API_KEY'],
   ])(
     'isolates %s through save and disconnect without owner fallback',
     async (provider, key) => {

@@ -1,7 +1,7 @@
 # Clay contact-provider tracker for Pomade
 
 Checked **2026-09-07** against Clay's public integration directory, individual
-provider/action pages, waterfall documentation, and the direct LeadMagic API docs.
+provider/action pages, waterfall documentation, and direct provider API documentation.
 This is a development backlog, not a claim that we have bought or connected these
 services. No accounts were created and no paid or live enrichment calls were made.
 
@@ -26,21 +26,21 @@ lead to the current actions supporting each row.
 | Service / Clay source | Email lookup | Phone lookup | Pomade status / next gap |
 |---|---|---|---|
 | [Apollo.io](https://www.clay.com/integrations/data-provider/apollo-io) | Work; personal | Mobile; company | Email preset exists. Phone reveal/callback support remains a gap. |
-| [Hunter](https://www.clay.com/integrations/data-provider/hunter) | Work | — | Email finder preset exists; standalone verification preset remains a gap. |
+| [Hunter](https://www.clay.com/integrations/data-provider/hunter) | Work | — | Email finder and independent verifier presets implemented. Pending verifier responses stop for a later retry. |
 | [Prospeo](https://www.clay.com/integrations/data-provider/prospeo) | Work | Mobile | Email and verified-mobile presets exist; mobile entitlement still needs a live check. |
-| [People Data Labs](https://www.clay.com/integrations/data-provider/people-data-labs) | Work*; personal | Mobile | Company adapter exists; person/email/mobile presets remain a gap. |
-| [LeadMagic](https://www.clay.com/integrations/data-provider/leadmagic) | Work; personal | Mobile | NEW: work-email and mobile-by-work-email presets; fixture-tested, no live key/test. |
+| [People Data Labs](https://www.clay.com/integrations/data-provider/people-data-labs) | Work*; personal | Mobile | Company plus work-email, personal-email and mobile presets implemented. Person presets are fixture-tested; revealed contact fields depend on the plan. |
+| [LeadMagic](https://www.clay.com/integrations/data-provider/leadmagic) | Work; personal | Mobile | Work-email, mobile-by-work-email and independent email verification presets implemented; fixture-tested, live access pending. |
 | [Findymail](https://www.clay.com/integrations/data-provider/findymail) | Work | Mobile | Email lookup, US phone lookup and independent email verification implemented and fixture-tested. Finder outputs use format-only acceptance; the verifier requires `verified=true`. No live account test. |
-| [Enrow](https://www.clay.com/integrations/data-provider/enrow) | Work | Mobile | Planned. Includes a separate email validation action in Clay. |
+| [Enrow](https://www.clay.com/integrations/data-provider/enrow) | Work | Mobile | Direct API reviewed: async-first submit plus result polling/webhook. Needs durable provider-result handling; no runnable preset yet. |
 | [Dropcontact](https://www.clay.com/integrations/data-provider/dropcontact) | Work | — | Planned. Confirm current direct API request/result lifecycle before wiring. |
 | [Icypeas](https://www.clay.com/integrations/data-provider/icypeas) | Work | — | Planned. Includes email verification and domain email discovery. |
 | [Datagma](https://www.clay.com/integrations/data-provider/datagma) | Work | Mobile | Planned. Clay phone lookup accepts profile or email identifiers. |
 | [Wiza](https://www.clay.com/integrations/data-provider/wiza) | Work; personal | Phone | Planned. Verify direct API result retrieval and phone types. |
 | [Forager](https://www.clay.com/integrations/data-provider/forager) | Personal | Mobile | Planned. Public Clay actions show phone and personal email, not work-email discovery. |
-| [ContactOut](https://www.clay.com/integrations/data-provider/contactout) | Personal | Mobile | Planned. Current listed lookup actions use professional profile URLs. |
+| [ContactOut](https://www.clay.com/integrations/data-provider/contactout) | Personal | Mobile | Work-email, personal-email and phone presets implemented from direct docs. Work email requires its own Verified status. Fixture-tested; live access pending. |
 | [FullEnrich](https://www.clay.com/integrations/data-provider/fullenrich) | Work | Mobile | Planned. Direct enrichment is asynchronous; requires result correlation and callback handling. |
 | [BetterContact](https://www.clay.com/integrations/data-provider/bettercontact) | Work | Mobile | Planned. Confirm direct API contracts and result retrieval. |
-| [Upcell](https://www.clay.com/integrations/data-provider/upcell) | — | Mobile | Planned. Confirm direct account/API availability. |
+| [Upcell](https://www.clay.com/integrations/data-provider/upcell) | — | Mobile | Verified-email and profile-to-mobile presets implemented from direct docs. Mobile is format-only. Fixture-tested; live access pending. |
 | [Firmable](https://www.clay.com/integrations/data-provider/firmable) | Work; personal | Mobile | Planned. Clay actions explicitly target Australia. |
 | [RocketReach](https://www.clay.com/integrations/data-provider/rocketreach) | Work; personal | Phone | Planned. Confirm direct API entitlements and phone type/status fields. |
 | [SMARTe](https://www.clay.com/integrations/data-provider/smarte) | Work | Mobile; business | Planned. Clay work-email action is listed as Clay Credits Only; direct access needs separate verification. |
@@ -49,9 +49,7 @@ lead to the current actions supporting each row.
 
 *People Data Labs is named for work email on Clay's waterfall page; the current
 [person action](https://www.clay.com/integrations/action/enrich-person-people-data-labs)
-explicitly lists personal email and mobile outputs. Confirm work-email field
-availability when implementing the person adapter. Pomade's existing PDL company
-connection is not person enrichment.
+explicitly lists personal email and mobile outputs. The direct person API now has separate presets for these fields. Field visibility still depends on the account plan; a free-plan availability flag is not a revealed contact.
 
 Useful action-level checks: [Apollo](https://www.clay.com/integrations/action/enrich-person-apollo-io),
 [Bytemine](https://www.clay.com/integrations/action/find-contact-info-bytemine),
@@ -63,21 +61,20 @@ Useful action-level checks: [Apollo](https://www.clay.com/integrations/action/en
 
 A found address/number and a verified address/number are different outcomes.
 Verification can test deliverability, line type, activity or association with a
-person; those are not interchangeable. Most of these need separate adapters in
-Pomade. Current verified-email presets inspect the lookup provider's own status.
+person; those are not interchangeable. Pomade now has five independent email-verifier presets (Hunter, LeadMagic, Findymail, ZeroBounce and BounceBan) and Trestle phone validity. Connect a verifier as a separate action column using the lookup result as its input; a waterfall step still performs one request.
 
 | Service / Clay source | Documented role | Pomade gap |
 |---|---|---|
 | [ZeroBounce](https://university.clay.com/docs/zerobounce-integration-overview) | Email validation; named as the default in Clay University | Independent verifier preset implemented; accepts `status=valid`. Fixture-tested, live access pending. |
-| [BounceBan](https://www.clay.com/integrations/data-provider/bounceban) | Email verification | Verifier adapter |
+| [BounceBan](https://www.clay.com/integrations/data-provider/bounceban) | Email verification | Synchronous waterfall verifier implemented; requires completed deliverable result. Fixture-tested, live access pending. |
 | [Debounce](https://www.clay.com/integrations/data-provider/debounce) | Email validation | Verifier adapter |
 | [Enrichley](https://www.clay.com/integrations/data-provider/enrichley) | Email validation | Verifier adapter |
-| [Hunter](https://www.clay.com/integrations/data-provider/hunter) | Email validation in addition to discovery | Standalone verification preset |
+| [Hunter](https://www.clay.com/integrations/data-provider/hunter) | Email validation in addition to discovery | Independent verifier implemented; valid-only, pending responses stop. |
 | [Findymail](https://www.clay.com/integrations/data-provider/findymail) | Email validation in addition to discovery | Findymail finder and verifier presets implemented; fixture-tested, live access pending. |
 | [Enrow](https://www.clay.com/integrations/data-provider/enrow) | Work-email validation | Finder plus verifier adapters |
 | [Icypeas](https://www.clay.com/integrations/data-provider/icypeas) | Email verification | Finder plus verifier adapters |
-| [LeadMagic](https://www.clay.com/integrations/data-provider/leadmagic) | Email validation in addition to discovery | Standalone verifier; new finder checks its own returned status only |
-| [Trestle](https://www.clay.com/integrations/data-provider/trestle) | Phone validation and contact verification | Phone line/identity verification adapter |
+| [LeadMagic](https://www.clay.com/integrations/data-provider/leadmagic) | Email validation in addition to discovery | Independent verifier implemented; requires email_status=valid. |
+| [Trestle](https://www.clay.com/integrations/data-provider/trestle) | Phone validation and contact verification | Phone validity preset implemented with same-number matching. Ownership and activity/line-type filtering remain separate. |
 | [SureConnect](https://www.clay.com/integrations/data-provider/sureconnect) | Phone verification | Phone quality/connection validation adapter |
 | [ClearoutPhone](https://www.clay.com/integrations/data-provider/clearoutphone) | Phone line type and status | Phone type/status adapter |
 
@@ -135,12 +132,11 @@ as awaiting a live account check, and never run missing-key providers.
 - Mobile: `POST /v1/people/mobile-finder`, mapped work-email input, return a
   country-coded number using **phone format only** acceptance. The documented
   response has no verification/ownership flag; strict verified-phone mode refuses
-  this preset. Independent verification remains separate work.
+  this preset. Use a separate phone-validation column when needed.
 - Authentication: server-side `X-API-Key` via `LEADMAGIC_API_KEY`. Hosted users can
   save their own key in **Account → LeadMagic**; local users set it in ignored
   `.env.local` and rebuild/restart. Other accounts never inherit the owner's key.
-- In **Provider waterfall → Quick setup**, presets remain disabled until a key
-  and the relevant input columns are available. Adding a waterfall does not run it.
+- In **Provider waterfall → Quick setup**, presets can be configured before connecting keys. Missing credentials stop that step at execution; saving makes no calls.
 - HTTP 403/429 stop the default chain. Generic usage receipts still report unknown
   provider cost; do not interpret “unknown” as free or quote a bill from test data.
 
@@ -151,24 +147,18 @@ unversioned routes and different status descriptions. No new key or plan purchas
 
 ## Next development order
 
-1. Add an independent email verifier and a phone type/status/identity verifier;
-   ZeroBounce/Hunter and Trestle/ClearoutPhone/SureConnect are documented candidates.
-2. Add another direct email/mobile finder, starting with Findymail or Enrow after
-   reviewing the current direct API. Judge it by additional acceptable matches
-   after the providers we already have, not total database size claims.
-3. Add durable asynchronous provider-result handling. Pomade's current generic
-   waterfall expects each step to finish in one HTTP response. For example,
-   [FullEnrich's enrichment API delivers results later](https://docs.fullenrich.com/api/v2/general/webhooks);
-   a simple endpoint preset is insufficient. Apollo phone callbacks remain a gap.
-4. Revisit the current **one-to-four provider-step** limit only when a tested
-   waterfall needs more steps. Do not equate a provider inventory with usable
-   coverage or spend time registering every service before testing incremental value.
+1. Build durable submit/poll/resume handling for [Enrow](https://enrow.io/en/api) and [FullEnrich](https://docs.fullenrich.com/api/v2/general/webhooks), including saved provider request IDs and no duplicate billable submission after interruptions. Apollo phone callbacks need this lifecycle too. These can be developed against synthetic contracts without a key; they are not implemented by this batch.
+2. Continue the tracker in provider-sized slices: inspect exact request/response contracts for Dropcontact, Icypeas, Datagma, Wiza, BetterContact, Forager, Firmable, RocketReach, SMARTe, ZoomInfo and Bytemine. Keep placeholders out of the runnable UI. Public marketing alone is not an API contract.
+3. Add the remaining phone type/activity/ownership checks and email verifiers. ClearoutPhone's public API reference could not be read in this run (403/JS-only); obtain the actual schema before coding it. Do not confuse `debounce.cc` with the Clay-listed `debounce.io` service.
+4. Once keys are available, measure extra acceptable matches after earlier providers, real latency, entitlements and credits. The one-to-four step limit is unchanged. Synthetic passing tests do not establish coverage, live billing, or deliverability.
+
+## Implemented provider details
 
 ### Findymail (September 7, 2026)
 
 Added name/domain email discovery, professional-profile US phone lookup, and an independent email-verifier preset using the [official API reference](https://app.findymail.com/docs/). Finder responses do not contain an explicit verification status. The phone endpoint documents US coverage and can return landlines. These lookup presets therefore check format only; the separate verifier requires the returned boolean `verified=true`. HTTP-200 error bodies stop the chain instead of masquerading as no-match results. API-key setup is available per account or through `FINDYMAIL_API_KEY`; no real credential or vendor call was used to develop this adapter.
 
-All preset setups can now be saved before connecting keys. Missing connections stop their step at execution; they are never silently skipped. Portable templates keep input mappings and omit credentials.
+All preset setups can now be saved before connecting keys. Missing connections stop their step at execution; they are never silently skipped. Reusable recipe templates keep input mappings and omit credentials.
 
 ### Independent email verification (September 7, 2026)
 
@@ -189,3 +179,7 @@ Added work-email, personal-email and phone presets from the [Contact Info API](h
 ### Upcell (September 7, 2026)
 
 Added [mobile enrichment](https://api.upcell.io/docs/dataenrichment/enrich-contact/) from a professional profile and [email enrichment](https://api.upcell.io/docs/dataenrichment/enrich-email/) from separate first-name, last-name and domain fields. Email requires `verified=true`; mobile uses format-only acceptance. The adapter requests only the `mobile` field for mobile lookup and uses the documented raw `Authorization` header. No full-name splitting heuristic. Missing inputs make no HTTP request. Synthetic response tests pass; live access pending.
+
+### BounceBan (September 7, 2026)
+
+Added its [documented synchronous waterfall endpoint](https://github.com/bounceban-com/skill-email-verification/blob/main/single-verification.md) on `api-waterfall.bounceban.com` with raw Authorization authentication, regular mode and a 30-second vendor timeout. Accepts `result=deliverable` only after `status=success`. Risky/unknown/undeliverable results are misses; pending responses, HTTP 408 and account errors stop by default. No automatic resubmission. The vendor documents no extra charge for retrying the same waterfall email within 30 minutes; this was not tested live and is not a billing guarantee from Pomade.

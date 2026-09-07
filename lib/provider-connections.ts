@@ -6,6 +6,7 @@ import {
   TRESTLE_CONNECTION,
   CONTACTOUT_CONNECTION,
   UPCELL_CONNECTION,
+  BOUNCEBAN_CONNECTION,
   APOLLO_COMPANY_CONNECTION,
   APOLLO_PEOPLE_CONNECTION,
   HUNTER_CONNECTION,
@@ -23,6 +24,7 @@ export function configuredHttpConnections(env: {
   TRESTLE_API_KEY?: string;
   CONTACTOUT_API_KEY?: string;
   UPCELL_API_KEY?: string;
+  BOUNCEBAN_API_KEY?: string;
   PROSPEO_API_KEY?: string;
   PDL_API_KEY?: string;
 }): HttpConnection[] {
@@ -34,6 +36,7 @@ export function configuredHttpConnections(env: {
     TRESTLE_CONNECTION,
     CONTACTOUT_CONNECTION,
     UPCELL_CONNECTION,
+    BOUNCEBAN_CONNECTION,
     APOLLO_COMPANY_CONNECTION,
     APOLLO_PEOPLE_CONNECTION,
     HUNTER_CONNECTION,
@@ -147,6 +150,15 @@ export function configuredHttpConnections(env: {
       origin: 'https://api.upcell.io',
       methods: ['POST'],
       headers: { Authorization: env.UPCELL_API_KEY.trim() },
+    });
+  if (env.BOUNCEBAN_API_KEY?.trim())
+    connections.push({
+      id: BOUNCEBAN_CONNECTION,
+      label: 'BounceBan',
+      origin: 'https://api-waterfall.bounceban.com',
+      methods: ['GET'],
+      headers: { Authorization: env.BOUNCEBAN_API_KEY.trim() },
+      requestTimeoutMs: 35_000,
     });
   return connections;
 }

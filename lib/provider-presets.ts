@@ -3,6 +3,7 @@ import { createHttpColumns } from './http-enrichment';
 import type { HttpProviderStep, WorkspaceSnapshot } from './pomade-types';
 export const APOLLO_COMPANY_CONNECTION = 'pomade_apollo_company';
 export const APOLLO_PEOPLE_CONNECTION = 'pomade_apollo_people';
+export const BOUNCEBAN_CONNECTION = 'pomade_bounceban';
 export const UPCELL_CONNECTION = 'pomade_upcell';
 export const CONTACTOUT_CONNECTION = 'pomade_contactout';
 export const TRESTLE_CONNECTION = 'pomade_trestle';
@@ -379,5 +380,15 @@ export function upcellEmailStep(
     }),
     responsePath: 'email',
     verification: { path: 'verified', acceptedValues: ['true'] },
+  };
+}
+
+export function bounceBanVerifyStep(email = 'email'): HttpProviderStep {
+  return {
+    connectionId: BOUNCEBAN_CONNECTION,
+    method: 'GET',
+    pathTemplate: `/v1/verify/single?email={{${email}}}&mode=regular&timeout=30`,
+    responsePath: 'email',
+    verification: { path: 'result', acceptedValues: ['deliverable'] },
   };
 }

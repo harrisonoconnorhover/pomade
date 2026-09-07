@@ -11,6 +11,20 @@ export function normalizeContactProviderResponse(
   url: URL,
   data: unknown,
 ): unknown {
+  if (
+    connectionId === 'pomade_bounceban' &&
+    url.pathname === '/v1/verify/single'
+  ) {
+    const body = record(data);
+    if (body.error)
+      throw new Error(
+        'BounceBan rejected the request. Check account access, credits, and inputs.',
+      );
+    if (body.status !== 'success')
+      throw new Error(
+        'BounceBan verification is incomplete. No result accepted; review before retrying.',
+      );
+  }
   if (connectionId === 'pomade_upcell' && record(data).error)
     throw new Error(
       'Upcell rejected the request. Check account access and inputs.',
@@ -148,6 +162,7 @@ export function validateContactProviderRequest(
     pomade_hunter: '/v2/email-verifier',
     pomade_leadmagic: '/v1/people/email-validation',
     pomade_zerobounce: '/v2/validate',
+    pomade_bounceban: '/v1/verify/single',
   };
   if (emailVerifiers[connectionId] === url.pathname) {
     const email =

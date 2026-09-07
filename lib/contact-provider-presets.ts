@@ -5,6 +5,8 @@ import {
   TRESTLE_CONNECTION,
   CONTACTOUT_CONNECTION,
   UPCELL_CONNECTION,
+  BOUNCEBAN_CONNECTION,
+  bounceBanVerifyStep,
   upcellEmailStep,
   upcellMobileStep,
   contactOutStep,
@@ -251,6 +253,16 @@ export const CONTACT_PROVIDER_PRESETS: ContactProviderPreset[] = [
     accept: 'phone',
     note: 'Requests mobile only. The response has no independent phone verification status.',
     step: ({ profile }) => upcellMobileStep(profile),
+  },
+  {
+    id: 'bounceban-verify',
+    label: 'BounceBan · verify existing email',
+    provider: 'BounceBan',
+    connectionId: BOUNCEBAN_CONNECTION,
+    inputs: ['email'],
+    accept: 'verified-email',
+    note: 'Waits up to 30 seconds for a deliverable result. Risky and unknown results are rejected; timeouts and pending checks stop for review.',
+    step: ({ email }) => bounceBanVerifyStep(email),
   },
 ];
 export function contactPreset(id?: string) {

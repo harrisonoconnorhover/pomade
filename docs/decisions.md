@@ -1055,3 +1055,7 @@ billing validation without an account. No migration or new service is required.
 ## 2026-09-07 — Prepare provider presets before connecting credentials
 
 Keep presets available without an API key so users can build and reuse workflows before choosing a subscription. Saving a preset performs no lookup; execution still resolves credentials in the current account. Findymail finder responses get format-only acceptance because the documented schema has no verification status; its independent verifier requires the returned `verified` boolean. Preserve application errors even when their HTTP status is 200. A small shared preset list drives input requirements and the UI as the provider catalogue grows.
+
+## 2026-09-07 — Explicit contact quality and provider-specific contracts
+
+Use documented synchronous endpoints first and keep finder/validator operations separate. Do not infer phone ownership or reachability from formatting, identity-match likelihood, or an email verification score. Normalize ContactOut's per-address status dictionary and Trestle's national-number response into source-derived `pomade` fields while retaining the raw status. Never treat PDL availability booleans as revealed values. Verification status must remain tied to the chosen result; adding a format-only fallback must not silently loosen an existing verified rule. Asynchronous submission/polling and callback recovery remain their own next vertical slice; no pretend adapters or new accounts are needed for this batch.
