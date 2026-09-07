@@ -17,6 +17,7 @@ import WorkbookTemplateBuilder from './workbook-template-builder';
 import WorkbookPromptBuilder from './workbook-prompt-builder';
 import {
   DEFAULT_TABLE_ID,
+  relatedWorkbookTables,
   type TableCreationMode,
   type TableSummary,
 } from '@/lib/workbook';
@@ -135,6 +136,7 @@ export default function PomadeWorkbook({
       setCreating(false);
     }
   }
+  const relatedTables = relatedWorkbookTables(tables, activeId);
   return (
     <div className="pomade-workbook">
       <nav className="workbook-bar" aria-label="Workbook tables">
@@ -220,6 +222,33 @@ export default function PomadeWorkbook({
           </output>
         ) : null}
       </nav>
+      {relatedTables.length > 1 ? (
+        <nav
+          className="related-sheet-tabs"
+          aria-label="Related workbook sheets"
+        >
+          <span
+            className="related-workbook-name"
+            title={relatedTables[0].workbook?.name}
+          >
+            {relatedTables[0].workbook?.name}
+          </span>
+          <div>
+            {relatedTables.map((table) => (
+              <button
+                key={table.id}
+                type="button"
+                aria-current={table.id === activeId ? 'page' : undefined}
+                disabled={!ready || creating}
+                onClick={() => openTable(table.id)}
+              >
+                <span>{table.name}</span>
+                <small>{table.rowCount.toLocaleString()}</small>
+              </button>
+            ))}
+          </div>
+        </nav>
+      ) : null}
       {activeId ? (
         <PomadeWorkspace
           key={`${activeId}:${focusRowId}`}

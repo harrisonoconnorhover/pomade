@@ -12,7 +12,7 @@ import { executeRecipePipeline } from './recipe-pipeline';
 import { recalculateAutomaticFormulas } from './local-recipe-engine';
 import { findColumnDependencies } from './column-management';
 import { createWorkbookTemplate } from './workbook-template';
-import { createTable } from './workbook';
+import { createTable, summarizeTable, relatedWorkbookTables } from './workbook';
 const id = '12345678-1234-4234-8234-123456789012';
 const text = (id: string) => ({ id, title: id, valueType: 'text' as const });
 const number = (id: string) => ({
@@ -285,5 +285,57 @@ describe('prompt-to-workbook', () => {
         source: tables[0],
       }).workbookPlan,
     ).toBeUndefined();
+  });
+});
+
+describe('related workbook navigation', () => {
+  it('publishes only lightweight membership and follows plan order with current sheet names', () => {
+    const { tables: workspaces } = compileWorkbookPlan(
+      fixture(),
+      DEMANDDRIVE_EXAMPLE,
+      id,
+    );
+    const summaries = workspaces.map(summarizeTable);
+    const active = summaries[0];
+    const renamed = summaries.map((table, index) =>
+      index === 1 ? { ...table, name: 'Renamed accounts' } : table,
+    );
+    const related = relatedWorkbookTables([...renamed].reverse(), active.id);
+    expect(related.map((table) => table.id)).toEqual(
+      workspaces[0].workbookPlan!.tables.map((table) => table.id),
+    );
+    expect(related[1].name).toBe('Renamed accounts');
+    expect(active.workbook).toEqual({
+      id,
+      name: fixture().name,
+      tableIds: summaries.map((table) => table.id),
+    });
+    expect(JSON.stringify(active)).not.toContain('assumptions');
+    expect(JSON.stringify(active)).not.toContain('request');
+  });
+  it('excludes unavailable or unrelated sheets and removes tabs from standalone copies', () => {
+    const { tables: workspaces } = compileWorkbookPlan(
+      fixture(),
+      DEMANDDRIVE_EXAMPLE,
+      id,
+    );
+    const summaries = workspaces.map(summarizeTable);
+    const active = summaries[0];
+    const foreign = {
+      ...summaries[1],
+      workbook: { ...summaries[1].workbook!, id: 'other-account-workbook' },
+    };
+    expect(relatedWorkbookTables([active, foreign], active.id)).toEqual([]);
+    expect(relatedWorkbookTables([active], active.id)).toEqual([]);
+    const copy = summarizeTable(
+      createTable({
+        id: 'copy',
+        name: 'Copy',
+        mode: 'duplicate',
+        source: workspaces[0],
+      }),
+    );
+    expect(copy.workbook).toBeUndefined();
+    expect(relatedWorkbookTables([...summaries, copy], copy.id)).toEqual([]);
   });
 });

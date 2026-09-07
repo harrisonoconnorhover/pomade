@@ -2,39 +2,37 @@
 
 ## Finished
 
-- Reorganized the sheet controls into Add data, Enrich, Automate and Send. The run button and row controls stay visible; existing builders and CRM callbacks retain their behavior.
-- Added a searchable sheet switcher with Cmd/Ctrl+K, collapsible navigation and record details, optional compact rows, clearer save notifications and useful empty states.
-- Added a permanent Add column rail at the right edge, plus a right-click menu. Both open the searchable picker for data fields, email/phone waterfalls, AI research, formulas and reusable recipes.
-- Added named text, number, date and true/false fields. New columns scroll into view; the rail never becomes saved data or appears in exports.
-
-- Released hosted version 28 (`43d642c`) to the existing owner-private site. Local http://localhost:8798 is running with the same update.
+- Added **Columns** search, click-to-jump, individual hide/show and Show all. Visibility persists with the sheet; hidden data, formulas and enrichment steps remain intact.
+- Added **Provider catalog** with provider/action search, Email/Phone/Company/Research filters, required inputs and account connection badges before selection.
+- Catalog choices open existing provider or research setup. Research selection persists for single answers, structured fields and lists. Company presets can be saved before connecting a key.
+- Added ordered related-sheet tabs from actual workbook membership, preserving account boundaries and navigation/save guards.
 
 ## Try It
 
-- Open Pomade, right-click a cell/header and choose **Add column**, or use the permanent button on the right. Choose the next step, configure it and run when ready.
-- Use **Cmd/Ctrl+K** to switch sheets. Open **Enrich** for provider presets and research, or **Send** for CRM actions.
-- Toggle **Details** to inspect a record, and the adjacent density button for more compact rows.
+- Open **Columns**, search a name and click it to jump. Uncheck a column to hide it; use Show all to restore the full view.
+- Open **Enrich → Provider catalog**, or choose Email & phone / AI research from Add column. Search a provider, check its required inputs, then configure the action. Creating a column does not run it.
+- Open a workbook created from a prompt; related sheets appear beneath the main sheet switcher. Standalone sheets keep the general switcher.
 
 ## Checks
 
-- 23 focused tests passed for column creation, workbook behavior, saved views, column management and run previews.
-- Typecheck, lint, diff checks, and both local/hosted production builds passed. A source structure check confirmed all 12 existing workflow/provider/CRM/data builder instances remain.
-- Live checks passed: 24 local and 16 hosted table IDs preserved, seven hosted connections preserved, Apollo managed callback still configured, and anonymous workbook requests return 401.
-- Four JavaScript/CSS assets per deployment match their respective builds. Local root returned 200. Evidence is in ignored `outputs/ui-polish/2026-09-07/release-check.json`.
-- No browser interaction or visual QA was performed; these checks verify code and delivery, not the visual result.
+- 127 focused tests passed across eight files, covering hidden-column execution and merging, visible drag mapping, provider search and status, workbook membership, existing provider factories and recipe execution.
+- Typecheck, lint, diff checks, and both local/hosted production builds passed.
+- Local and private hosted release checks are pending.
+- No browser interaction or visual QA was performed for this implementation.
 
 ## Decisions
 
-- Append new steps before run status to preserve recipe execution order. Creating an action does not spend provider credits.
-- Use the grid's native trailing element for the placeholder and keep existing builder drafts mounted inside tool shelves.
-- Preserve local data, hosted accounts and the owner-private website audience.
+- Visibility is display-only; full-sheet exports and recipe inputs include hidden fields.
+- Configured keys do not imply paid API scope. Apollo phone setup still requires its key and public callback; ChatGPT research still requires the Mac.
+- Keep the existing owner-private hosting audience and local data. No GitHub push or live provider enrichment is part of this update.
 
 ## Remaining
 
-- Real Apollo phone enrichment still requires eligible API access; the public callback service remains separate and unchanged.
+- Verify deployed assets, saved tables and configured connections.
+- Real Apollo phone calls still require eligible API access; the callback service is unchanged.
 
 ## Review First
 
-- `components/pomade-data-grid.tsx` and `lib/grid-columns.ts`.
-- `components/pomade-workspace.tsx` and `components/sheet-switcher.tsx`.
-- `app/workspace.css`.
+- `components/column-finder.tsx`, `lib/grid-columns.ts` and grid integration.
+- `components/provider-catalog.tsx`, `lib/provider-catalog.ts` and builder selection.
+- `lib/workbook.ts`, related-sheet navigation and `app/workspace.css`.

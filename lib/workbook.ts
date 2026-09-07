@@ -7,6 +7,7 @@ export type TableSummary = {
   rowCount: number;
   columnCount: number;
   updatedAt: number;
+  workbook?: { id: string; name: string; tableIds: string[] };
 };
 export type TableCreationMode = 'empty' | 'duplicate' | 'linked';
 
@@ -21,7 +22,33 @@ export function summarizeTable(workspace: WorkspaceSnapshot): TableSummary {
     rowCount: workspace.rows.length,
     columnCount: workspace.columns.length,
     updatedAt: workspace.updatedAt,
+    ...(workspace.workbookPlan
+      ? {
+          workbook: {
+            id: workspace.workbookPlan.id,
+            name: workspace.workbookPlan.name,
+            tableIds: workspace.workbookPlan.tables.map((table) => table.id),
+          },
+        }
+      : {}),
   };
+}
+
+/** Resolve membership against the caller's available sheets, never names alone. */
+export function relatedWorkbookTables(
+  tables: TableSummary[],
+  activeId: string,
+): TableSummary[] {
+  const membership = tables.find((table) => table.id === activeId)?.workbook;
+  if (!membership) return [];
+  const byId = new Map(tables.map((table) => [table.id, table]));
+  const related = [...new Set(membership.tableIds)].flatMap((id) => {
+    const table = byId.get(id);
+    return table?.workbook?.id === membership.id ? [table] : [];
+  });
+  return related.length >= 2 && related.some((table) => table.id === activeId)
+    ? related
+    : [];
 }
 
 export function createTable(options: {

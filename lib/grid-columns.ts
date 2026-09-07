@@ -95,3 +95,49 @@ export function addWorkspaceDataColumn(
     updatedAt: now,
   };
 }
+
+/** Visibility only changes the view; row values and recipe definitions stay intact. */
+export function setWorkspaceColumnHidden(
+  workspace: WorkspaceSnapshot,
+  id: string,
+  hidden: boolean,
+): WorkspaceSnapshot {
+  const column = workspace.columns.find((c) => c.id === id);
+  if (!column || Boolean(column.hidden) === hidden) return workspace;
+  if (hidden && workspace.columns.filter((c) => !c.hidden).length <= 1)
+    return workspace;
+  return {
+    ...workspace,
+    columns: workspace.columns.map((c) => (c.id === id ? { ...c, hidden } : c)),
+    updatedAt: Date.now(),
+  };
+}
+
+export function showAllWorkspaceColumns(
+  workspace: WorkspaceSnapshot,
+): WorkspaceSnapshot {
+  if (!workspace.columns.some((c) => c.hidden)) return workspace;
+  return {
+    ...workspace,
+    columns: workspace.columns.map((c) =>
+      c.hidden ? { ...c, hidden: false } : c,
+    ),
+    updatedAt: Date.now(),
+  };
+}
+
+export function moveVisibleWorkspaceColumn(
+  workspace: WorkspaceSnapshot,
+  start: number,
+  end: number,
+): WorkspaceSnapshot {
+  const visible = workspace.columns.filter((c) => !c.hidden);
+  const from = visible[start],
+    to = visible[end];
+  if (!from || !to) return workspace;
+  return moveWorkspaceColumn(
+    workspace,
+    workspace.columns.indexOf(from),
+    workspace.columns.indexOf(to),
+  );
+}

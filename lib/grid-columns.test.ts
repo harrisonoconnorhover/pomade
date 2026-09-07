@@ -3,8 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   addWorkspaceDataColumn,
   moveWorkspaceColumn,
+  moveVisibleWorkspaceColumn,
+  setWorkspaceColumnHidden,
+  showAllWorkspaceColumns,
   resizeWorkspaceColumn,
 } from './grid-columns';
+import { executeWorkspace } from './local-recipe-engine';
+import { mergeWorkspaceEdits } from './workspace-merge';
 import { createSampleWorkspace } from './sample-workspace';
 
 describe('grid column layout', () => {
@@ -103,5 +108,63 @@ describe('adding ordinary data columns', () => {
     expect(() =>
       addWorkspaceDataColumn(workspace, { ...field, id: 'company' }),
     ).toThrow('ID');
+  });
+});
+
+describe('column visibility', () => {
+  it('preserves hidden inputs and recipe execution, including after serialization', () => {
+    const original = createSampleWorkspace();
+    const hidden = setWorkspaceColumnHidden(
+      setWorkspaceColumnHidden(original, 'company', true),
+      'fit',
+      true,
+    );
+    const reloaded = JSON.parse(JSON.stringify(hidden));
+    expect(
+      reloaded.columns.find((c: { id: string }) => c.id === 'fit').hidden,
+    ).toBe(true);
+    expect(hidden.rows).toBe(original.rows);
+    expect(
+      executeWorkspace(reloaded).workspace.rows.map((r) => r.values),
+    ).toEqual(executeWorkspace(original).workspace.rows.map((r) => r.values));
+    expect(showAllWorkspaceColumns(hidden).columns.map((c) => c.id)).toEqual(
+      original.columns.map((c) => c.id),
+    );
+    expect(
+      showAllWorkspaceColumns(hidden).columns.every((c) => !c.hidden),
+    ).toBe(true);
+  });
+  it('moves the displayed column by identity and still protects hidden recipe order', () => {
+    const hidden = setWorkspaceColumnHidden(
+      createSampleWorkspace(),
+      'person',
+      true,
+    );
+    const moved = moveVisibleWorkspaceColumn(hidden, 0, 2);
+    expect(
+      moved.columns
+        .filter((c) => !c.hidden)
+        .slice(0, 3)
+        .map((c) => c.id),
+    ).toEqual(['title', 'domain', 'company']);
+    expect(moved.columns.find((c) => c.id === 'person')?.hidden).toBe(true);
+    const hiddenRecipe = setWorkspaceColumnHidden(hidden, 'fit', true);
+    expect(() => moveVisibleWorkspaceColumn(hiddenRecipe, 3, 0)).toThrow(
+      'execution order',
+    );
+    expect(() => moveVisibleWorkspaceColumn(hidden, 5, 0)).toThrow('anchored');
+  });
+  it('keeps one visible column and merges visibility with incoming row changes', () => {
+    const base = createSampleWorkspace();
+    const hidden = base.columns.reduce(
+      (w, c) => setWorkspaceColumnHidden(w, c.id, true),
+      base,
+    );
+    expect(hidden.columns.filter((c) => !c.hidden)).toHaveLength(1);
+    const incoming = structuredClone(base);
+    incoming.rows[0].values.company = 'Updated remotely';
+    const merged = mergeWorkspaceEdits(base, hidden, incoming);
+    expect(merged.columns).toEqual(hidden.columns);
+    expect(merged.rows[0].values.company).toBe('Updated remotely');
   });
 });

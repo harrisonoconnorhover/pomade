@@ -22,6 +22,8 @@ type Props = {
   rows: PomadeRow[];
   readOnly?: boolean;
   compact?: boolean;
+  jumpToColumn?: { id: string; revision: number };
+  onColumnJumped: () => void;
   onColumnResize: (columnId: string, width: number) => void;
   onColumnsReorder: (startIndex: number, endIndex: number) => void;
   onColumnMenu: (columnId: string) => void;
@@ -43,6 +45,8 @@ export default function PomadeDataGrid({
   rows,
   readOnly = false,
   compact = false,
+  jumpToColumn,
+  onColumnJumped,
   onColumnResize,
   onColumnsReorder,
   onColumnMenu,
@@ -66,6 +70,16 @@ export default function PomadeDataGrid({
     previousColumns.current = new Set(columns.map((column) => column.id));
     if (addedIndex >= 0) gridRef.current?.scrollTo(addedIndex, 0, 'horizontal');
   }, [columns]);
+  useEffect(() => {
+    if (!jumpToColumn) return;
+    const index = columns.findIndex((column) => column.id === jumpToColumn.id);
+    if (index < 0) return;
+    const frame = requestAnimationFrame(() => {
+      gridRef.current?.scrollTo(index, 0, 'horizontal');
+      onColumnJumped();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [jumpToColumn, columns, onColumnJumped]);
   const [contextColumn, setContextColumn] = useState<string>();
   const [gridSelection, setGridSelection] = useState<GridSelection>(() =>
     emptySelection(),

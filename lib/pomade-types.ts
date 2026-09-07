@@ -82,6 +82,7 @@ export type ProviderWaterfall = {
   statusColumnId: string;
 };
 export type PomadeColumn = {
+  hidden?: boolean;
   researchProvider?: 'codex' | 'parallel' | 'gemini';
   rubricScore?: import('./rubric-score').RubricScore;
   codexResearch?: import('./codex-models.mjs').CodexResearchSettings;

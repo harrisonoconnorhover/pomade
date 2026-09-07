@@ -578,7 +578,6 @@ include source snapshot context, result mode and bounded row evidence. These
 settings remain copied in local recipe templates. They do not add provider calls,
 source mutations or numeric/grouped aggregation.
 
-
 ## 2026-09-05 — Same-row recipe functions
 
 - Capture two to ten configured recipe templates in grid order and infer shared
@@ -591,7 +590,6 @@ source mutations or numeric/grouped aggregation.
 - Store definitions in table snapshots and copy them into new independent column
   groups. No live version propagation, portable connection remapping, accounts or
   publication in this slice. Continue local-only iteration.
-
 
 ## 2026-09-05 — Scheduled recipe-to-transfer workflows
 
@@ -606,7 +604,6 @@ source mutations or numeric/grouped aggregation.
   child-row routing and arbitrary branching remain future work. Preserve current
   destination schedule pause behavior and local-only iteration.
 
-
 ## 2026-09-05 — Scheduled API refresh before recipes
 
 - Capture a previously fetched complete API configuration and field mapping in
@@ -619,7 +616,6 @@ source mutations or numeric/grouped aggregation.
   recipe scope and post-run transfer behavior. Bound source requests separately
   and estimate recipe scope using maximum potential new rows. No deletion sync,
   arbitrary branching or exactly-once provider guarantee.
-
 
 ## 2026-09-05 — Local multi-table workbook templates
 
@@ -634,7 +630,6 @@ source mutations or numeric/grouped aggregation.
   and webhook ingestion disconnected. Local provider connections remain named
   references. No public export, shared version rollout or provider execution.
 
-
 ## 2026-09-05 — Conditional transfer fan-out and child routing
 
 - Evaluate each transfer condition before key matching. Route source rows,
@@ -647,7 +642,6 @@ source mutations or numeric/grouped aggregation.
 - Preserve legacy single-transfer schedules and remap branch destinations in
   workbook templates. No nested graph executor, automatic downstream provider
   calls or public publishing in this slice.
-
 
 ## 2026-09-05 — Previewed per-copy function versions
 
@@ -662,7 +656,6 @@ source mutations or numeric/grouped aggregation.
   and bulk rollout remain separate work. Include history lookups in workbook
   reference capture/remapping so copied rollback definitions stay connected.
 
-
 ## 2026-09-05 — Observed field-change signals
 
 - Watch up to ten data fields per table. Existing stable rows provide the prior
@@ -674,7 +667,6 @@ source mutations or numeric/grouped aggregation.
 - Do not claim independent external-event detection or notifications. Watch
   coverage follows configured data sources and recipe outputs. Retain watch
   configuration in templates; history stays with its original table.
-
 
 ## 2026-09-05 — Apollo company preset over the HTTP runner
 
@@ -689,7 +681,6 @@ source mutations or numeric/grouped aggregation.
   report unknown actual credits. Validate with public docs and local/mocked
   responses; paid live validation requires separate scoped authority.
 
-
 ## 2026-09-05 — Keyed numeric lookup rollups
 
 - Extend the existing lookup recipe with sum, average, min and max rather than
@@ -699,7 +690,6 @@ source mutations or numeric/grouped aggregation.
 - Use finite JavaScript arithmetic with compensated summation and 15 significant
   digit presentation. Require cleanup of currency/percentage formatting; this is
   a workflow summary, not an arbitrary-precision accounting engine.
-
 
 ## 2026-09-05 — Direct local CRM round trips
 
@@ -725,7 +715,6 @@ Live source snapshots and private CRM receipts belong in ignored `outputs`,
 not a future open-source release. The assignment retains raw AI results and
 reviewed scores separately; buyer titles are candidate signals, not proof of
 code ownership or purchase authority.
-
 
 ## 2026-09-05 — Repeatable CRM mapping setup
 
@@ -771,7 +760,6 @@ read-back. Only requested extra CRM properties are imported and refreshed in
 not clear CRM fields. Native property updates may trigger existing CRM workflows;
 no prospect messaging was authorized or sent.
 
-
 ## Signals and scheduled CRM (2026-09-05)
 
 - Reuse the existing account rows, signal batches and scheduler. Keep event time
@@ -786,7 +774,6 @@ no prospect messaging was authorized or sent.
   evidence rather than downstream fields. Direct ATS checks were added after a
   real stale listing returned HTTP 200. Keep manual source review explicit: valid
   JSON/citations alone did not establish current roles, dates or relevance.
-
 
 ## Approved CRM custom-field activation (2026-09-05)
 
@@ -868,7 +855,6 @@ their explicit inputs. Receipts expose recorded rejection reasons and source
 quotes. Exhausting a chain after a recoverable provider error is distinct from
 stopping early; both retain the underlying error for review.
 
-
 ## 2026-09-05 — Independent local and private hosted operation
 
 - Keep one source tree, independent local/hosted D1 data and credentials, and a
@@ -891,7 +877,6 @@ stopping early; both retain the underlying error for review.
 - Keep the existing 100-column/5,000-row capacities. New provider subscriptions
   remain recommendations until Harrison chooses a budget and authorizes a purchase.
 
-
 ## 2026-09-05 — Reviewable CRM refresh
 
 - Reuse the existing read and native-ID merge paths for manual refresh. Persist
@@ -905,7 +890,6 @@ stopping early; both retain the underlying error for review.
   may change or clear as shown in the preview. Enrichment is not rerun; scheduling
   and automatic removal remain separate future work.
 
-
 ## 2026-09-06 — ChatGPT research model controls
 
 - Read picker-visible models and supported reasoning efforts through the official
@@ -918,7 +902,6 @@ stopping early; both retain the underlying error for review.
   cached account catalog to the hosted app. Require the updated companion protocol
   before assigning jobs. Receipts record completed invocation settings; missing
   metadata is never replaced with guessed settings from the current configuration.
-
 
 ## 2026-09-06 — Natural-language workbook planning
 
@@ -982,7 +965,6 @@ credentials. The UI states that either the website or companion must remain
 active; missed refreshes catch up. Keep the native scheduled handler for
 self-hosting, but do not claim unattended Sites timer delivery.
 
-
 ## 2026-09-07 — Invite-only friends beta
 
 Keep the current private Sites social sign-in. Its trusted stable user ID binds
@@ -1015,7 +997,6 @@ finish when access is revoked; later requests and cron selection reject the
 account. Existing owner companion remains owner-scoped; member research uses
 personal Parallel/Gemini keys until individual companion onboarding is added.
 
-
 ## 2026-09-07 — Reusable buying-signal research
 
 Use the existing recipe-template and structured research pipeline for four built-in
@@ -1036,7 +1017,6 @@ The existing citation/review mechanism applies but does not independently verify
 model claims. These recipes are snapshots, not new automatic monitors. The friends
 beta remains optional preparation: no email addresses or invitations are required
 for the current single-user release.
-
 
 ## 2026-09-07 — Contact provider inventory and LeadMagic adapters
 
@@ -1066,13 +1046,11 @@ Use the existing row background runner for Enrow, with one account-scoped progre
 
 Poll the saved ID once per eligible tick, with 15–60 second spacing and a 30-minute automatic wait window. Resume extends waiting on the same ID. No webhook receiver, new queue, SDK, or infrastructure is needed for this slice. Single-pass schedules are rejected before external side effects; background and workbook jobs can wait. Report actual submission credits when returned and zero Enrow credits for result GETs. Phone `found` is not upgraded to a verification claim. Live API/plan validation remains separate from contract tests.
 
-
 ## 2026-09-07 — FullEnrich reuses saved waterfall requests
 
 Share request-state types, pending/error signaling and background detection with Enrow while keeping provider contracts and polling intervals separate. FullEnrich requests one contact and one contact type, saves its ID and an opaque correlation tag, then checks results no more often than every five minutes. Polling works on a local installation without a public callback URL; webhooks remain a later latency improvement. Existing progress records remain compatible; no migration is needed.
 
 Require the saved batch ID and exactly one matching tagged contact before accepting output. Email statuses and phone quality belong to the selected candidate. A broad mobile option permits unknown activity/ownership; the strict option requires mobile type, active status and confirmed ownership. No inferred verification. Record cumulative FullEnrich credit reports as newly observed amounts; submission cost remains unknown until reported. A lost submission outcome stops automatic resubmission, and result failures retain the original ID for review/resume. Single-pass schedules remain unsupported for asynchronous providers.
-
 
 ## 2026-09-07 — Verify candidates and resume scheduled occurrences
 
@@ -1082,7 +1060,6 @@ Attribute performance using stable per-job/row/column/stage operation IDs. Aggre
 
 Replace single-pass scheduled enrichment with existing persisted row jobs. Store the job ID, successful source-refresh checkpoint and frozen recipe/destination configuration on the schedule; queue one occurrence and wait for job completion before captured CRM writes and transfers. A new recurring occurrence gets a new ID. Pause/resume updates both job and schedule; cancellation permits deliberate fresh work. Keep the existing CRM verification and uncertain-outcome review behavior. Add only three run-job columns and upgrade account-scoped schemas; no new queue service, SDK or paid scheduler. This supersedes the earlier Enrow/FullEnrich restriction on asynchronous schedules. Existing local clocks and hosted wakeups remain necessary.
 
-
 ## 2026-09-07 — Preview actual row readiness and extend saved provider polling
 
 Reuse the existing conditions, provider presets and request ceiling in a row/action preview; do not discount the consent maximum using stale conditions. Missing values that an earlier selected recipe may fill are dependencies, not definite failures. The preview checks configured connections without consuming provider credits.
@@ -1090,7 +1067,6 @@ Reuse the existing conditions, provider presets and request ceiling in a row/act
 Dropcontact qualification identifies a named work email, so strict verified-email acceptance needs a separate verifier. Its balance cannot establish a per-operation cost. Apollo mobile uses a separate connection from synchronous email so existing email workflows stay synchronous. The phone connection requires a caller-controlled public HTTPS callback URL; a private Sites address is not an eligible receiver. Reuse saved polling state rather than introduce a public relay or change the site's audience. Preserve Apollo request IDs as exact strings and leave provider-native waterfalls off.
 
 The live benchmark exposed an outdated Parallel endpoint/header. Use the current official Chat API path and `x-api-key`; retain the prior failed receipts. Source-linked leadership research is checked against company pages before contact enrichment. Raw contact data and CRM receipts stay in ignored outputs and private tables; the repository report contains aggregate results only.
-
 
 ## 2026-09-07 — Public Apollo acknowledgement with private result polling
 
@@ -1102,9 +1078,14 @@ Share only the acknowledgement URL through `POMADE_APOLLO_CALLBACK_URL`; preserv
 
 The deployed settings check exposed Workers rejecting `redirect: 'error'` despite Node accepting it. Use manual redirects and reject non-2xx responses, matching existing provider requests. Exercise the callback settings action in the compiled Worker test. Hosted builds also enable Cloudflare's documented `global_fetch_strictly_public` flag so same-zone callbacks use the public HTTPS route.
 
-
 ## 2026-09-07 — Make the sheet the main working surface
 
 Group existing controls into Add data, Enrich, Automate and Send shelves, keeping the run button and row controls in view. Shelves keep their builders mounted so opening another tool does not discard a draft. Searchable sheet navigation replaces the long native selector; details and navigation can collapse without reducing workbook capability. Row density is an optional device preference, independent of saved data.
 
 Use Glide's real trailing element for the permanent Add column rail. It is interface chrome, never a saved or exported column. Right-click and the rail open the same searchable picker for ordinary typed fields, formulas, research and provider waterfalls. Preserve the existing execution order: new steps append before run status. Configuration does not trigger provider requests. Newly added columns scroll into view; existing rows and recipe definitions stay intact. Keep both deployment modes and the private hosted audience unchanged.
+
+## 2026-09-07: Focused workbook navigation
+
+- Column visibility is stored on the existing column definition and applies only to the grid. Hidden inputs and recipes remain available to execution, mappings and full-sheet exports. At least one column stays visible; visible drag positions resolve to stable column IDs before existing execution-order checks.
+- The searchable catalog derives contact actions from the existing preset registry. Connection badges report configured keys, not verified plan access. Selecting an action opens the existing setup builder without a provider request; research service selection is saved for single, structured and list outputs.
+- Related-sheet tabs use the compiled workbook plan's membership and order, resolving only against the current account's available table summaries. Renames use current names. Standalone copies do not inherit the original workbook's tabs; navigation retains existing save/run guards.

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -19,43 +19,51 @@ import {
 import type { PomadeColumn, WorkspaceSnapshot } from '@/lib/pomade-types';
 export default function ProviderPresetBuilder({
   workspace,
+  initialProvider,
+  open,
+  onOpenChange,
   ready,
   onAdd,
 }: {
   workspace: WorkspaceSnapshot;
+  initialProvider: 'apollo' | 'pdl';
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   ready: boolean;
   onAdd: (columns: PomadeColumn[]) => void;
 }) {
-  const [provider, setProvider] = useState('apollo');
+  const [provider, setProvider] = useState<string>(initialProvider);
   const [person, setPerson] = useState(
     workspace.columns.some((c) => c.id === 'person') ? 'person' : '',
   );
   const [detailed, setDetailed] = useState(true);
-  const [open, setOpen] = useState(false),
-    [busy, setBusy] = useState(false),
+  const [busy, setBusy] = useState(true),
     [connectionIds, setConnectionIds] = useState<string[]>([]),
     [error, setError] = useState('');
   const [domain, setDomain] = useState(
     workspace.columns.some((c) => c.id === 'domain') ? 'domain' : '',
   );
-  async function load() {
-    setOpen(true);
-    setBusy(true);
-    setError('');
-    try {
-      const r = await fetch('/api/providers/http');
-      const d = (await r.json()) as {
-        connections?: { id: string }[];
-        error?: string;
-      };
-      if (!r.ok) throw new Error(d.error ?? 'Connections could not be loaded.');
-      setConnectionIds(d.connections?.map((c) => c.id) ?? []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Load failed.');
-    } finally {
-      setBusy(false);
-    }
-  }
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch('/api/providers/http')
+      .then(async (r) => {
+        const d = (await r.json()) as { connections?: { id: string }[] };
+        if (!r.ok || !Array.isArray(d.connections))
+          throw new Error('Connections could not be loaded.');
+        if (!cancelled)
+          setConnectionIds(d.connections.map((c: { id: string }) => c.id));
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
   let columns: PomadeColumn[] | undefined;
   let issue = '';
   try {
@@ -77,10 +85,7 @@ export default function ProviderPresetBuilder({
   );
   return (
     <>
-      <Button variant="outline" disabled={!ready} onClick={() => void load()}>
-        Provider presets
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="template-dialog">
           <DialogHeader>
             <DialogTitle>Enrichment presets</DialogTitle>
@@ -113,7 +118,7 @@ export default function ProviderPresetBuilder({
           <p>
             {configured
               ? 'Provider key configured. API access still depends on its scope and your account.'
-              : `Set ${provider === 'mobile' ? 'PROSPEO_API_KEY' : provider === 'apollo' ? 'APOLLO_API_KEY' : 'PDL_API_KEY'} in the local server environment and restart to enable this preset. The key stays on the server.`}
+              : 'Save this setup now, then connect the provider in Account settings or your local server before running. Your key stays on the server.'}
           </p>
           <label>
             Domain input
@@ -173,11 +178,11 @@ export default function ProviderPresetBuilder({
             <p>Adds {columns?.map((c) => c.title).join(', ')}.</p>
           )}
           <Button
-            disabled={!ready || busy || !configured || !columns}
+            disabled={!ready || busy || !columns}
             onClick={() => {
               if (columns) {
                 onAdd(columns);
-                setOpen(false);
+                onOpenChange(false);
               }
             }}
           >

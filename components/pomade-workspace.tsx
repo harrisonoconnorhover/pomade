@@ -67,6 +67,14 @@ import HttpRecipeBuilder from '@/components/http-recipe-builder';
 import { mergeWorkspaceEdits } from '@/lib/workspace-merge';
 import { functionStepIds } from '@/lib/recipe-functions';
 import ProviderPresetBuilder from '@/components/provider-preset-builder';
+import ColumnFinder from '@/components/column-finder';
+import ProviderCatalog from '@/components/provider-catalog';
+import {
+  catalogConnectionStatus,
+  PROVIDER_CATALOG,
+  type CatalogAction,
+  type CatalogCategory,
+} from '@/lib/provider-catalog';
 import ChangeSignals from '@/components/change-signals';
 import RecipeFunctionBuilder from '@/components/recipe-function-builder';
 import TableTransferBuilder from '@/components/table-transfer-builder';
@@ -132,7 +140,9 @@ import {
 } from '@/lib/local-recipe-engine';
 import {
   addWorkspaceDataColumn,
-  moveWorkspaceColumn,
+  moveVisibleWorkspaceColumn,
+  setWorkspaceColumnHidden,
+  showAllWorkspaceColumns,
   resizeWorkspaceColumn,
 } from '@/lib/grid-columns';
 import { createPeopleListWorkspace } from '@/lib/people-list-builder';
@@ -234,6 +244,7 @@ type RecipePreset = Pick<
   | 'expression'
   | 'prompt'
   | 'codexResearch'
+  | 'researchProvider'
   | 'recipe'
   | 'runCondition'
   | 'width'
@@ -504,6 +515,15 @@ export default function PomadeWorkspace({
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [compactRows, setCompactRows] = useState(false);
   const [recipeQuery, setRecipeQuery] = useState('');
+  const [columnJump, setColumnJump] = useState<{
+    id: string;
+    revision: number;
+  }>();
+  const finishColumnJump = useCallback(() => setColumnJump(undefined), []);
+  const gridColumns = useMemo(
+    () => workspace.columns.filter((column) => !column.hidden),
+    [workspace.columns],
+  );
   function toggleDensity() {
     const next = !compactRows;
     setCompactRows(next);
@@ -534,6 +554,34 @@ export default function PomadeWorkspace({
   const [dataColumnError, setDataColumnError] = useState('');
   const [lookupBuilderOpen, setLookupBuilderOpen] = useState(false);
   const [providerBuilderOpen, setProviderBuilderOpen] = useState(false);
+  const [catalogCategory, setCatalogCategory] = useState<CatalogCategory>();
+  const [providerSelection, setProviderSelection] = useState<{
+    id?: string;
+    revision: number;
+  }>({ revision: 0 });
+  const [companyProvider, setCompanyProvider] = useState<'apollo' | 'pdl'>();
+  const [researchBuilderProvider, setResearchBuilderProvider] =
+    useState<PomadeColumn['researchProvider']>();
+  function openProviderCatalog(category: CatalogCategory = 'all') {
+    setAddColumnOpen(false);
+    setCatalogCategory(category);
+  }
+  function openProviderWaterfall(presetId?: string) {
+    setCatalogCategory(undefined);
+    setProviderSelection((current) => ({
+      id: presetId,
+      revision: current.revision + 1,
+    }));
+    setProviderBuilderOpen(true);
+  }
+  function chooseProvider(action: CatalogAction) {
+    setCatalogCategory(undefined);
+    if (action.target.type === 'contact')
+      openProviderWaterfall(action.target.presetId);
+    else if (action.target.type === 'company')
+      setCompanyProvider(action.target.provider);
+    else openResearchBuilder(action.target.provider);
+  }
   const [httpBuilderOpen, setHttpBuilderOpen] = useState(false);
   const [formulaBuilderOpen, setFormulaBuilderOpen] = useState(false);
   const [waterfallBuilderOpen, setWaterfallBuilderOpen] = useState(false);
@@ -1307,7 +1355,7 @@ export default function PomadeWorkspace({
 
   function reorderColumns(startIndex: number, endIndex: number) {
     try {
-      setWorkspace(moveWorkspaceColumn(workspace, startIndex, endIndex));
+      setWorkspace(moveVisibleWorkspaceColumn(workspace, startIndex, endIndex));
     } catch (error) {
       setNotice(
         error instanceof Error ? error.message : 'That column cannot move.',
@@ -1647,7 +1695,8 @@ export default function PomadeWorkspace({
     setNotice(`${template.name} removed from your recipe library.`);
   }
 
-  function openResearchBuilder() {
+  function openResearchBuilder(provider?: PomadeColumn['researchProvider']) {
+    setResearchBuilderProvider(provider);
     setAddColumnOpen(false);
     setResearchColumnName('Recent company trigger');
     setResearchPrompt(DEFAULT_RESEARCH_PROMPT);
@@ -1868,6 +1917,7 @@ export default function PomadeWorkspace({
         width: 380,
         group: 'Research',
         codexResearch: researchModelSettings,
+        researchProvider: researchBuilderProvider,
         description: 'Custom research grounded in the live public web.',
         requires: 'Research provider key + public web',
       });
@@ -1897,6 +1947,7 @@ export default function PomadeWorkspace({
       prompt,
       outputFields,
       codexResearch: researchModelSettings,
+      researchProvider: researchBuilderProvider,
       outputCardinality: researchOutputMode === 'list' ? 'list' : undefined,
       listLimit:
         researchOutputMode === 'list'
@@ -3215,7 +3266,7 @@ export default function PomadeWorkspace({
                       : 'Enrich active row with Apollo'}
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={openResearchBuilder}
+                    onClick={() => openProviderCatalog('research')}
                     disabled={jobLocksWorkspace}
                   >
                     <Globe2 /> Add AI web research
@@ -3397,38 +3448,23 @@ export default function PomadeWorkspace({
             >
               <p>Add the information you need, one column at a time.</p>
               <div className="sheet-tool-buttons">
-                <ProviderPresetBuilder
-                  key={`presets-${workspace.id}`}
-                  workspace={workspace}
-                  ready={canLeaveTable}
-                  onAdd={(columns) => {
-                    setWorkspace((current) => ({
-                      ...current,
-                      columns: [
-                        ...current.columns.filter((c) => c.kind !== 'status'),
-                        ...columns,
-                        ...current.columns.filter((c) => c.kind === 'status'),
-                      ],
-                      schedule: current.schedule
-                        ? pauseRecipeSchedule(current.schedule)
-                        : undefined,
-                      updatedAt: Date.now(),
-                    }));
-                    setNotice(
-                      'Provider columns added. Review and run when ready.',
-                    );
-                  }}
-                />
                 <Button
                   variant="outline"
-                  onClick={() => setProviderBuilderOpen(true)}
+                  disabled={jobLocksWorkspace}
+                  onClick={() => openProviderCatalog()}
+                >
+                  <Search /> Provider catalog
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => openProviderWaterfall()}
                   disabled={jobLocksWorkspace}
                 >
                   <Workflow /> Email & phone waterfall
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={openResearchBuilder}
+                  onClick={() => openProviderCatalog('research')}
                   disabled={jobLocksWorkspace}
                 >
                   <Globe2 /> AI research
@@ -3570,6 +3606,32 @@ export default function PomadeWorkspace({
               ) : null}
             </div>
             <div className="sheet-view-actions">
+              <ColumnFinder
+                columns={workspace.columns}
+                disabled={jobLocksWorkspace}
+                onVisibility={(id, hidden) => {
+                  setSelectedRowIds([]);
+                  setColumnJump(undefined);
+                  setWorkspace((current) =>
+                    setWorkspaceColumnHidden(current, id, hidden),
+                  );
+                }}
+                onShowAll={() => {
+                  setSelectedRowIds([]);
+                  setWorkspace(showAllWorkspaceColumns);
+                }}
+                onJump={(id) => {
+                  if (workspace.columns.find((c) => c.id === id)?.hidden)
+                    setSelectedRowIds([]);
+                  setWorkspace((current) =>
+                    setWorkspaceColumnHidden(current, id, false),
+                  );
+                  setColumnJump((current) => ({
+                    id,
+                    revision: (current?.revision ?? 0) + 1,
+                  }));
+                }}
+              />
               <span className="view-row-count">
                 {visibleRows.length.toLocaleString()}
                 {visibleRows.length !== workspace.rows.length
@@ -3611,9 +3673,14 @@ export default function PomadeWorkspace({
 
           <div className="grid-frame">
             <PomadeDataGrid
-              key={`${filter}|${query}|${visibleRows.map((row) => row.id).join('|')}`}
+              key={`${filter}|${query}|${workspace.columns
+                .filter((c) => c.hidden)
+                .map((c) => c.id)
+                .join('|')}|${visibleRows.map((row) => row.id).join('|')}`}
               compact={compactRows}
-              columns={workspace.columns}
+              columns={gridColumns}
+              jumpToColumn={columnJump}
+              onColumnJumped={finishColumnJump}
               rows={visibleRows}
               readOnly={jobLocksWorkspace}
               onColumnResize={resizeColumn}
@@ -3844,7 +3911,7 @@ export default function PomadeWorkspace({
               <button
                 className="research-action"
                 type="button"
-                onClick={openResearchBuilder}
+                onClick={() => openProviderCatalog('research')}
                 disabled={jobLocksWorkspace}
               >
                 <span>
@@ -3955,7 +4022,44 @@ export default function PomadeWorkspace({
         </aside>
       </div>
 
+      {catalogCategory ? (
+        <ProviderCatalog
+          initialCategory={catalogCategory}
+          onClose={() => setCatalogCategory(undefined)}
+          onSelect={chooseProvider}
+          onWaterfall={() => openProviderWaterfall()}
+        />
+      ) : null}
+      {companyProvider ? (
+        <ProviderPresetBuilder
+          key={companyProvider}
+          initialProvider={companyProvider}
+          open
+          onOpenChange={(open) => {
+            if (!open) setCompanyProvider(undefined);
+          }}
+          workspace={workspace}
+          ready={canLeaveTable}
+          onAdd={(columns) => {
+            setWorkspace((current) => ({
+              ...current,
+              columns: [
+                ...current.columns.filter((c) => c.kind !== 'status'),
+                ...columns,
+                ...current.columns.filter((c) => c.kind === 'status'),
+              ],
+              schedule: current.schedule
+                ? pauseRecipeSchedule(current.schedule)
+                : undefined,
+              updatedAt: Date.now(),
+            }));
+            setNotice('Provider columns added. Review and run when ready.');
+          }}
+        />
+      ) : null}
       <ProviderWaterfallBuilder
+        key={providerSelection.revision}
+        initialPresetId={providerSelection.id}
         open={providerBuilderOpen}
         onOpenChange={setProviderBuilderOpen}
         workspace={workspace}
@@ -4091,8 +4195,7 @@ export default function PomadeWorkspace({
               }
               disabled={jobLocksWorkspace}
               onClick={() => {
-                setAddColumnOpen(false);
-                setProviderBuilderOpen(true);
+                openProviderCatalog('email');
               }}
             >
               <MailCheck />
@@ -4108,7 +4211,7 @@ export default function PomadeWorkspace({
                 )
               }
               disabled={jobLocksWorkspace}
-              onClick={openResearchBuilder}
+              onClick={() => openProviderCatalog('research')}
             >
               <Globe2 />
               <strong>AI research</strong>
@@ -4155,7 +4258,7 @@ export default function PomadeWorkspace({
               disabled={jobLocksWorkspace}
               onClick={() => {
                 setAddColumnOpen(false);
-                setProviderBuilderOpen(true);
+                openProviderWaterfall();
               }}
             >
               Provider waterfall
@@ -5096,12 +5199,38 @@ export default function PomadeWorkspace({
               source links with your answers.
             </DialogDescription>
           </DialogHeader>
-          <ResearchConnectionStatus
-            status={researchStatus}
-            checking={researchStatusLoading}
-            onRefresh={() => setResearchStatusRevision((value) => value + 1)}
+          <ResearchProviderPicker
+            value={researchBuilderProvider}
+            defaultProvider={researchStatus?.provider}
+            disabled={jobLocksWorkspace}
+            onChange={setResearchBuilderProvider}
           />
-          {researchStatus?.provider === 'codex' ? (
+          <div className="catalog-list-heading">
+            <span>
+              {researchStatusLoading
+                ? 'Checking connection…'
+                : catalogConnectionStatus(
+                    PROVIDER_CATALOG.find(
+                      (action) =>
+                        action.id ===
+                        `research-${researchBuilderProvider ?? researchStatus?.provider}`,
+                    ) ??
+                      PROVIDER_CATALOG.find(
+                        (action) => action.id === 'research-parallel',
+                      )!,
+                    { research: researchStatus },
+                  ).label}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={researchStatusLoading}
+              onClick={() => setResearchStatusRevision((value) => value + 1)}
+            >
+              Check connection
+            </Button>
+          </div>
+          {(researchBuilderProvider ?? researchStatus?.provider) === 'codex' ? (
             <>
               <CodexModelPicker
                 label="Research settings"

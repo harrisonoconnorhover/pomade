@@ -40,11 +40,13 @@ export default function ProviderWaterfallBuilder({
   open,
   onOpenChange,
   workspace,
+  initialPresetId,
   onAdd,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspace: WorkspaceSnapshot;
+  initialPresetId?: string;
   onAdd: (columns: PomadeColumn[]) => void;
 }) {
   const [connectionResult, setConnectionResult] = useState<{
@@ -53,8 +55,8 @@ export default function ProviderWaterfallBuilder({
     error: string;
   }>({ revision: -1, connections: [], error: '' });
   const { connections, error } = connectionResult;
-  const [title, setTitle] = useState('Provider result');
-  const [steps, setSteps] = useState<StepDraft[]>([blank(), blank()]);
+  const initialPreset = contactPreset(initialPresetId);
+  const [title, setTitle] = useState(initialPreset?.label ?? 'Provider result');
   const inputColumns = workspace.columns.filter(
     (column) => column.kind !== 'status',
   );
@@ -67,7 +69,14 @@ export default function ProviderWaterfallBuilder({
         ]),
       ) as ContactBindings,
   );
-  const [accept, setAccept] = useState<ProviderWaterfall['accept']>('nonempty');
+  const [steps, setSteps] = useState<StepDraft[]>(() =>
+    initialPreset
+      ? [{ ...initialPreset.step(bindings), quickSetup: initialPreset.id }]
+      : [blank(), blank()],
+  );
+  const [accept, setAccept] = useState<ProviderWaterfall['accept']>(
+    initialPreset?.accept ?? 'nonempty',
+  );
   const [continueOnError, setContinueOnError] = useState(false);
   const [connectionRevision, setConnectionRevision] = useState(0);
   const loading = connectionResult.revision !== connectionRevision;
