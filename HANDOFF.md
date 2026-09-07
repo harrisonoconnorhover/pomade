@@ -16,7 +16,8 @@ Open **Provider waterfall → Quick setup** and choose an Enrow preset. Map name
 - 170 tests passed across 10 focused files: Enrow, contact presets, waterfall, HTTP, accounts, pipeline, schedules, templates, workbook runner, and usage.
 - TypeScript, lint, hosted build and diff checks passed.
 - Disposable Worker with persistent D1 passed submit, pending pipeline, pause, process restart, saved-ID polling, earlier-step reuse, completed-miss fallback and downstream execution. All outbound traffic was intercepted; no vendor calls.
-- Local build and private-site release verification remain the release step. Currently deployed version: 20.
+- Local build passed and `http://localhost:8798` is running with all 19 table row/column counts preserved.
+- Private Sites version 21 is live at `https://pomade.deleteddeleted.chatgpt.site`, from runtime commit `cc62b3a`. All 11 hosted tables and 7 configured connections are preserved; the served provider bundle matches the packaged build. Enrow is offered but unconnected. Owner-only access is unchanged.
 
 ## Decisions
 
