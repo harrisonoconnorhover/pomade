@@ -18,7 +18,7 @@
 - 38 focused tests passed: accounts, deployment authorization, background wakeups, workbook execution, CRM sync, and Salesforce renewal.
 - Built Worker passed a disposable four-account HTTP test: concurrent identity/credential isolation, simultaneous first-login setup, empty onboarding, other-user table rejection, private job lists, member admin denial, disconnect, and revoke.
 - Typecheck, lint, local and hosted builds, script syntax, and diff whitespace checks passed. No browser visual QA performed.
-- Live version 16 preserved all 11 hosted tables and seven existing provider/CRM connections. Both dev CRMs passed one-record reads through the vault. Local rebuild preserved all 19 tables. Missing platform identity is rejected.
+- Live version 17 preserved all 11 hosted tables and seven existing provider/CRM connections. Both dev CRMs passed one-record reads through the vault. Local rebuild preserved all 19 tables. Missing platform identity is rejected; real friend sign-ins await their email addresses.
 
 ## Decisions
 
