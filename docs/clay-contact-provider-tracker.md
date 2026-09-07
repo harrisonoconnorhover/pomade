@@ -181,3 +181,7 @@ Added a preset for the [Phone Validation API](https://docs.trestleiq.com/api-ref
 ### People Data Labs person fields (September 7, 2026)
 
 Added separate work-email, recommended-personal-email and mobile presets from the [Person Enrichment API](https://docs.peopledatalabs.com/docs/reference-person-enrichment-api). Each requests only its target field, requires that field to exist and requests at least 6/10 identity-match likelihood. The score is not contact verification. Documented 404 misses fall through; low-confidence or masked boolean outputs stop for review. [Restricted field bundles](https://docs.peopledatalabs.com/docs/person-data-field-bundles) can return availability flags instead of usable contact data, so API access alone is insufficient. Existing `PDL_API_KEY` config serves both company and person presets. Synthetic contract tests only; live contact-field access remains pending.
+
+### ContactOut (September 7, 2026)
+
+Added work-email, personal-email and phone presets from the [Contact Info API](https://api.contactout.com/#contact-info-api-single). Work lookups require the `Verified` status for that exact address in the vendor dictionary. Phone requests set `email_type=none`; email requests set `include_phone=false`. Personal email and phone are explicitly format-only. A documented 404 is a miss; account errors stop by default. Sales Navigator/Recruiter inputs are rejected before a call. Synthetic tests cover mixed verification states, separate reveal controls, no-match and mismatched profiles; live access pending.

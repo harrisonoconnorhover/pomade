@@ -397,14 +397,16 @@ export async function executeHttpRecipe(
     let data: unknown;
     let providerMiss = false;
     if (
-      connection.id === 'pomade_pdl_people' &&
-      new URL(request.url).pathname === '/v5/person/enrich' &&
-      response.status === 404
+      response.status === 404 &&
+      ((connection.id === 'pomade_pdl_people' &&
+        new URL(request.url).pathname === '/v5/person/enrich') ||
+        (connection.id === 'pomade_contactout' &&
+          new URL(request.url).pathname === '/v1/people/linkedin'))
     ) {
       await response.body?.cancel();
       data = {};
       providerMiss = true;
-      status = 'No matching person with the required field';
+      status = 'No matching contact record';
     }
     if (connection.id === 'pomade_prospeo' && response.status === 400) {
       data = await boundedJson(response);

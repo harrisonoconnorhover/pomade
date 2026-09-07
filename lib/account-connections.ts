@@ -66,6 +66,12 @@ export const CONNECTIONS: ConnectionDefinition[] = [
     'Validate an existing international phone number. Provider validity is separate from ownership, mobile line type, and activity. Tested with sample responses; live access pending.',
   ),
   api(
+    'contactout',
+    'ContactOut',
+    'CONTACTOUT_API_KEY',
+    'Separate work-email, personal-email and phone lookups from a professional profile. Each preset requests only its contact type. Tested with sample responses; live access pending.',
+  ),
+  api(
     'pdl',
     'People Data Labs',
     'PDL_API_KEY',

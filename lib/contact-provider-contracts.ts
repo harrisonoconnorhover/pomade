@@ -12,6 +12,54 @@ export function normalizeContactProviderResponse(
   data: unknown,
 ): unknown {
   if (
+    connectionId === 'pomade_contactout' &&
+    url.pathname === '/v1/people/linkedin'
+  ) {
+    const body = record(data);
+    if (body.status_code === 404) return {};
+    if (
+      body.error ||
+      (typeof body.status_code === 'number' && body.status_code !== 200)
+    )
+      throw new Error(
+        'ContactOut rejected the request. Check account access, credits, and inputs.',
+      );
+    const profile = record(body.profile);
+    if (
+      profile.url &&
+      normalizedProfile(profile.url) !==
+        normalizedProfile(url.searchParams.get('profile'))
+    )
+      throw new Error(
+        'ContactOut returned a different profile. Results withheld for review.',
+      );
+    const statuses = record(profile.work_email_status);
+    const emails = Array.isArray(profile.work_email)
+      ? profile.work_email.filter(
+          (email): email is string => typeof email === 'string',
+        )
+      : [];
+    const email =
+      emails.find(
+        (email) =>
+          typeof statuses[email] === 'string' &&
+          statuses[email].toLowerCase() === 'verified',
+      ) ??
+      emails[0] ??
+      '';
+    const phones = Array.isArray(profile.phone)
+      ? profile.phone.map(phoneText)
+      : [];
+    return {
+      ...body,
+      pomade: {
+        work_email: email,
+        work_email_status: statuses[email] ?? '',
+        phone: phones.find((phone) => /^\+[1-9]\d{6,14}$/.test(phone)) ?? '',
+      },
+    };
+  }
+  if (
     connectionId === 'pomade_pdl_people' &&
     url.pathname === '/v5/person/enrich'
   ) {
@@ -83,6 +131,14 @@ export function validateContactProviderRequest(
     throw new Error(
       'Enter a phone number with its country code before running validation.',
     );
+  if (
+    connectionId === 'pomade_contactout' &&
+    url.pathname === '/v1/people/linkedin' &&
+    !normalizedProfile(url.searchParams.get('profile'))
+  )
+    throw new Error(
+      'Use a regular LinkedIn profile URL; Sales Navigator and Recruiter URLs are not supported.',
+    );
   const emailVerifiers: Record<string, string> = {
     pomade_findymail: '/api/verify',
     pomade_hunter: '/v2/email-verifier',
@@ -97,5 +153,21 @@ export function validateContactProviderRequest(
       throw new Error(
         'Enter a valid email format before running verification.',
       );
+  }
+}
+
+function normalizedProfile(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  try {
+    const url = new URL(value);
+    if (
+      !['http:', 'https:'].includes(url.protocol) ||
+      !/(^|\.)linkedin\.com$/.test(url.hostname) ||
+      !/^\/(in|pub)\/[^/]+/.test(url.pathname)
+    )
+      return '';
+    return url.pathname.replace(/\/$/, '').toLowerCase();
+  } catch {
+    return '';
   }
 }

@@ -4,6 +4,7 @@ import {
   FINDYMAIL_CONNECTION,
   ZEROBOUNCE_CONNECTION,
   TRESTLE_CONNECTION,
+  CONTACTOUT_CONNECTION,
   APOLLO_COMPANY_CONNECTION,
   APOLLO_PEOPLE_CONNECTION,
   HUNTER_CONNECTION,
@@ -19,6 +20,7 @@ export function configuredHttpConnections(env: {
   FINDYMAIL_API_KEY?: string;
   ZEROBOUNCE_API_KEY?: string;
   TRESTLE_API_KEY?: string;
+  CONTACTOUT_API_KEY?: string;
   PROSPEO_API_KEY?: string;
   PDL_API_KEY?: string;
 }): HttpConnection[] {
@@ -28,6 +30,7 @@ export function configuredHttpConnections(env: {
     FINDYMAIL_CONNECTION,
     ZEROBOUNCE_CONNECTION,
     TRESTLE_CONNECTION,
+    CONTACTOUT_CONNECTION,
     APOLLO_COMPANY_CONNECTION,
     APOLLO_PEOPLE_CONNECTION,
     HUNTER_CONNECTION,
@@ -125,6 +128,14 @@ export function configuredHttpConnections(env: {
       methods: ['GET'],
       headers: { 'X-API-Key': env.PDL_API_KEY.trim() },
       requestDelayMs: 650,
+    });
+  if (env.CONTACTOUT_API_KEY?.trim())
+    connections.push({
+      id: CONTACTOUT_CONNECTION,
+      label: 'ContactOut',
+      origin: 'https://api.contactout.com',
+      methods: ['GET'],
+      headers: { token: env.CONTACTOUT_API_KEY.trim() },
     });
   return connections;
 }

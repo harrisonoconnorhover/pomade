@@ -483,15 +483,13 @@ it('does not mistake PDL free-plan availability flags for revealed contact data'
   const connections = configuredHttpConnections({ PDL_API_KEY: 'fixture' }).map(
     (c) => ({ ...c, requestDelayMs: 0 }),
   );
-  const fetcher = vi
-    .fn<typeof fetch>()
-    .mockResolvedValue(
-      Response.json({
-        status: 200,
-        likelihood: 10,
-        data: { work_email: true },
-      }),
-    );
+  const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+    Response.json({
+      status: 200,
+      likelihood: 10,
+      data: { work_email: true },
+    }),
+  );
   const result = await executeProviderWaterfall(
     w,
     'a',
@@ -502,4 +500,133 @@ it('does not mistake PDL free-plan availability flags for revealed contact data'
   expect(result.workspace.rows[0].values.result).toBe('');
   expect(result.receipt.error).toContain('plan did not reveal');
   expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+describe('ContactOut contact-type selection', () => {
+  const connections = configuredHttpConnections({
+    CONTACTOUT_API_KEY: 'private-contactout',
+    HUNTER_API_KEY: 'private-hunter',
+  });
+  it('uses the verification status for the chosen email and never requests a phone for email lookup', async () => {
+    const { w, column } = fixture('contactout-email', 'hunter');
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (input, init) => {
+        const url = new URL(input instanceof Request ? input.url : input);
+        expect(url.origin + url.pathname).toBe(
+          'https://api.contactout.com/v1/people/linkedin',
+        );
+        expect(url.searchParams.get('include_phone')).toBe('false');
+        expect(url.searchParams.get('email_type')).toBe('work');
+        expect(new Headers(init?.headers).get('token')).toBe(
+          'private-contactout',
+        );
+        return Response.json({
+          status_code: 200,
+          profile: {
+            url: w.rows[0].values.profile_url,
+            work_email: ['uncertain@example.com', 'ada@example.com'],
+            work_email_status: {
+              'uncertain@example.com': 'Unverified',
+              'ada@example.com': 'Verified',
+            },
+          },
+        });
+      });
+    const result = await executeProviderWaterfall(
+      w,
+      'a',
+      column,
+      connections,
+      fetcher,
+    );
+    expect(result.workspace.rows[0].values.result).toBe('ada@example.com');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(result)).not.toContain('private-contactout');
+  });
+  it.each([
+    [
+      'contactout-phone',
+      'none',
+      'true',
+      { phone: ['2025550123', '+12025550123'] },
+      '+12025550123',
+    ],
+    [
+      'contactout-personal',
+      'personal',
+      'false',
+      { personal_email: ['ada@example.com'] },
+      'ada@example.com',
+    ],
+  ])(
+    'requests only %s contact data',
+    async (id, emailType, includePhone, profile, expected) => {
+      const { w, column } = fixture(id as string);
+      const fetcher = vi
+        .fn<typeof fetch>()
+        .mockImplementation(async (input) => {
+          const url = new URL(input instanceof Request ? input.url : input);
+          expect(url.searchParams.get('include_phone')).toBe(includePhone);
+          expect(url.searchParams.get('email_type')).toBe(emailType);
+          return Response.json({ status_code: 200, profile });
+        });
+      const result = await executeProviderWaterfall(
+        w,
+        'a',
+        column,
+        connections,
+        fetcher,
+      );
+      expect(result.workspace.rows[0].values.result).toBe(expected);
+    },
+  );
+  it('rejects mismatched profiles, ignores unverified emails, and falls through on not-found', async () => {
+    const { w, column } = fixture('contactout-email');
+    for (const profile of [
+      {
+        url: 'https://linkedin.com/in/wrong-person',
+        work_email: ['ada@example.com'],
+        work_email_status: { 'ada@example.com': 'Verified' },
+      },
+      {
+        work_email: ['ada@example.com'],
+        work_email_status: { 'other@example.com': 'Verified' },
+      },
+    ]) {
+      const result = await executeProviderWaterfall(
+        w,
+        'a',
+        column,
+        connections,
+        async () => Response.json({ status_code: 200, profile }),
+      );
+      expect(result.workspace.rows[0].values.result).toBe('');
+    }
+    const { w: next, column: waterfall } = fixture(
+      'contactout-email',
+      'hunter',
+    );
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json(
+          { status_code: 404, message: 'Not Found' },
+          { status: 404 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          data: { email: 'ada@example.com', verification: { status: 'valid' } },
+        }),
+      );
+    const result = await executeProviderWaterfall(
+      next,
+      'a',
+      waterfall,
+      connections,
+      fetcher,
+    );
+    expect(result.workspace.rows[0].values.result_provider).toBe('Hunter');
+  });
 });

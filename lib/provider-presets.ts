@@ -3,6 +3,7 @@ import { createHttpColumns } from './http-enrichment';
 import type { HttpProviderStep, WorkspaceSnapshot } from './pomade-types';
 export const APOLLO_COMPANY_CONNECTION = 'pomade_apollo_company';
 export const APOLLO_PEOPLE_CONNECTION = 'pomade_apollo_people';
+export const CONTACTOUT_CONNECTION = 'pomade_contactout';
 export const TRESTLE_CONNECTION = 'pomade_trestle';
 export const ZEROBOUNCE_CONNECTION = 'pomade_zerobounce';
 export const FINDYMAIL_CONNECTION = 'pomade_findymail';
@@ -321,5 +322,30 @@ export function pdlPersonStep(
     method: 'GET',
     pathTemplate: `/v5/person/enrich?profile={{${profile}}}&required=${field}&min_likelihood=6&data_include=${field}`,
     responsePath: `data.${field}`,
+  };
+}
+
+export function contactOutStep(
+  kind: 'work' | 'personal' | 'phone',
+  profile = 'profile',
+): HttpProviderStep {
+  return {
+    connectionId: CONTACTOUT_CONNECTION,
+    method: 'GET',
+    pathTemplate: `/v1/people/linkedin?profile={{${profile}}}&include_phone=${kind === 'phone'}&email_type=${kind === 'phone' ? 'none' : kind}`,
+    responsePath:
+      kind === 'phone'
+        ? 'pomade.phone'
+        : kind === 'work'
+          ? 'pomade.work_email'
+          : 'profile.personal_email.0',
+    ...(kind === 'work'
+      ? {
+          verification: {
+            path: 'pomade.work_email_status',
+            acceptedValues: ['Verified'],
+          },
+        }
+      : {}),
   };
 }
