@@ -6789,7 +6789,9 @@ export default function PomadeWorkspace({
               {!sourcePreview.contacts.length ? (
                 <p className="source-help">
                   No matching records in this{' '}
-                  {sourcePreview.segment ? 'segment' : 'CRM preview'}.
+                  {sourcePreview.segment ? 'segment' : 'CRM preview'}. Save this
+                  source to refresh it later as records arrive. Existing rows
+                  stay in place.
                 </p>
               ) : null}
               {sourcePreview.truncated ? (
@@ -6844,13 +6846,11 @@ export default function PomadeWorkspace({
                 </Button>
                 <Button
                   onClick={() => importCrmPreview('append')}
-                  disabled={
-                    jobLocksWorkspace ||
-                    Boolean(sourceLoading) ||
-                    !sourcePreview.contacts.length
-                  }
+                  disabled={jobLocksWorkspace || Boolean(sourceLoading)}
                 >
-                  Merge records
+                  {sourcePreview.contacts.length
+                    ? 'Merge records'
+                    : 'Save source for refresh'}
                 </Button>
               </div>
             </section>

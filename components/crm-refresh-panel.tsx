@@ -70,8 +70,7 @@ export default function CrmRefreshPanel({
         body: JSON.stringify({
           workspaceId: workspace.id,
           action,
-          cadence,
-          maxRecords,
+          ...(action === 'refresh' ? {} : { cadence, maxRecords }),
         }),
       });
       const data = (await r.json()) as {

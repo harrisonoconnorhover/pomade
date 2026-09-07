@@ -1089,3 +1089,7 @@ Use Glide's real trailing element for the permanent Add column rail. It is inter
 - Column visibility is stored on the existing column definition and applies only to the grid. Hidden inputs and recipes remain available to execution, mappings and full-sheet exports. At least one column stays visible; visible drag positions resolve to stable column IDs before existing execution-order checks.
 - The searchable catalog derives contact actions from the existing preset registry. Connection badges report configured keys, not verified plan access. Selecting an action opens the existing setup builder without a provider request; research service selection is saved for single, structured and list outputs.
 - Related-sheet tabs use the compiled workbook plan's membership and order, resolving only against the current account's available table summaries. Renames use current names. Standalone copies do not inherit the original workbook's tabs; navigation retains existing save/run guards.
+
+## 2026-09-07 night shift: Reliable setup before provider access
+
+Provider drafts can be saved using known presets even when the connection check fails. Custom requests still need a recognized connection. Repeated lookup actions receive distinct bounded IDs and names. Switching between email and phone clears incompatible verifiers; adding a compatible fallback preserves the chain's acceptance rule. Manual CRM refresh uses saved settings rather than cancelled form drafts. An empty CRM preview can be saved as a refresh source while retaining existing rows.

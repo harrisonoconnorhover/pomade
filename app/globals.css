@@ -68,12 +68,14 @@ body {
   font-family: var(--font-geist-sans), Arial, sans-serif;
 }
 
-button,
-input {
-  font: inherit;
-}
-button {
-  color: inherit;
+@layer base {
+  button,
+  input {
+    font: inherit;
+  }
+  button {
+    color: inherit;
+  }
 }
 
 .pomade-shell {

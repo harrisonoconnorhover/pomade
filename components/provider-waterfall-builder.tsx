@@ -29,7 +29,12 @@ import type {
   HttpProviderStep,
   ProviderWaterfall,
 } from '@/lib/pomade-types';
-type StepDraft = HttpProviderStep & { quickSetup?: string };
+import {
+  waterfallColumnIdentity,
+  chooseWaterfallPreset,
+  chooseWaterfallVerifier,
+  type WaterfallStepDraft as StepDraft,
+} from '@/lib/provider-waterfall-draft';
 const blank = (): StepDraft => ({
   connectionId: '',
   method: 'GET',
@@ -83,7 +88,10 @@ export default function ProviderWaterfallBuilder({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    fetch('/api/providers/http')
+    const controller = new AbortController();
+    fetch('/api/providers/http', {
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+    })
       .then(async (r) => {
         const data = (await r.json()) as {
           connections?: HttpConnectionSummary[];
@@ -109,16 +117,13 @@ export default function ProviderWaterfallBuilder({
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [open, connectionRevision]);
   function changeOpen(nextOpen: boolean) {
     if (!nextOpen) setConnectionRevision((value) => value + 1);
     onOpenChange(nextOpen);
   }
-  const id = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_|_$/g, '');
   let columns: PomadeColumn[] | undefined;
   let validation = '';
   try {
@@ -148,8 +153,7 @@ export default function ProviderWaterfallBuilder({
       }
     }
     columns = createProviderWaterfall(workspace, {
-      id,
-      title,
+      ...waterfallColumnIdentity(workspace, title),
       steps: steps.map(({ quickSetup: _quickSetup, ...step }) => step),
       accept,
       continueOnError,
@@ -232,7 +236,11 @@ export default function ProviderWaterfallBuilder({
         </DialogHeader>
         <label>
           Result column name
-          <input value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input
+            value={title}
+            maxLength={80}
+            onChange={(e) => setTitle(e.target.value)}
+          />
         </label>
         <fieldset>
           <legend>Lookup inputs</legend>
@@ -290,23 +298,15 @@ export default function ProviderWaterfallBuilder({
                   if (e.target.value) {
                     const preset = contactPreset(e.target.value);
                     if (!preset) return;
-                    setSteps((current) =>
-                      current.map((item, i) =>
-                        i === index
-                          ? {
-                              ...preset.step(bindings),
-                              quickSetup: preset.id,
-                              verifier: item.verifier,
-                            }
-                          : item,
-                      ),
+                    const next = chooseWaterfallPreset(
+                      steps,
+                      index,
+                      preset,
+                      bindings,
+                      accept,
                     );
-                    // Adding a fallback must not silently weaken the existing
-                    // verification rule for earlier providers.
-                    if (
-                      !steps.some((step, i) => i !== index && step.connectionId)
-                    )
-                      setAccept(preset.accept);
+                    setSteps(next.steps);
+                    setAccept(next.accept);
                   } else edit(index, {});
                 }}
               >
@@ -330,26 +330,17 @@ export default function ProviderWaterfallBuilder({
                 aria-label={`Verifier for provider ${index + 1}`}
                 value={step.verifier?.presetId ?? ''}
                 onChange={(event) => {
-                  const id = event.target.value;
-                  const verifier = CONTACT_VERIFIER_PRESETS.find(
-                    (p) => p.id === id,
+                  const next = chooseWaterfallVerifier(
+                    steps,
+                    index,
+                    event.target.value,
+                    accept,
                   );
-                  setSteps((current) =>
-                    current.map((item, i) =>
-                      i === index
-                        ? {
-                            ...item,
-                            verifier: id ? { presetId: id } : undefined,
-                          }
-                        : item,
-                    ),
-                  );
-                  if (verifier) setAccept(verifier.accept);
+                  setSteps(next.steps);
+                  setAccept(next.accept);
                 }}
               >
-                <option value="">
-                  Use the finder’s result and acceptance rule
-                </option>
+                <option value="">No separate verifier</option>
                 {CONTACT_VERIFIER_PRESETS.filter(
                   (p) =>
                     accept === 'nonempty' ||
@@ -564,12 +555,22 @@ export default function ProviderWaterfallBuilder({
             setup now. A missing connection stops that step when run.
           </p>
         ) : null}
-        {!loading && (error || validation) ? (
-          <p role="alert">{error || validation}</p>
+        {!loading && error ? (
+          <output>
+            The connection check could not finish. You can still save a known
+            provider preset; access is checked when it runs.
+          </output>
+        ) : null}
+        {validation ? (
+          <p role="alert">{validation}</p>
+        ) : columns ? (
+          <p>Creates: {columns.map((column) => column.title).join(', ')}.</p>
         ) : null}
         <Button
           disabled={
-            loading || Boolean(error) || !columns || Boolean(validation)
+            (loading && steps.some((step) => !step.quickSetup)) ||
+            !columns ||
+            Boolean(validation)
           }
           onClick={() => {
             if (columns) {
