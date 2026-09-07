@@ -18,6 +18,8 @@ import {
 } from './recipe-templates';
 
 const bindings: ContactBindings = {
+  first_name: 'first_name',
+  last_name: 'last_name',
   person: 'person',
   domain: 'domain',
   email: 'work_email',
@@ -38,6 +40,8 @@ function fixture(presetId: string, fallbackId?: string) {
       id: 'a',
       values: {
         person: 'Ada Example',
+        first_name: 'Ada',
+        last_name: 'Example',
         domain: 'example.com',
         work_email: 'ada@example.com',
         profile_url: 'https://www.linkedin.com/in/ada-example',
@@ -628,5 +632,71 @@ describe('ContactOut contact-type selection', () => {
       fetcher,
     );
     expect(result.workspace.rows[0].values.result_provider).toBe('Hunter');
+  });
+});
+
+describe('Upcell enrichment', () => {
+  const connections = configuredHttpConnections({
+    UPCELL_API_KEY: 'private-upcell',
+  });
+  it.each([
+    [
+      'upcell-email',
+      '/v1/enrich/email',
+      { firstName: 'Ada', lastName: 'Example', companyDomain: 'example.com' },
+      { email: 'ada@example.com', verified: true },
+      'ada@example.com',
+    ],
+    [
+      'upcell-mobile',
+      '/v1/enrich/contact',
+      {
+        linkedinUrl: 'https://www.linkedin.com/in/ada-example',
+        fields: ['mobile'],
+      },
+      { contact: { mobilePhone: '+12025550123' } },
+      '+12025550123',
+    ],
+  ])(
+    'implements %s with raw Authorization authentication',
+    async (id, path, body, data, expected) => {
+      const { w, column } = fixture(id as string);
+      const fetcher = vi
+        .fn<typeof fetch>()
+        .mockImplementation(async (input, init) => {
+          expect(
+            new URL(input instanceof Request ? input.url : input).href,
+          ).toBe('https://api.upcell.io' + path);
+          expect(new Headers(init?.headers).get('Authorization')).toBe(
+            'private-upcell',
+          );
+          expect(JSON.parse(init?.body as string)).toEqual(body);
+          return Response.json(data);
+        });
+      const result = await executeProviderWaterfall(
+        w,
+        'a',
+        column,
+        connections,
+        fetcher,
+      );
+      expect(result.workspace.rows[0].values.result).toBe(expected);
+      expect(result.receipt.status).toBe('passed');
+    },
+  );
+  it('does not accept unverified email or request enrichment with a missing surname', async () => {
+    const { w, column } = fixture('upcell-email');
+    const result = await executeProviderWaterfall(
+      w,
+      'a',
+      column,
+      connections,
+      async () => Response.json({ email: 'ada@example.com', verified: false }),
+    );
+    expect(result.workspace.rows[0].values.result).toBe('');
+    w.rows[0].values.last_name = '';
+    const fetcher = vi.fn<typeof fetch>();
+    await executeProviderWaterfall(w, 'a', column, connections, fetcher);
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });

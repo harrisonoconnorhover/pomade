@@ -167,6 +167,12 @@ export default function ProviderWaterfallBuilder({
       }),
     );
   }
+  const selectedInputKeys = new Set(
+    steps.flatMap((step) => contactPreset(step.quickSetup)?.inputs ?? []),
+  );
+  const visibleInputs = (
+    Object.entries(CONTACT_INPUTS) as [ContactInput, string][]
+  ).filter(([key]) => selectedInputKeys.has(key));
   const neededConnections = [
     ...new Set(
       steps
@@ -198,29 +204,24 @@ export default function ProviderWaterfallBuilder({
         </label>
         <fieldset>
           <legend>Lookup inputs</legend>
-          <p>
-            Map the inputs your selected presets need. Unused inputs can stay
-            empty.
-          </p>
+          <p>Choose a preset below, then map the input columns it needs.</p>
           <div className="http-output-grid">
-            {(Object.entries(CONTACT_INPUTS) as [ContactInput, string][]).map(
-              ([input, label]) => (
-                <label key={input}>
-                  {label}
-                  <select
-                    value={bindings[input]}
-                    onChange={(e) => updatePresetInput(input, e.target.value)}
-                  >
-                    <option value="">Choose a column</option>
-                    {inputColumns.map((column) => (
-                      <option key={column.id} value={column.id}>
-                        {column.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ),
-            )}
+            {visibleInputs.map(([input, label]) => (
+              <label key={input}>
+                {label}
+                <select
+                  value={bindings[input]}
+                  onChange={(e) => updatePresetInput(input, e.target.value)}
+                >
+                  <option value="">Choose a column</option>
+                  {inputColumns.map((column) => (
+                    <option key={column.id} value={column.id}>
+                      {column.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
           </div>
         </fieldset>
         {loading ? (

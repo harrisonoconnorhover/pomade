@@ -4,6 +4,9 @@ import {
   ZEROBOUNCE_CONNECTION,
   TRESTLE_CONNECTION,
   CONTACTOUT_CONNECTION,
+  UPCELL_CONNECTION,
+  upcellEmailStep,
+  upcellMobileStep,
   contactOutStep,
   trestlePhoneStep,
   pdlPersonStep,
@@ -23,6 +26,8 @@ import type { HttpProviderStep, ProviderWaterfall } from './pomade-types';
 
 export const CONTACT_INPUTS = {
   person: 'Person’s full name',
+  first_name: 'First name',
+  last_name: 'Last name',
   domain: 'Company domain (example.com)',
   email: 'Email address',
   profile: 'Professional profile URL',
@@ -225,6 +230,27 @@ export const CONTACT_PROVIDER_PRESETS: ContactProviderPreset[] = [
     accept: 'phone',
     note: 'Requests phone only, with email_type=none. The first international-format phone is selected; mobile line type and ownership are not verified.',
     step: ({ profile }) => contactOutStep('phone', profile),
+  },
+  {
+    id: 'upcell-email',
+    label: 'Upcell · find verified email',
+    provider: 'Upcell',
+    connectionId: UPCELL_CONNECTION,
+    inputs: ['first_name', 'last_name', 'domain'],
+    accept: 'verified-email',
+    note: 'Uses separate first-name and last-name columns. Accepts only verified=true.',
+    step: ({ first_name, last_name, domain }) =>
+      upcellEmailStep(first_name, last_name, domain),
+  },
+  {
+    id: 'upcell-mobile',
+    label: 'Upcell · find mobile (format only)',
+    provider: 'Upcell',
+    connectionId: UPCELL_CONNECTION,
+    inputs: ['profile'],
+    accept: 'phone',
+    note: 'Requests mobile only. The response has no independent phone verification status.',
+    step: ({ profile }) => upcellMobileStep(profile),
   },
 ];
 export function contactPreset(id?: string) {

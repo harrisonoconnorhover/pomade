@@ -3,6 +3,7 @@ import { createHttpColumns } from './http-enrichment';
 import type { HttpProviderStep, WorkspaceSnapshot } from './pomade-types';
 export const APOLLO_COMPANY_CONNECTION = 'pomade_apollo_company';
 export const APOLLO_PEOPLE_CONNECTION = 'pomade_apollo_people';
+export const UPCELL_CONNECTION = 'pomade_upcell';
 export const CONTACTOUT_CONNECTION = 'pomade_contactout';
 export const TRESTLE_CONNECTION = 'pomade_trestle';
 export const ZEROBOUNCE_CONNECTION = 'pomade_zerobounce';
@@ -347,5 +348,36 @@ export function contactOutStep(
           },
         }
       : {}),
+  };
+}
+
+export function upcellMobileStep(profile = 'profile'): HttpProviderStep {
+  return {
+    connectionId: UPCELL_CONNECTION,
+    method: 'POST',
+    pathTemplate: '/v1/enrich/contact',
+    bodyTemplate: JSON.stringify({
+      linkedinUrl: `{{${profile}}}`,
+      fields: ['mobile'],
+    }),
+    responsePath: 'contact.mobilePhone',
+  };
+}
+export function upcellEmailStep(
+  firstName = 'first_name',
+  lastName = 'last_name',
+  domain = 'domain',
+): HttpProviderStep {
+  return {
+    connectionId: UPCELL_CONNECTION,
+    method: 'POST',
+    pathTemplate: '/v1/enrich/email',
+    bodyTemplate: JSON.stringify({
+      firstName: `{{${firstName}}}`,
+      lastName: `{{${lastName}}}`,
+      companyDomain: `{{${domain}}}`,
+    }),
+    responsePath: 'email',
+    verification: { path: 'verified', acceptedValues: ['true'] },
   };
 }

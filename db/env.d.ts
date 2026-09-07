@@ -20,6 +20,7 @@ declare namespace Cloudflare {
     ZEROBOUNCE_API_KEY?: string;
     TRESTLE_API_KEY?: string;
     CONTACTOUT_API_KEY?: string;
+    UPCELL_API_KEY?: string;
     PROSPEO_API_KEY?: string;
     POMADE_RESEARCH_PROVIDER?: string;
     POMADE_CODEX_URL?: string;

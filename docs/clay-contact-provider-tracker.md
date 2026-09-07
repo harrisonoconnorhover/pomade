@@ -185,3 +185,7 @@ Added separate work-email, recommended-personal-email and mobile presets from th
 ### ContactOut (September 7, 2026)
 
 Added work-email, personal-email and phone presets from the [Contact Info API](https://api.contactout.com/#contact-info-api-single). Work lookups require the `Verified` status for that exact address in the vendor dictionary. Phone requests set `email_type=none`; email requests set `include_phone=false`. Personal email and phone are explicitly format-only. A documented 404 is a miss; account errors stop by default. Sales Navigator/Recruiter inputs are rejected before a call. Synthetic tests cover mixed verification states, separate reveal controls, no-match and mismatched profiles; live access pending.
+
+### Upcell (September 7, 2026)
+
+Added [mobile enrichment](https://api.upcell.io/docs/dataenrichment/enrich-contact/) from a professional profile and [email enrichment](https://api.upcell.io/docs/dataenrichment/enrich-email/) from separate first-name, last-name and domain fields. Email requires `verified=true`; mobile uses format-only acceptance. The adapter requests only the `mobile` field for mobile lookup and uses the documented raw `Authorization` header. No full-name splitting heuristic. Missing inputs make no HTTP request. Synthetic response tests pass; live access pending.

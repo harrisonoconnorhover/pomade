@@ -72,6 +72,12 @@ export const CONNECTIONS: ConnectionDefinition[] = [
     'Separate work-email, personal-email and phone lookups from a professional profile. Each preset requests only its contact type. Tested with sample responses; live access pending.',
   ),
   api(
+    'upcell',
+    'Upcell',
+    'UPCELL_API_KEY',
+    'Verified email by first name, last name and company domain; mobile by professional profile. Mobile format is checked without claiming verification. Sample-response tested; live access pending.',
+  ),
+  api(
     'pdl',
     'People Data Labs',
     'PDL_API_KEY',

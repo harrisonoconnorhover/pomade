@@ -11,6 +11,10 @@ export function normalizeContactProviderResponse(
   url: URL,
   data: unknown,
 ): unknown {
+  if (connectionId === 'pomade_upcell' && record(data).error)
+    throw new Error(
+      'Upcell rejected the request. Check account access and inputs.',
+    );
   if (
     connectionId === 'pomade_contactout' &&
     url.pathname === '/v1/people/linkedin'

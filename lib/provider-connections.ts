@@ -5,6 +5,7 @@ import {
   ZEROBOUNCE_CONNECTION,
   TRESTLE_CONNECTION,
   CONTACTOUT_CONNECTION,
+  UPCELL_CONNECTION,
   APOLLO_COMPANY_CONNECTION,
   APOLLO_PEOPLE_CONNECTION,
   HUNTER_CONNECTION,
@@ -21,6 +22,7 @@ export function configuredHttpConnections(env: {
   ZEROBOUNCE_API_KEY?: string;
   TRESTLE_API_KEY?: string;
   CONTACTOUT_API_KEY?: string;
+  UPCELL_API_KEY?: string;
   PROSPEO_API_KEY?: string;
   PDL_API_KEY?: string;
 }): HttpConnection[] {
@@ -31,6 +33,7 @@ export function configuredHttpConnections(env: {
     ZEROBOUNCE_CONNECTION,
     TRESTLE_CONNECTION,
     CONTACTOUT_CONNECTION,
+    UPCELL_CONNECTION,
     APOLLO_COMPANY_CONNECTION,
     APOLLO_PEOPLE_CONNECTION,
     HUNTER_CONNECTION,
@@ -136,6 +139,14 @@ export function configuredHttpConnections(env: {
       origin: 'https://api.contactout.com',
       methods: ['GET'],
       headers: { token: env.CONTACTOUT_API_KEY.trim() },
+    });
+  if (env.UPCELL_API_KEY?.trim())
+    connections.push({
+      id: UPCELL_CONNECTION,
+      label: 'Upcell',
+      origin: 'https://api.upcell.io',
+      methods: ['POST'],
+      headers: { Authorization: env.UPCELL_API_KEY.trim() },
     });
   return connections;
 }
