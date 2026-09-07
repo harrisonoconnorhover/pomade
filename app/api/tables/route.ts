@@ -7,6 +7,7 @@ import {
   isTableId,
   summarizeTable,
 } from '@/lib/workbook';
+import { createCsvWorkspace } from '@/lib/csv-import';
 import type { WorkspaceSnapshot } from '@/lib/pomade-types';
 
 export async function GET() {
@@ -47,19 +48,29 @@ export async function POST(request: Request) {
       mode?: unknown;
       sourceId?: unknown;
       rowIds?: unknown;
+      csv?: unknown;
+      filename?: unknown;
     };
     if (
       typeof body.name !== 'string' ||
-      !['empty', 'duplicate', 'linked'].includes(String(body.mode))
+      !['empty', 'duplicate', 'linked', 'csv'].includes(String(body.mode))
     )
       return Response.json(
         { error: 'Choose a table name and creation mode.' },
         { status: 400 },
       );
-    const mode = body.mode as 'empty' | 'duplicate' | 'linked';
+    const mode = body.mode as 'empty' | 'duplicate' | 'linked' | 'csv';
+    if (
+      mode === 'csv' &&
+      (typeof body.csv !== 'string' || typeof body.filename !== 'string')
+    )
+      return Response.json(
+        { error: 'Choose a CSV file to import.' },
+        { status: 400 },
+      );
     const db = await ensureDatabase();
     let source: WorkspaceSnapshot | undefined;
-    if (mode !== 'empty') {
+    if (mode !== 'empty' && mode !== 'csv') {
       if (!isTableId(body.sourceId))
         return Response.json(
           { error: 'Choose a source table.' },
@@ -82,13 +93,21 @@ export async function POST(request: Request) {
         body.rowIds.some((id) => typeof id !== 'string'))
     )
       return Response.json({ error: 'Choose source rows.' }, { status: 400 });
-    const workspace = createTable({
-      id: crypto.randomUUID(),
-      name: body.name,
-      mode,
-      source,
-      rowIds: body.rowIds as string[] | undefined,
-    });
+    const workspace =
+      mode === 'csv'
+        ? createCsvWorkspace(
+            body.csv as string,
+            body.name,
+            crypto.randomUUID(),
+            (body.filename as string).slice(0, 255),
+          )
+        : createTable({
+            id: crypto.randomUUID(),
+            name: body.name,
+            mode,
+            source,
+            rowIds: body.rowIds as string[] | undefined,
+          });
     await db
       .prepare(`INSERT INTO workspaces (id, name, snapshot, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?)`)

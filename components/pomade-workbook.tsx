@@ -85,6 +85,20 @@ export default function PomadeWorkbook({
     else url.searchParams.delete('row');
     window.history.replaceState(null, '', url);
   }
+  function openImportedTable(table: TableSummary) {
+    setTables((current) => [
+      ...current.filter((item) => item.id !== table.id),
+      table,
+    ]);
+    setActiveId(table.id);
+    setFocusRowId('');
+    setReady(false);
+    setError('');
+    const url = new URL(window.location.href);
+    url.searchParams.set('table', table.id);
+    url.searchParams.delete('row');
+    window.history.replaceState(null, '', url);
+  }
   function startCreate(next: TableCreationMode, selection: string[] = []) {
     if (!ready) return;
     setMode(next);
@@ -257,6 +271,7 @@ export default function PomadeWorkbook({
           initialRowId={focusRowId}
           onTableState={onStateChange}
           onOpenTable={openTable}
+          onTableCreated={openImportedTable}
           onCopyRows={(ids) => startCreate('linked', ids)}
         />
       ) : (

@@ -55,7 +55,8 @@ import {
   Workflow,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import Papa from 'papaparse';
+import CsvImportDialog from '@/components/csv-import-dialog';
+import { workspaceCsv } from '@/lib/csv-import';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -405,20 +406,6 @@ function slugify(value: string) {
   );
 }
 
-function canonicalColumnId(header: string) {
-  const slug = slugify(header);
-  if (['company', 'company_name', 'account', 'account_name'].includes(slug))
-    return 'company';
-  if (['person', 'name', 'full_name', 'contact', 'contact_name'].includes(slug))
-    return 'person';
-  if (['title', 'job_title', 'role'].includes(slug)) return 'title';
-  if (['domain', 'website', 'company_website', 'company_domain'].includes(slug))
-    return 'domain';
-  if (['email', 'email_address', 'work_email'].includes(slug)) return 'email';
-  if (['phone', 'phone_number', 'mobile'].includes(slug)) return 'phone';
-  return slug;
-}
-
 function uniqueId(base: string, used: Set<string>) {
   let candidate = base;
   let suffix = 2;
@@ -479,6 +466,7 @@ export default function PomadeWorkspace({
   initialRowId = '',
   onTableState,
   onOpenTable,
+  onTableCreated,
   onCopyRows,
 }: {
   deployment: { hosted: boolean; label: string; schedulesEnabled: boolean };
@@ -487,6 +475,7 @@ export default function PomadeWorkspace({
   onTableState: (summary: TableSummary, canLeave: boolean) => void;
   onOpenTable: (tableId: string, rowId?: string) => void;
   onCopyRows: (rowIds: string[]) => void;
+  onTableCreated: (table: TableSummary) => void;
 }) {
   const workspaceUrl = `/api/workspace?workspaceId=${encodeURIComponent(workspaceId)}`;
   const versionsUrl = `/api/workspace/versions?workspaceId=${encodeURIComponent(workspaceId)}`;
@@ -756,6 +745,7 @@ export default function PomadeWorkspace({
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const jobRevision = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [csvFile, setCsvFile] = useState<File>();
   const recipeFileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -2118,85 +2108,12 @@ export default function PomadeWorkspace({
   }
 
   function importCsv(file: File) {
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: ({ data, meta }) => {
-        const used = new Set<string>();
-        const mappings = (meta.fields ?? []).map((header) => ({
-          header,
-          id: uniqueId(canonicalColumnId(header), used),
-        }));
-        const columns: PomadeColumn[] = mappings.map(({ header, id }) => ({
-          id,
-          title: header,
-          kind: 'text',
-          width: Math.max(150, Math.min(280, header.length * 10 + 80)),
-        }));
-        if (!used.has('status'))
-          columns.push({
-            id: 'status',
-            title: 'Run status',
-            kind: 'status',
-            width: 140,
-          });
-        const columnIds = new Set(columns.map((column) => column.id));
-        const savedViews = (workspace.savedViews ?? []).filter((view) =>
-          columnIds.has(view.columnId),
-        );
-        const removedViewCount =
-          (workspace.savedViews?.length ?? 0) - savedViews.length;
-        const rows = data.map((record) => ({
-          id: crypto.randomUUID(),
-          values: Object.fromEntries([
-            ...mappings.map(({ header, id }) => [
-              id,
-              String(record[header] ?? ''),
-            ]),
-            ['status', 'Imported'],
-          ]),
-        }));
-        const next: WorkspaceSnapshot = {
-          ...workspace,
-          name: file.name.replace(/\.csv$/i, '') || 'Imported table',
-          columns,
-          rows,
-          savedViews,
-          updatedAt: Date.now(),
-          source: {
-            provider: 'csv',
-            label: file.name,
-            importedAt: Date.now(),
-          },
-          schedule: workspace.schedule?.enabled
-            ? pauseRecipeSchedule(workspace.schedule)
-            : workspace.schedule,
-        };
-        setWorkspace(next);
-        setActiveRowId(rows[0]?.id ?? '');
-        setSelectedRowIds([]);
-        setFilter('All');
-        setActiveSavedViewId('');
-        setQuery('');
-        setSourcesOpen(false);
-        setNotice(
-          `${rows.length} CSV rows loaded${removedViewCount ? ` · ${removedViewCount} incompatible ${removedViewCount === 1 ? 'view' : 'views'} removed` : ''}${workspace.schedule?.enabled ? ' · schedule paused for review' : ''}.`,
-        );
-      },
-      error: () => setSourceError('Pomade could not read that CSV file.'),
-    });
+    setSourcesOpen(false);
+    setCsvFile(file);
   }
 
   function exportCsv() {
-    const records = workspace.rows.map((row) =>
-      Object.fromEntries(
-        workspace.columns.map((column) => [
-          column.title,
-          row.values[column.id] ?? '',
-        ]),
-      ),
-    );
-    const blob = new Blob([Papa.unparse(records)], {
+    const blob = new Blob([workspaceCsv(workspace)], {
       type: 'text/csv;charset=utf-8',
     });
     const url = URL.createObjectURL(blob);
@@ -4022,6 +3939,26 @@ export default function PomadeWorkspace({
         </aside>
       </div>
 
+      {csvFile ? (
+        <CsvImportDialog
+          file={csvFile}
+          workspace={workspace}
+          ready={canLeaveTable}
+          onClose={() => setCsvFile(undefined)}
+          onCreated={onTableCreated}
+          onAppend={(next) => {
+            setWorkspace(next);
+            setActiveRowId(next.rows.at(-1)?.id ?? '');
+            setSelectedRowIds([]);
+            setFilter('All');
+            setActiveSavedViewId('');
+            setQuery('');
+            setNotice(
+              `${next.rows.length - workspace.rows.length} CSV rows added. Existing rows and recipes are unchanged.`,
+            );
+          }}
+        />
+      ) : null}
       {catalogCategory ? (
         <ProviderCatalog
           initialCategory={catalogCategory}
@@ -6585,8 +6522,8 @@ export default function PomadeWorkspace({
           <DialogHeader>
             <DialogTitle>Load data</DialogTitle>
             <DialogDescription>
-              Preview contacts, companies, accounts or leads before importing
-              them. This action only reads the CRM.
+              Preview a CSV or choose contacts, companies, accounts or leads
+              from your CRM. Nothing changes until you import.
             </DialogDescription>
           </DialogHeader>
           <ProviderAccounts active={sourcesOpen} />

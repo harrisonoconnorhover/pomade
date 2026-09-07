@@ -1093,3 +1093,7 @@ Use Glide's real trailing element for the permanent Add column rail. It is inter
 ## 2026-09-07 night shift: Reliable setup before provider access
 
 Provider drafts can be saved using known presets even when the connection check fails. Custom requests still need a recognized connection. Repeated lookup actions receive distinct bounded IDs and names. Switching between email and phone clears incompatible verifiers; adding a compatible fallback preserves the chain's acceptance rule. Manual CRM refresh uses saved settings rather than cancelled form drafts. An empty CRM preview can be saved as a refresh source while retaining existing rows.
+
+## 2026-09-07 night shift: Previewed CSV imports
+
+Selecting a CSV opens a preview rather than overwriting the active sheet. New sheet is the default; appending requires explicit column mapping and preserves existing rows, recipes and source configuration. File/row/column limits and malformed rows are checked before mutation; new-sheet creation revalidates at the server boundary. CSV Status remains separate from run status. Imports support a 2 MB file, 5,000 rows and 99 CSV fields plus run status. Appends pause an active recipe schedule so new records cannot silently expand external work. Exports use an ordered cell matrix so duplicate display headers and hidden fields do not lose values.
