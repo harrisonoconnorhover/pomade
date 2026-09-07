@@ -59,6 +59,8 @@ import CsvImportDialog from '@/components/csv-import-dialog';
 import CsvExportDialog from '@/components/csv-export-dialog';
 import RunScopePicker from '@/components/run-scope-picker';
 import { runBudget } from '@/lib/run-budget';
+import { runJobLocksWorkspace } from '@/lib/run-job';
+import { reconcileWorkspaceUpdate } from '@/lib/workspace-merge';
 import { applyGridEdits, visibleSelection } from '@/lib/grid-edits';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -490,6 +492,9 @@ export default function PomadeWorkspace({
   const [activeRowId, setActiveRowId] = useState('sample-1');
   const [selectedRowStateIds, setSelectedRowIds] = useState<string[]>([]);
   const [runHistory, setRunHistory] = useState<RunReceipt[]>([]);
+  const [historyError, setHistoryError] = useState('');
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyRevision, setHistoryRevision] = useState(0);
   const [latestRun, setLatestRun] = useState<RunReceipt>();
   const [receiptRun, setReceiptRun] = useState<RunReceipt>();
   const [saveState, setSaveState] = useState<SaveState>('Loading');
@@ -754,19 +759,12 @@ export default function PomadeWorkspace({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      fetch(workspaceUrl).then((response) => {
+    fetch(workspaceUrl)
+      .then((response) => {
         if (!response.ok) throw new Error('Workspace failed to load');
         return response.json() as Promise<{ workspace: WorkspaceSnapshot }>;
-      }),
-      fetch(`/api/runs?workspaceId=${encodeURIComponent(workspaceId)}`).then(
-        (response) => {
-          if (!response.ok) throw new Error('Runs failed to load');
-          return response.json() as Promise<{ runs: RunReceipt[] }>;
-        },
-      ),
-    ])
-      .then(([workspaceResponse, runsResponse]) => {
+      })
+      .then((workspaceResponse) => {
         if (cancelled) return;
         setSidebarOpen(window.innerWidth >= 1000);
         try {
@@ -787,8 +785,6 @@ export default function PomadeWorkspace({
         );
         if (initialRowId && !focused)
           setNotice('The linked source row no longer exists.');
-        setRunHistory(runsResponse.runs);
-        setLatestRun(runsResponse.runs[0]);
         setSaveState('Saved');
         hydrated.current = true;
       })
@@ -801,6 +797,49 @@ export default function PomadeWorkspace({
       cancelled = true;
     };
   }, [workspaceUrl, workspaceId, initialRowId]);
+
+  // History is optional; an outage must not block a healthy saved sheet.
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(`/api/runs?workspaceId=${encodeURIComponent(workspaceId)}`, {
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+    })
+      .then(async (response) => {
+        if (!response.ok)
+          throw new Error(
+            'Run history is unavailable. Your sheet is still usable.',
+          );
+        const data = (await response.json()) as { runs: RunReceipt[] };
+        if (controller.signal.aborted) return;
+        setHistoryError('');
+        setRunHistory((current) =>
+          [
+            ...new Map(
+              [...current, ...data.runs].map((run) => [run.id, run]),
+            ).values(),
+          ]
+            .sort((a, b) => b.finishedAt - a.finishedAt)
+            .slice(0, 10),
+        );
+        setLatestRun((current) =>
+          current && current.finishedAt > (data.runs[0]?.finishedAt ?? 0)
+            ? current
+            : data.runs[0],
+        );
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted)
+          setHistoryError(
+            error instanceof Error
+              ? error.message
+              : 'Run history is unavailable.',
+          );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setHistoryLoading(false);
+      });
+    return () => controller.abort();
+  }, [workspaceId, historyRevision]);
 
   // Provider readiness must not hold up loading or editing the saved table.
   useEffect(() => {
@@ -893,24 +932,34 @@ export default function PomadeWorkspace({
           jobRevision.current > 0 && newestRevision > jobRevision.current;
         jobRevision.current = newestRevision;
         setRunJobs(result.jobs);
-        if (changed) {
-          const [workspaceResponse, runsResponse] = await Promise.all([
-            fetch(workspaceUrl),
-            fetch(`/api/runs?workspaceId=${encodeURIComponent(workspaceId)}`),
-          ]);
-          if (cancelled || !workspaceResponse.ok || !runsResponse.ok) return;
-          const workspaceResult = (await workspaceResponse.json()) as {
+        if (changed && hydrated.current && lastSaved.current) {
+          const response = await fetch(workspaceUrl);
+          if (cancelled || !response.ok) return;
+          const data = (await response.json()) as {
             workspace: WorkspaceSnapshot;
           };
-          const runsResult = (await runsResponse.json()) as {
-            runs: RunReceipt[];
-          };
           if (cancelled) return;
-          setSavedWorkspace(workspaceResult.workspace);
-          setWorkspace(workspaceResult.workspace);
-          setRunHistory(runsResult.runs);
-          setLatestRun(runsResult.runs[0]);
-          setSaveState('Saved');
+          try {
+            const next = reconcileWorkspaceUpdate(
+              lastSaved.current,
+              latestLocal.current,
+              data.workspace,
+            );
+            lastSaved.current = next.saved;
+            latestLocal.current = next.workspace;
+            setSavedWorkspace(next.saved);
+            setWorkspace(next.workspace);
+            setSaveState(next.workspace === next.saved ? 'Saved' : 'Saving');
+          } catch (error) {
+            setSaveState('Offline');
+            setNotice(
+              error instanceof Error
+                ? error.message
+                : 'Keep this tab open to preserve unsaved edits.',
+            );
+          }
+          setHistoryLoading(true);
+          setHistoryRevision((value) => value + 1);
         }
       } catch {
         // Background polling is best-effort; the workspace remains usable.
@@ -1180,10 +1229,7 @@ export default function PomadeWorkspace({
     apolloRunning ||
     jobSaving ||
     restoringVersionId ||
-    (currentRunJob &&
-      (currentRunJob.status === 'queued' ||
-        currentRunJob.status === 'running' ||
-        (currentRunJob.status === 'paused' && currentRunJob.leaseUntil))),
+    runJobLocksWorkspace(currentRunJob),
   );
   const scheduledTargetRows =
     scheduleTarget === 'selected'
@@ -2199,6 +2245,12 @@ export default function PomadeWorkspace({
 
   async function restoreWorkspaceVersion(version: WorkspaceVersionSummary) {
     if (restoringVersionId || jobLocksWorkspace) return;
+    if (!canLeaveTable) {
+      setVersionsError(
+        'Finish saving your changes before restoring. Close this dialog and use Retry save if needed.',
+      );
+      return;
+    }
     if (
       !window.confirm(
         `Restore the ${runTime(version.createdAt)} version? Your current table will be kept as a recoverable version.`,
@@ -2992,7 +3044,10 @@ export default function PomadeWorkspace({
               type="button"
               onClick={() => setHistoryOpen(true)}
             >
-              <History /> Run history <span>{runHistory.length}</span>
+              <History /> Run history{' '}
+              <span title={historyError || undefined}>
+                {historyError ? '!' : runHistory.length}
+              </span>
             </button>
             <button
               className="nav-item"
@@ -5559,7 +5614,7 @@ export default function PomadeWorkspace({
                 : 'Only local recipes are selected. These run inside Pomade without provider requests.'}
               {effectiveRunMode === 'background' &&
                 (deployment.hosted
-                  ? ' Background jobs continue on your hosted workspace; Codex research also needs its local companion.'
+                  ? ' Hosted runs advance while Pomade is open or its companion is connected. ChatGPT research also needs the Mac research helper.'
                   : ' Background jobs continue while Pomade’s local server is running.')}
             </DialogDescription>
           </DialogHeader>
@@ -6382,6 +6437,29 @@ export default function PomadeWorkspace({
               The latest ten immutable receipts for this workspace.
             </DialogDescription>
           </DialogHeader>
+          <div className="history-load-status">
+            {historyError ? (
+              <p role="alert">{historyError}</p>
+            ) : (
+              <p>
+                {historyLoading
+                  ? 'Loading run history…'
+                  : 'Receipts saved with this sheet.'}
+              </p>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={historyLoading}
+              onClick={() => {
+                setHistoryLoading(true);
+                setHistoryError('');
+                setHistoryRevision((value) => value + 1);
+              }}
+            >
+              {historyError ? 'Retry run history' : 'Refresh run history'}
+            </Button>
+          </div>
           <div className="usage-summary">
             <div>
               <span>Total actions</span>
@@ -6457,10 +6535,19 @@ export default function PomadeWorkspace({
             ) : (
               <div className="history-empty">
                 <History />
-                <strong>No runs yet</strong>
+                <strong>
+                  {historyLoading
+                    ? 'Loading receipts…'
+                    : historyError
+                      ? 'Receipts are temporarily unavailable'
+                      : 'No runs yet'}
+                </strong>
                 <span>
-                  Add a recipe column and run the grid to create the first
-                  receipt.
+                  {historyError
+                    ? 'Retry above. Your saved rows and recipes remain available.'
+                    : historyLoading
+                      ? 'Your sheet is ready while receipts load.'
+                      : 'Add a recipe column and run the grid to create the first receipt.'}
                 </span>
               </div>
             )}
@@ -6478,6 +6565,12 @@ export default function PomadeWorkspace({
             </DialogDescription>
           </DialogHeader>
           <div className="version-history-body">
+            {!canLeaveTable && !restoringVersionId ? (
+              <p className="versions-error">
+                Finish saving your changes before restoring. Close this dialog
+                and use Retry save if needed.
+              </p>
+            ) : null}
             {versionsError ? (
               <p className="versions-error">{versionsError}</p>
             ) : null}
@@ -6504,7 +6597,7 @@ export default function PomadeWorkspace({
                     <Button
                       variant="outline"
                       onClick={() => void restoreWorkspaceVersion(version)}
-                      disabled={Boolean(restoringVersionId)}
+                      disabled={Boolean(restoringVersionId) || !canLeaveTable}
                     >
                       {restoringVersionId === version.id ? (
                         <LoaderCircle className="spin" />

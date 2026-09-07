@@ -1109,3 +1109,9 @@ Selecting a CSV opens a preview rather than overwriting the active sheet. New sh
 - UI and API share provider-submission ceilings: 10 immediate, 50 per background job, 10 per background row, and 100 background rows. Finder/verifier/fallback steps count separately. Selected asynchronous providers keep background mode mandatory.
 - Unknown or failed connection checks no longer claim a provider is ready. Recheck recovers in place. Local-only runs send no external-provider confirmation.
 - Sixteen focused tests and eight browser checks passed, including an actual eleven-row local formula run, saved results after reload, connection-check failure/recovery, and the mobile run dialog.
+
+### 2026-09-07 — Preserve usable sheets during partial failures
+- Load run history separately from the saved sheet, with an independent retry. Job polling merges newer server results into unsaved cells, ignores stale snapshots, and leaves real conflicts visible without replacing local data.
+- Paused runs lock editing only while an in-flight lease is still valid. Version restore waits for successfully saved edits so the existing backup promise remains true.
+- Hosted execution copy describes observed wakeups: Pomade polling or a connected companion advances jobs; ChatGPT research needs its Mac helper.
+- Ten focused tests and eight browser resilience checks passed. Seven additional CRM browser checks confirmed empty-segment save, row/recipe preservation, and manual refresh using saved settings; CRM responses were mocked and no external CRM writes occurred.

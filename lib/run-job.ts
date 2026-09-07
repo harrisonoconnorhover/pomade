@@ -47,3 +47,12 @@ export function canPauseRunJob(job: RunJob) {
 export function canResumeRunJob(job: RunJob) {
   return job.status === 'paused' || job.status === 'failed';
 }
+
+export function runJobLocksWorkspace(job?: RunJob, now = Date.now()) {
+  return Boolean(
+    job &&
+    (job.status === 'queued' ||
+      job.status === 'running' ||
+      (job.status === 'paused' && (job.leaseUntil ?? 0) > now)),
+  );
+}

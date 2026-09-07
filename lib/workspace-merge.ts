@@ -64,3 +64,18 @@ export function mergeWorkspaceEdits(
   ) as WorkspaceSnapshot;
   return { ...result, revision: remote.revision ?? 0, updatedAt: Date.now() };
 }
+
+// Polls may finish after a newer save. Never move the saved baseline backward.
+export function reconcileWorkspaceUpdate(
+  base: WorkspaceSnapshot,
+  local: WorkspaceSnapshot,
+  remote: WorkspaceSnapshot,
+) {
+  if (base.id !== local.id || base.id !== remote.id)
+    throw new Error('Table mismatch.');
+  if ((remote.revision ?? 0) < (base.revision ?? 0))
+    return { saved: base, workspace: local };
+  if (local === base || same(local, base))
+    return { saved: remote, workspace: remote };
+  return { saved: remote, workspace: mergeWorkspaceEdits(base, local, remote) };
+}

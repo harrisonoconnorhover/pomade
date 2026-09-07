@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { createTable } from './workbook';
-import { mergeWorkspaceEdits } from './workspace-merge';
+import {
+  mergeWorkspaceEdits,
+  reconcileWorkspaceUpdate,
+} from './workspace-merge';
 const base = () => ({
   ...createTable({ id: 't', name: 'Table', mode: 'empty' }),
   rows: [{ id: 'a', values: { company: 'Old', domain: 'old.test' } }],
@@ -52,5 +55,37 @@ describe('concurrent table edits', () => {
     expect(mergeWorkspaceEdits(b, l, r).rows.map((row) => row.id)).toEqual([
       'new',
     ]);
+  });
+  it('keeps unsaved cells while accepting a newer job result as the baseline', () => {
+    const b = base(),
+      l = structuredClone(b),
+      r = structuredClone(b);
+    l.rows[0].values.company = 'Unsaved company';
+    r.rows[0].values.domain = 'job-result.test';
+    r.revision = 2;
+    const result = reconcileWorkspaceUpdate(b, l, r);
+    expect(result.saved).toBe(r);
+    expect(result.workspace.rows[0].values).toEqual({
+      company: 'Unsaved company',
+      domain: 'job-result.test',
+    });
+    expect(result.workspace).not.toBe(result.saved);
+    expect(reconcileWorkspaceUpdate(b, b, r).workspace).toBe(r);
+  });
+  it('ignores a poll older than a completed save and preserves conflicts', () => {
+    const b = base(),
+      l = structuredClone(b),
+      r = structuredClone(b);
+    b.revision = 3;
+    r.revision = 2;
+    l.rows[0].values.company = 'Local';
+    expect(reconcileWorkspaceUpdate(b, l, r)).toEqual({
+      saved: b,
+      workspace: l,
+    });
+    r.revision = 4;
+    r.rows[0].values.company = 'Other edit';
+    expect(() => reconcileWorkspaceUpdate(b, l, r)).toThrow('Save conflict');
+    expect(l.rows[0].values.company).toBe('Local');
   });
 });

@@ -1,3 +1,4 @@
+import { runJobLocksWorkspace } from './run-job';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -61,4 +62,21 @@ describe('background run jobs', () => {
       }),
     ).toThrow('between 1 and 100 rows');
   });
+});
+
+it('unlocks an interrupted paused run after its lease expires', () => {
+  const job = createRunJob({
+    id: 'lease',
+    workspaceId: 'w',
+    rowIds: ['a'],
+    confirmExternalResearch: false,
+    now: 1,
+  });
+  expect(
+    runJobLocksWorkspace({ ...job, status: 'paused', leaseUntil: 200 }, 100),
+  ).toBe(true);
+  expect(
+    runJobLocksWorkspace({ ...job, status: 'paused', leaseUntil: 200 }, 201),
+  ).toBe(false);
+  expect(runJobLocksWorkspace(job, 201)).toBe(true);
 });

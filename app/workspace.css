@@ -1771,3 +1771,7 @@
 @media(max-width: 500px) { .run-scope-heading { align-items: flex-start; } .run-scope-heading strong small { display: block; margin: 3px 0 0; } }
 
 .research-confirm-dialog .research-confirm-actions { position: sticky; bottom: -16px; background: #fff; padding: 12px 0; border-top: 1px solid #e2e8e3; z-index: 1; }
+
+.history-load-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #66736b; font-size: 12px; }
+.history-load-status p[role='alert'] { color: #9a541f; }
+.history-load-status button { flex-shrink: 0; }
