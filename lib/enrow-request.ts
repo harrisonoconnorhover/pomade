@@ -1,4 +1,4 @@
-import type { WaterfallProgress } from '../db/waterfall-progress';
+import type { AsyncProviderContext } from './async-provider';
 import {
   EnrowPendingError,
   EnrowSubmissionUnknownError,
@@ -8,11 +8,9 @@ import {
   ENROW_WAIT_WINDOW_MS,
 } from './enrow';
 
-export type EnrowContext = { progress: WaterfallProgress; index: number };
-
 export async function executeEnrowRequest(
   request: { url: string; init: RequestInit },
-  context: EnrowContext,
+  context: AsyncProviderContext,
   send: (url: string, init: RequestInit) => Promise<Response>,
   readJson: (response: Response) => Promise<unknown>,
 ) {

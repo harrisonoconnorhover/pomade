@@ -1,4 +1,4 @@
-import { hasAsyncProvider } from './lib/enrow';
+import { hasAsyncProvider } from './lib/async-provider';
 import { withEnv } from 'cloudflare:workers';
 import {
   accountsEnabled,
@@ -147,7 +147,7 @@ export async function runDueSchedules(
         )
       )
         throw new Error(
-          'Enrow recipes need a background or workbook run. Single-pass schedules cannot wait for their results.',
+          'Asynchronous provider recipes need a background or workbook run. Single-pass schedules cannot wait for their results.',
         );
       const source = claimed.schedule?.beforeRunSource;
       if (source) {

@@ -6,6 +6,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
 
+const provider = process.argv[2] ?? 'enrow';
+assert.ok(['enrow', 'fullenrich'].includes(provider));
+const fullEnrich = provider === 'fullenrich';
+const vendorHost = fullEnrich ? 'app.fullenrich.com' : 'api.enrow.io';
+const vendorPath = fullEnrich ? '/api/v2/contact/enrich/bulk' : '/email/find/single';
+const resultPath = vendorPath + (fullEnrich ? '/saved-search-1' : '');
+const vendorBody = fullEnrich ? { name: 'Pomade contact lookup', data: [{
+  first_name: '{{first_name}}', last_name: '{{last_name}}', domain: '{{domain}}', enrich_fields: ['contact.work_emails'],
+}] } : { fullname: '{{person}}', company_domain: '{{domain}}' };
+let custom;
 const stateDir = mkdtempSync(join(tmpdir(), 'pomade-enrow-worker-'));
 const calls = [];
 let resultChecks = 0;
@@ -20,6 +30,7 @@ const options = {
   d1Databases: ['DB'], resourcePersistencePath: stateDir,
   bindings: {
     ENROW_API_KEY: 'synthetic-key',
+    FULLENRICH_API_KEY: 'synthetic-key',
     POMADE_HTTP_CONNECTIONS: JSON.stringify({
       fixture: { origin: 'https://fixture.test', methods: ['GET'], headers: {} },
     }),
@@ -36,15 +47,28 @@ const options = {
         return Response.json({ value: 'Downstream received accepted email' });
       }
     }
-    if (url.hostname === 'api.enrow.io' && url.pathname === '/email/find/single') {
-      assert.equal(request.headers.get('x-api-key'), 'synthetic-key');
+    if (url.hostname === vendorHost && [vendorPath, resultPath].includes(url.pathname)) {
+      assert.equal(request.headers.get(fullEnrich ? 'Authorization' : 'x-api-key'), fullEnrich ? 'Bearer synthetic-key' : 'synthetic-key');
       if (request.method === 'POST') {
-        assert.deepEqual(await request.json(), { fullname: 'Ada Example', company_domain: 'example.test' });
+        const body = await request.json();
+        if (fullEnrich) {
+          custom = body.data[0].custom;
+          assert.equal(typeof custom.pomade_request, 'string');
+          assert.deepEqual(body.data[0], { first_name: 'Ada', last_name: 'Example', domain: 'example.test', enrich_fields: ['contact.work_emails'], custom });
+          return Response.json({ enrichment_id: 'saved-search-1' });
+        }
+        assert.deepEqual(body, { fullname: 'Ada Example', company_domain: 'example.test' });
         return Response.json({ id: 'saved-search-1', credits_used: 1 });
       }
+      ++resultChecks;
+      if (fullEnrich) {
+        assert.equal(url.pathname, resultPath);
+        assert.equal(url.search, '');
+        return Response.json({ id: 'saved-search-1', status: resultChecks === 1 ? 'IN_PROGRESS' : 'FINISHED',
+          cost: { credits: 0 }, data: [{ custom, contact_info: {} }] });
+      }
       assert.equal(url.searchParams.get('id'), 'saved-search-1');
-      return ++resultChecks === 1
-        ? Response.json({ qualification: 'ongoing' }, { status: 202 })
+      return resultChecks === 1 ? Response.json({ qualification: 'ongoing' }, { status: 202 })
         : Response.json({ qualification: 'invalid' });
     }
     throw new Error('Unexpected outbound request blocked: ' + request.url);
@@ -79,17 +103,17 @@ try {
   });
   const step = path => ({ connectionId: 'fixture', method: 'GET', pathTemplate: path,
     responsePath: 'email', verification: { path: 'status', acceptedValues: ['valid'] } });
-  w.columns = ['company', 'person', 'domain'].map(id => ({ id, title: id, kind: 'text', width: 180 }));
+  w.columns = ['company', 'person', 'domain', 'first_name', 'last_name'].map(id => ({ id, title: id, kind: 'text', width: 180 }));
   w.columns.push(httpColumn('before', '/before'), {
     id: 'email', title: 'Email waterfall', kind: 'enrichment', recipe: 'http-waterfall', width: 180,
     providerWaterfall: {
-      steps: [step('/first'), { connectionId: 'pomade_enrow', method: 'POST',
-        pathTemplate: '/email/find/single', bodyTemplate: JSON.stringify({ fullname: '{{person}}', company_domain: '{{domain}}' }),
-        responsePath: 'email', verification: { path: 'qualification', acceptedValues: ['valid'] } }, step('/last')],
+      steps: [step('/first'), { connectionId: 'pomade_' + provider, method: 'POST',
+        pathTemplate: vendorPath, bodyTemplate: JSON.stringify(vendorBody),
+        responsePath: fullEnrich ? 'pomade.email.email' : 'email', verification: { path: fullEnrich ? 'pomade.email.status' : 'qualification', acceptedValues: [fullEnrich ? 'DELIVERABLE' : 'valid'] } }, step('/last')],
       accept: 'verified-email', continueOnError: false, winnerColumnId: 'provider', statusColumnId: 'email_status',
     },
   }, httpColumn('after', '/after?email={{email}}'));
-  w.rows = [{ id: 'row', values: { company: 'Example', person: 'Ada Example', domain: 'example.test' } }];
+  w.rows = [{ id: 'row', values: { company: 'Example', person: 'Ada Example', first_name: 'Ada', last_name: 'Example', domain: 'example.test' } }];
   await api('/api/workspace?workspaceId=' + id, { workspace: w }, 'PUT');
   const stored = (await api('/api/workspace?workspaceId=' + id)).workspace;
   await api('/api/runs', { workspace: stored, rowIds: ['row'], confirmExternalResearch: true }, 'POST', 409);
@@ -100,7 +124,7 @@ try {
   assert.equal(progress.status, 'queued');
   assert.equal(progress.cursor, 0);
   assert.deepEqual(JSON.parse(progress.resume_column_ids), ['email', 'after']);
-  assert.deepEqual(calls, ['GET fixture.test/before', 'GET fixture.test/first', 'POST api.enrow.io/email/find/single']);
+  assert.deepEqual(calls, ['GET fixture.test/before', 'GET fixture.test/first', 'POST ' + vendorHost + vendorPath]);
   assert.match((await db.prepare('SELECT state FROM waterfall_progress').first()).state, /saved-search-1/);
   await api('/api/jobs', { action: 'pause', jobId: job.id }, 'PATCH');
   await tick();
@@ -109,6 +133,7 @@ try {
   mf = new Miniflare(convertV4MiniflareOptions(options));
   db = await mf.getD1Database('DB');
   await api('/api/jobs', { action: 'resume', jobId: job.id }, 'PATCH');
+  if (fullEnrich) { await tick(); assert.equal(resultChecks, 0); }
   await allowPoll(db); await tick();
   assert.equal(resultChecks, 1);
   assert.equal(calls.length, 4);
@@ -121,11 +146,11 @@ try {
   assert.equal(final.after, 'Downstream received accepted email');
   assert.equal(final.before, 'Earlier action completed');
   assert.deepEqual(calls, [
-    'GET fixture.test/before', 'GET fixture.test/first', 'POST api.enrow.io/email/find/single',
-    'GET api.enrow.io/email/find/single', 'GET api.enrow.io/email/find/single',
+    'GET fixture.test/before', 'GET fixture.test/first', 'POST ' + vendorHost + vendorPath,
+    'GET ' + vendorHost + resultPath, 'GET ' + vendorHost + resultPath,
     'GET fixture.test/last', 'GET fixture.test/after',
   ]);
-  console.log('PASS: real Worker/D1, immediate-run refusal, queued submit, pending pipeline, pause, process restart, saved-ID polling, prior-step reuse, completed-miss fallback and downstream execution. No live network requests.');
+  console.log(provider + ' PASS: real Worker/D1, immediate-run refusal, queued submit, pending pipeline, pause, process restart, saved-ID polling, prior-step reuse, completed-miss fallback and downstream execution. No live network requests.');
 } finally {
   await mf.dispose();
   rmSync(stateDir, { recursive: true, force: true });

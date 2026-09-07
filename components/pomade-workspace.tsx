@@ -1,6 +1,6 @@
 'use client';
 
-import { hasAsyncProvider } from '@/lib/enrow';
+import { hasAsyncProvider } from '@/lib/async-provider';
 
 import {
   RESEARCH_RECIPES,
@@ -1123,7 +1123,7 @@ export default function PomadeWorkspace({
     : webResearchColumns;
   if (scheduledExternalColumns.some(hasAsyncProvider))
     scheduleScopeError =
-      'Enrow needs a background or workbook run so it can wait for results. Single-pass schedules are not supported yet.';
+      'Asynchronous providers need a background or workbook run so they can wait for results. Single-pass schedules are not supported yet.';
   const scheduledResearchActionCount = countMaximumExternalActions(
     scheduleSourceEnabled && workspace.apiSourceRefresh
       ? [
@@ -4745,11 +4745,11 @@ export default function PomadeWorkspace({
           </p>
           {pendingWebResearchColumns.some(hasAsyncProvider) && (
             <p className="research-safety">
-              Enrow also needs status checks after each submission. Pomade saves
-              its search ID, waits without starting fallback providers, and
-              resumes automatically. Enrow does not charge credits for these
-              result checks. After 30 minutes of waiting, use Resume to keep
-              checking the same search.
+              These providers return results later. Pomade saves each request ID
+              and waits before trying fallback providers. FullEnrich checks are
+              spaced five minutes apart; Enrow checks use shorter intervals.
+              FullEnrich reports enrichment credits with its results. After 30
+              minutes of waiting, use Resume to check the same request.
             </p>
           )}
           <div className="research-confirm-actions">

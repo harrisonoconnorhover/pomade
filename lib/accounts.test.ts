@@ -221,6 +221,7 @@ describe('private accounts', () => {
     ['upcell', 'UPCELL_API_KEY'],
     ['bounceban', 'BOUNCEBAN_API_KEY'],
     ['enrow', 'ENROW_API_KEY'],
+    ['fullenrich', 'FULLENRICH_API_KEY'],
   ])(
     'isolates %s through save and disconnect without owner fallback',
     async (provider, key) => {

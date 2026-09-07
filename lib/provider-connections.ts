@@ -1,3 +1,4 @@
+import { FULLENRICH_CONNECTION } from './fullenrich';
 import { ENROW_CONNECTION } from './enrow';
 import { httpConnections, type HttpConnection } from './http-enrichment';
 import {
@@ -27,12 +28,14 @@ export function configuredHttpConnections(env: {
   UPCELL_API_KEY?: string;
   BOUNCEBAN_API_KEY?: string;
   ENROW_API_KEY?: string;
+  FULLENRICH_API_KEY?: string;
   PROSPEO_API_KEY?: string;
   PDL_API_KEY?: string;
 }): HttpConnection[] {
   const custom = httpConnections(env.POMADE_HTTP_CONNECTIONS);
   const reserved = [
     ENROW_CONNECTION,
+    FULLENRICH_CONNECTION,
     LEADMAGIC_CONNECTION,
     FINDYMAIL_CONNECTION,
     ZEROBOUNCE_CONNECTION,
@@ -52,6 +55,14 @@ export function configuredHttpConnections(env: {
       'Built-in provider connection IDs are reserved. Rename the custom connection.',
     );
   const connections: HttpConnection[] = [...custom];
+  if (env.FULLENRICH_API_KEY?.trim())
+    connections.push({
+      id: FULLENRICH_CONNECTION,
+      label: 'FullEnrich',
+      origin: 'https://app.fullenrich.com',
+      methods: ['GET', 'POST'],
+      headers: { Authorization: `Bearer ${env.FULLENRICH_API_KEY.trim()}` },
+    });
   if (env.ENROW_API_KEY?.trim())
     connections.push({
       id: ENROW_CONNECTION,

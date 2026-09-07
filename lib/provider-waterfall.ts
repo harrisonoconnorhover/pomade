@@ -1,4 +1,4 @@
-import { ENROW_CONNECTION, hasAsyncProvider } from './enrow';
+import { ASYNC_PROVIDER_CONNECTIONS, hasAsyncProvider } from './async-provider';
 import { WaterfallProgress } from '../db/waterfall-progress';
 import {
   executeHttpRecipe,
@@ -137,10 +137,14 @@ export async function executeProviderWaterfall(
   if (
     asynchronous &&
     !execution &&
-    connections.some((c) => c.id === ENROW_CONNECTION)
+    config.steps.some(
+      (step) =>
+        ASYNC_PROVIDER_CONNECTIONS.includes(step.connectionId) &&
+        connections.some((c) => c.id === step.connectionId),
+    )
   )
     throw new Error(
-      'Run Enrow in the background so its search ID can be saved and resumed.',
+      'Run asynchronous providers in the background so their request IDs can be saved and resumed.',
     );
   const progress =
     asynchronous && execution
@@ -292,7 +296,7 @@ export async function executeProviderWaterfall(
       : winner,
     [config.statusColumnId]: pending
       ? (attempts.at(-1)?.outputValues?.[config.statusColumnId] ??
-        'Waiting for Enrow')
+        'Waiting for provider results')
       : winner
         ? `Accepted after ${attempts.length} ${attempts.length === 1 ? 'attempt' : 'attempts'}`
         : stoppedEarly

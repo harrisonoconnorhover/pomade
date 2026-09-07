@@ -1,9 +1,14 @@
+import { ENROW_CONNECTION } from './enrow';
+import { FULLENRICH_CONNECTION } from './fullenrich';
 import {
-  ENROW_CONNECTION,
-  EnrowPendingError,
-  EnrowSubmissionUnknownError,
-} from './enrow';
-import { executeEnrowRequest, type EnrowContext } from './enrow-request';
+  ASYNC_PROVIDER_CONNECTIONS,
+  ProviderPendingError,
+  ProviderSubmissionUnknownError,
+  ProviderResultError,
+  type AsyncProviderContext,
+} from './async-provider';
+import { executeEnrowRequest } from './enrow-request';
+import { executeFullEnrichRequest } from './fullenrich-request';
 import {
   normalizeContactProviderResponse,
   validateContactProviderRequest,
@@ -356,7 +361,7 @@ export async function executeHttpRecipe(
   column: PomadeColumn,
   connections: HttpConnection[],
   fetchImpl: typeof fetch = fetch,
-  enrowContext?: EnrowContext,
+  asyncContext?: AsyncProviderContext,
 ) {
   const row = workspace.rows.find((candidate) => candidate.id === rowId);
   const config = column.http;
@@ -380,24 +385,36 @@ export async function executeHttpRecipe(
     const request = prepareHttpRequest(column, row, connection);
     let data: unknown;
     let providerMiss = false;
-    if (connection.id === ENROW_CONNECTION) {
-      if (!enrowContext)
+    if (ASYNC_PROVIDER_CONNECTIONS.includes(connection.id)) {
+      if (!asyncContext)
         throw new Error(
-          'Run Enrow in the background so its search ID can be saved and resumed.',
+          'Run asynchronous providers in the background so their request IDs can be saved and resumed.',
         );
-      data = await executeEnrowRequest(
-        request,
-        enrowContext,
-        async (url, init) => {
-          sent = true;
-          return fetchImpl(url, {
-            ...init,
-            signal: AbortSignal.timeout(connection.requestTimeoutMs ?? 15_000),
-          });
-        },
-        boundedJson,
-      );
-      credits = 0; // Only the submit response reports charged credits; result GETs are free.
+      const send = async (url: string, init: RequestInit) => {
+        sent = true;
+        return fetchImpl(url, {
+          ...init,
+          signal: AbortSignal.timeout(connection.requestTimeoutMs ?? 15_000),
+        });
+      };
+      if (connection.id === FULLENRICH_CONNECTION) {
+        const result = await executeFullEnrichRequest(
+          request,
+          asyncContext,
+          send,
+          boundedJson,
+        );
+        data = result.data;
+        credits = result.credits;
+      } else {
+        data = await executeEnrowRequest(
+          request,
+          asyncContext,
+          send,
+          boundedJson,
+        );
+        credits = 0; // Enrow reports charged credits on submission, not result GETs.
+      }
     } else {
       let response: Response;
       if (connection.requestDelayMs)
@@ -518,20 +535,22 @@ export async function executeHttpRecipe(
       status = `Missing response fields: ${missing.join(', ')}`;
   } catch (error) {
     status = error instanceof Error ? error.message : 'HTTP request failed.';
-    pending = error instanceof EnrowPendingError;
+    pending = error instanceof ProviderPendingError;
     stopWaterfall =
-      error instanceof EnrowSubmissionUnknownError ||
-      enrowContext?.progress.state.requests[enrowContext.index]?.phase ===
+      error instanceof ProviderSubmissionUnknownError ||
+      error instanceof ProviderResultError ||
+      asyncContext?.progress.state.requests[asyncContext.index]?.phase ===
         'submitting';
     if (pending) {
-      credits = (error as EnrowPendingError).credits;
+      credits = (error as ProviderPendingError).credits;
       for (const output of config.outputs)
         values[output.outputColumnId] = row.values[output.outputColumnId] ?? '';
     } else {
       failure = status;
+      if (error instanceof ProviderResultError) credits = error.credits;
       if (
         connection?.id === ENROW_CONNECTION &&
-        enrowContext?.progress.state.requests[enrowContext.index]?.requestId
+        asyncContext?.progress.state.requests[asyncContext.index]?.requestId
       )
         credits = 0;
     }

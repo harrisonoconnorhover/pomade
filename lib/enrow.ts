@@ -1,4 +1,7 @@
-import type { PomadeColumn } from './pomade-types';
+import {
+  ProviderPendingError,
+  ProviderSubmissionUnknownError,
+} from './async-provider';
 
 export const ENROW_CONNECTION = 'pomade_enrow';
 export const ENROW_PATHS = [
@@ -9,36 +12,10 @@ export const ENROW_PATHS = [
 export const ENROW_POLL_INTERVAL_MS = 15_000;
 export const ENROW_WAIT_WINDOW_MS = 30 * 60_000;
 
-export function hasAsyncProvider(column: PomadeColumn) {
-  return (
-    column.providerWaterfall?.steps.some(
-      (step) => step.connectionId === ENROW_CONNECTION,
-    ) ?? false
-  );
-}
-
-export type EnrowRequest = {
-  phase: 'submitting' | 'waiting';
-  requestId?: string;
-  submittedAt: number;
-  nextPollAt: number;
-  pollCount: number;
-  waitUntil?: number;
-};
-
-export class EnrowPendingError extends Error {
-  constructor(
-    message: string,
-    public credits: number | null = 0,
-  ) {
-    super(message);
-  }
-}
-export class EnrowSubmissionUnknownError extends Error {
+export class EnrowPendingError extends ProviderPendingError {}
+export class EnrowSubmissionUnknownError extends ProviderSubmissionUnknownError {
   constructor() {
-    super(
-      'Enrow may have accepted this lookup, but no search ID was saved. Automatic resubmission is blocked. Check Enrow’s request history before starting a new run.',
-    );
+    super('Enrow');
   }
 }
 

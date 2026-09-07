@@ -38,7 +38,7 @@ lead to the current actions supporting each row.
 | [Wiza](https://www.clay.com/integrations/data-provider/wiza) | Work; personal | Phone | Planned. Verify direct API result retrieval and phone types. |
 | [Forager](https://www.clay.com/integrations/data-provider/forager) | Personal | Mobile | Planned. Public Clay actions show phone and personal email, not work-email discovery. |
 | [ContactOut](https://www.clay.com/integrations/data-provider/contactout) | Personal | Mobile | Work-email, personal-email and phone presets implemented from direct docs. Work email requires its own Verified status. Fixture-tested; live access pending. |
-| [FullEnrich](https://www.clay.com/integrations/data-provider/fullenrich) | Work | Mobile | Planned. Direct enrichment is asynchronous; requires result correlation and callback handling. |
+| [FullEnrich](https://www.clay.com/integrations/data-provider/fullenrich) | Work; personal* | Mobile | Work-email, personal-email and two mobile-quality presets implemented using v2 submit/poll/resume and contact correlation. Synthetic tests only; live API access pending. *Personal email comes from direct FullEnrich documentation. |
 | [BetterContact](https://www.clay.com/integrations/data-provider/bettercontact) | Work | Mobile | Planned. Confirm direct API contracts and result retrieval. |
 | [Upcell](https://www.clay.com/integrations/data-provider/upcell) | — | Mobile | Verified-email and profile-to-mobile presets implemented from direct docs. Mobile is format-only. Fixture-tested; live access pending. |
 | [Firmable](https://www.clay.com/integrations/data-provider/firmable) | Work; personal | Mobile | Planned. Clay actions explicitly target Australia. |
@@ -145,12 +145,21 @@ Direct sources: [current email API](https://leadmagic.io/docs/api-reference/emai
 Use the current `/v1/people/…` routes; the older `docs.leadmagic.io` examples show
 unversioned routes and different status descriptions. No new key or plan purchased.
 
-## Next development order
+## Remaining count and next development order
 
-1. Add [FullEnrich](https://docs.fullenrich.com/api/v2/general/webhooks) using its documented result lifecycle. Enrow now supplies the first durable submit/poll/resume implementation. Apollo phone callbacks still need their own callback contract and handling; a polling adapter does not implement webhooks.
-2. Continue the tracker in provider-sized slices: inspect exact request/response contracts for Dropcontact, Icypeas, Datagma, Wiza, BetterContact, Forager, Firmable, RocketReach, SMARTe, ZoomInfo and Bytemine. Keep placeholders out of the runnable UI. Public marketing alone is not an API contract.
-3. Add the remaining phone type/activity/ownership checks and email verifiers. ClearoutPhone's public API reference could not be read in this run (403/JS-only); obtain the actual schema before coding it. Do not confuse `debounce.cc` with the Clay-listed `debounce.io` service.
-4. Once keys are available, measure extra acceptable matches after earlier providers, real latency, entitlements and credits. The one-to-four step limit is unchanged. Synthetic passing tests do not establish coverage, live billing, or deliverability.
+**13 of 28 distinct providers in the core finder/validator tables have some implemented support; 15 remain.** This counts each provider once, even when it offers both discovery and verification. It excludes the separate related/uncertain list and does not mean every capability or live account is validated. There are now 29 contact presets.
+
+The 11 remaining discovery providers are **Dropcontact, Icypeas, Datagma, Wiza, Forager, BetterContact, Firmable, RocketReach, SMARTe, ZoomInfo and Bytemine**. The four additional validator-only providers are **Debounce, Enrichley, SureConnect and ClearoutPhone**. Icypeas verification is another capability of the same provider, not another vendor.
+
+Continue with **Dropcontact**, then Icypeas, inspecting exact request/response contracts one provider at a time. Keep placeholders out of the runnable UI. ClearoutPhone's public API reference could not be read in the earlier run (403/JS-only); obtain the actual schema before coding it. Do not confuse `debounce.cc` with the Clay-listed `debounce.io` service. Apollo phone callbacks still need their own callback contract; these polling adapters do not implement webhooks.
+
+### Most valuable product improvements next
+
+1. **Find → verify → fallback in one action.** Current independent verifiers need their own columns. Let each finder candidate pass through a chosen verifier and continue to the next finder when verification fails. Preserve the distinction between no match, technical failure and pending results.
+2. **Provider value and credit reporting.** Show extra accepted matches, latency and observed vendor credits by provider. Distinguish unknown costs, pending submissions, saved result checks and cached steps. With keys available, use a small repeatable test set to choose the cheapest useful order; do not infer match rates from synthetic tests.
+3. **Finish background scheduling and run visibility.** Single-pass schedules currently refuse asynchronous providers. Route scheduled workflows through durable jobs, show the next result-check time, and make Resume versus a deliberately fresh lookup clearer.
+
+The existing one-to-four provider step limit is unchanged. Additional capabilities within implemented providers and live account checks remain separate from this vendor count.
 
 ## Implemented provider details
 
@@ -191,3 +200,23 @@ The current API reference documents [email submission](https://docs.enrow.io/api
 Account-scoped progress saves the background job, input/configuration fingerprint, completed waterfall attempts and vendor search ID. Later ticks issue GETs for that ID; an unfinished search never triggers fallback. Known input/auth/credit/rate-limit submission rejections stop by default and allow manual resume. An ambiguous submission stays blocked to prevent duplicate billing. Result-check errors retain the ID for resume. After 30 minutes, the job asks for review and Resume keeps checking the same search. A new job is a deliberate fresh lookup. Regular single-pass schedules cannot use these presets yet; background and workbook runs can.
 
 Email success requires the returned `qualification=valid`; the verifier also checks the returned email against its input. Phone `found` means located, not verified ownership or reachability. Unrecognized statuses and mismatched returned profiles stop for review. `invalid`/`not_found` are completed misses. HTTP 202 or `ongoing` is pending. Receipts distinguish submit credits from uncharged result checks; no hard-coded phone price is claimed because the marketing page and API reference disagree. All behavior has been developed using synthetic records, without a vendor key or live contact request.
+
+## FullEnrich: correlated background enrichment
+
+[FullEnrich v2 submission](https://docs.fullenrich.com/api/v2/contact/enrich/bulk/post) accepts a one-contact batch using first name, last name and company, or a LinkedIn URL. Pomade uses bearer authentication, requests exactly one of work email, personal email or phones, and adds an opaque string correlation tag. The returned enrichment ID and tag are stored in the existing account-scoped waterfall progress. No new database migration, SDK or public callback endpoint is required.
+
+[Result retrieval](https://docs.fullenrich.com/api/v2/contact/enrich/bulk/get) checks the saved ID with `forceResults` left off. CREATED/IN_PROGRESS remain pending; only FINISHED proceeds to matching the submitted contact. CANCELED, CREDITS_INSUFFICIENT, RATE_LIMIT, unknown states and mismatched contact results stop for review. Resume keeps the same request. A lost submission response without an ID is never automatically resubmitted.
+
+The [polling guidance](https://docs.fullenrich.com/api/v2/general/webhooks) requires at least five minutes between checks; FullEnrich's interval is separate from Enrow's shorter interval. The automatic wait window is 30 minutes, then Resume extends checking the original request. Signed webhooks could deliver results sooner in a later slice.
+
+Email presets select a DELIVERABLE address with its own status, never mixing personal and work results or upgrading HIGH_PROBABILITY/CATCH_ALL. The [v2 API schema](https://docs.fullenrich.com/api/v2/reference/openapi.yaml) provides phone line type, activity and optional ownership match. Both mobile presets require MOBILE and international format, excluding known INACTIVE lines and MISMATCH ownership. The stricter option requires ACTIVE plus CONFIRMED on the selected number. Ownership is documented for US/Canada and may be absent elsewhere; the broader mobile preset permits unknown ownership/activity and says so.
+
+FullEnrich's cumulative `cost.credits` is recorded as newly observed credits; rereading a result does not count that total twice. The submission receipt remains unknown-cost until a later result reports the charge. Synthetic contract tests do not prove actual billing, availability or match rates.
+
+For a future live smoke test after connecting a key, [FullEnrich documents a zero-credit fixture](https://docs.fullenrich.com/api/v2/general/credit). It requires the exact inputs below; this fixture has not been run in Pomade:
+
+```json
+{"first_name":"Grégoire","last_name":"Démogé","domain":"fullenrich.com","company_name":"FullEnrich","linkedin_url":"https://www.linkedin.com/in/demoge/"}
+```
+
+The request must still include `name`, one `data` entry and the desired `enrich_fields`. No provider key was created or used for this implementation.

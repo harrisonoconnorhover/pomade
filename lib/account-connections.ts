@@ -24,6 +24,12 @@ const api = (
 });
 export const CONNECTIONS: ConnectionDefinition[] = [
   api(
+    'fullenrich',
+    'FullEnrich',
+    'FULLENRICH_API_KEY',
+    'Background work-email, personal-email and mobile enrichment. Saved requests are checked every five minutes. Tested with sample responses; live API access and billing still need validation.',
+  ),
+  api(
     'enrow',
     'Enrow',
     'ENROW_API_KEY',

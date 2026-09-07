@@ -1,4 +1,4 @@
-import { hasAsyncProvider } from '@/lib/enrow';
+import { hasAsyncProvider } from '@/lib/async-provider';
 import {
   readResearchDefaults,
   readResearchModels,
@@ -231,7 +231,7 @@ export async function POST(request: Request) {
       return Response.json(
         {
           error:
-            'Run Enrow in the background. Scheduled Enrow recipes need a workbook background run.',
+            'Run asynchronous providers in the background. Scheduled asynchronous recipes need a workbook background run.',
         },
         { status: 409 },
       );

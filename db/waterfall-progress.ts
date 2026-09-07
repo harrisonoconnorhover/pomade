@@ -1,10 +1,10 @@
 import { sha256 } from '@/lib/deployment';
 import type { ActionReceipt } from '@/lib/pomade-types';
-import type { EnrowRequest } from '@/lib/enrow';
+import type { AsyncProviderRequest } from '@/lib/async-provider';
 
 type ProgressState = {
   attempts: Record<string, ActionReceipt>;
-  requests: Record<string, EnrowRequest | undefined>;
+  requests: Record<string, AsyncProviderRequest | undefined>;
 };
 
 // Scoped DB comes from the existing account environment. The job ID stays stable
@@ -73,7 +73,7 @@ export class WaterfallProgress {
       );
     this.raw = next;
   }
-  async saveRequest(index: number, request: EnrowRequest | undefined) {
+  async saveRequest(index: number, request: AsyncProviderRequest | undefined) {
     const state = this.state;
     state.requests[index] = request;
     await this.save(state);

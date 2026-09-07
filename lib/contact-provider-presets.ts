@@ -1,3 +1,4 @@
+import { FULLENRICH_CONNECTION, fullEnrichStep } from './fullenrich';
 import { ENROW_CONNECTION } from './enrow';
 import {
   emailProviderStep,
@@ -49,6 +50,49 @@ export type ContactProviderPreset = {
   step: (bindings: ContactBindings) => HttpProviderStep;
 };
 export const CONTACT_PROVIDER_PRESETS: ContactProviderPreset[] = [
+  {
+    id: 'fullenrich-email',
+    label: 'FullEnrich · find verified work email',
+    provider: 'FullEnrich',
+    connectionId: FULLENRICH_CONNECTION,
+    inputs: ['first_name', 'last_name', 'domain'],
+    accept: 'verified-email',
+    note: 'Background lookup with five-minute result checks. Requests work email only and accepts DELIVERABLE for the selected address. Live API access still needs validation.',
+    step: ({ first_name, last_name, domain }) =>
+      fullEnrichStep('work_emails', { first_name, last_name, domain }),
+  },
+  {
+    id: 'fullenrich-personal',
+    label: 'FullEnrich · find verified personal email',
+    provider: 'FullEnrich',
+    connectionId: FULLENRICH_CONNECTION,
+    inputs: ['profile'],
+    accept: 'verified-email',
+    note: 'Requests personal email only, from LinkedIn. Accepts DELIVERABLE only; catch-all and high-probability results are rejected. Checks results every five minutes.',
+    step: ({ profile }) =>
+      fullEnrichStep('personal_emails', { linkedin_url: profile }),
+  },
+  {
+    id: 'fullenrich-mobile',
+    label: 'FullEnrich · find mobile (ownership unverified)',
+    provider: 'FullEnrich',
+    connectionId: FULLENRICH_CONNECTION,
+    inputs: ['profile'],
+    accept: 'phone',
+    note: 'Requests phones only. Requires MOBILE and international format; excludes known inactive lines and ownership mismatches. Unknown activity or ownership can still pass. Five-minute result checks.',
+    step: ({ profile }) => fullEnrichStep('phones', { linkedin_url: profile }),
+  },
+  {
+    id: 'fullenrich-verified-mobile',
+    label: 'FullEnrich · find active mobile with matched owner',
+    provider: 'FullEnrich',
+    connectionId: FULLENRICH_CONNECTION,
+    inputs: ['profile'],
+    accept: 'verified-phone',
+    note: 'Requires MOBILE, ACTIVE and ownership_match=CONFIRMED for the same number. FullEnrich documents ownership checks for US/Canada; missing status fails this rule. Five-minute result checks.',
+    step: ({ profile }) =>
+      fullEnrichStep('phones', { linkedin_url: profile }, true),
+  },
   {
     id: 'enrow-email',
     label: 'Enrow · find verified email',
