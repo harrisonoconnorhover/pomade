@@ -69,7 +69,12 @@ export function findColumnDependencies(
     if (conditionFields(column.runCondition).includes(columnId)) {
       addDependency(dependencies, column.id, column.title, 'run condition');
     }
-    if (column.waterfallSteps?.some((step) => step.field === columnId)) {
+    if (
+      column.waterfallSteps?.some(
+        (step) =>
+          (column.inputBindings?.[step.field] ?? step.field) === columnId,
+      )
+    ) {
       addDependency(dependencies, column.id, column.title, 'waterfall step');
     }
     if (

@@ -6,6 +6,8 @@ import {
   renameWorkspaceColumn,
 } from './column-management';
 import { createSampleWorkspace } from './sample-workspace';
+import { createTable } from './workbook';
+import { executeWorkspace } from './local-recipe-engine';
 
 describe('column management', () => {
   it('renames a column while preserving its stable ID and row values', () => {
@@ -208,5 +210,42 @@ describe('column management', () => {
     expect(child?.values).not.toHaveProperty('opener');
     expect(child).not.toHaveProperty('generatedByColumnId');
     expect(child).not.toHaveProperty('parentRowId');
+  });
+  it('protects the actual input of a remapped waterfall template, not its old field', () => {
+    const workspace = createTable({
+      id: 'remapped',
+      name: 'Remapped',
+      mode: 'empty',
+    });
+    workspace.columns.push(
+      { id: 'apollo_email', title: 'Apollo email', kind: 'text', width: 200 },
+      {
+        id: 'best_email',
+        title: 'Best email',
+        kind: 'formula',
+        recipe: 'waterfall',
+        waterfallSteps: [{ field: 'email', label: 'Found email' }],
+        inputBindings: { email: 'apollo_email' },
+        width: 200,
+      },
+    );
+    workspace.rows = [
+      {
+        id: 'a',
+        values: {
+          email: 'old@example.test',
+          apollo_email: 'actual@example.test',
+          best_email: '',
+          status: '',
+        },
+      },
+    ];
+    expect(findColumnDependencies(workspace, 'email')).toEqual([]);
+    expect(findColumnDependencies(workspace, 'apollo_email')).not.toEqual([]);
+    const result = deleteWorkspaceColumn(workspace, 'email');
+    expect(
+      executeWorkspace(result, ['a']).workspace.rows[0].values.best_email,
+    ).toBe('actual@example.test');
+    expect(() => deleteWorkspaceColumn(result, 'apollo_email')).toThrow();
   });
 });

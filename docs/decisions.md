@@ -1120,3 +1120,7 @@ Selecting a CSV opens a preview rather than overwriting the active sheet. New sh
 - Import/export dialogs and PapaParse now load when opened. The DemandDrive example lives separately from server-side Zod planning validation.
 - Local workbook entry decreased from 677,966 to 505,685 bytes; computed gzip decreased from 196,409 to 144,613 bytes (26.4%). This measures artifacts, not a claimed timing improvement.
 - Four browser checks confirmed CSV chunks are absent during initial sheet loading, load on demand, and keep preview/export and example filling usable. Fourteen CSV/planner tests, typecheck, lint and local build passed.
+
+### 2026-09-07 — Resolve remapped waterfall dependencies
+- Column deletion checks use a waterfall template's actual bound input, matching execution. Reusing an Email step with an Apollo email binding no longer falsely protects the unused original Email column.
+- Fifteen column/template tests passed, including deleting the old input, protecting the mapped input, and running the preserved waterfall successfully.
