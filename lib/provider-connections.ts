@@ -2,6 +2,7 @@ import { httpConnections, type HttpConnection } from './http-enrichment';
 import {
   LEADMAGIC_CONNECTION,
   FINDYMAIL_CONNECTION,
+  ZEROBOUNCE_CONNECTION,
   APOLLO_COMPANY_CONNECTION,
   APOLLO_PEOPLE_CONNECTION,
   HUNTER_CONNECTION,
@@ -14,6 +15,7 @@ export function configuredHttpConnections(env: {
   HUNTER_API_KEY?: string;
   LEADMAGIC_API_KEY?: string;
   FINDYMAIL_API_KEY?: string;
+  ZEROBOUNCE_API_KEY?: string;
   PROSPEO_API_KEY?: string;
   PDL_API_KEY?: string;
 }): HttpConnection[] {
@@ -21,6 +23,7 @@ export function configuredHttpConnections(env: {
   const reserved = [
     LEADMAGIC_CONNECTION,
     FINDYMAIL_CONNECTION,
+    ZEROBOUNCE_CONNECTION,
     APOLLO_COMPANY_CONNECTION,
     APOLLO_PEOPLE_CONNECTION,
     HUNTER_CONNECTION,
@@ -53,6 +56,7 @@ export function configuredHttpConnections(env: {
     connections.push({
       id: HUNTER_CONNECTION,
       label: 'Hunter',
+      requestTimeoutMs: 25_000,
       origin: 'https://api.hunter.io',
       methods: ['GET'],
       headers: { 'X-API-KEY': env.HUNTER_API_KEY.trim() },
@@ -90,6 +94,15 @@ export function configuredHttpConnections(env: {
       origin: 'https://app.findymail.com',
       methods: ['POST'],
       headers: { Authorization: `Bearer ${env.FINDYMAIL_API_KEY.trim()}` },
+    });
+  if (env.ZEROBOUNCE_API_KEY?.trim())
+    connections.push({
+      id: ZEROBOUNCE_CONNECTION,
+      label: 'ZeroBounce',
+      origin: 'https://api.zerobounce.net',
+      methods: ['GET'],
+      headers: {},
+      secretQuery: { api_key: env.ZEROBOUNCE_API_KEY.trim() },
     });
   return connections;
 }

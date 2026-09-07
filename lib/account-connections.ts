@@ -54,6 +54,12 @@ export const CONNECTIONS: ConnectionDefinition[] = [
     'Email lookup, US phone lookup, and email verification. Tested with sample responses; live access still needs validation.',
   ),
   api(
+    'zerobounce',
+    'ZeroBounce',
+    'ZEROBOUNCE_API_KEY',
+    'Independent email verification. The preset accepts only valid results and disables optional activity-data and Verify+ add-ons. Tested with sample responses; live access pending.',
+  ),
+  api(
     'pdl',
     'People Data Labs',
     'PDL_API_KEY',

@@ -216,3 +216,128 @@ describe('credential-free preset preparation', () => {
     },
   );
 });
+
+describe('independent email validators', () => {
+  const connections = configuredHttpConnections({
+    HUNTER_API_KEY: 'secret-hunter',
+    LEADMAGIC_API_KEY: 'secret-leadmagic',
+    ZEROBOUNCE_API_KEY: 'secret-zero&+?',
+  });
+  it.each([
+    [
+      'hunter-verify',
+      { data: { email: 'ada@example.com', status: 'valid' } },
+      'https://api.hunter.io/v2/email-verifier',
+    ],
+    [
+      'leadmagic-verify',
+      { email: 'ada@example.com', email_status: 'valid' },
+      'https://api.leadmagic.io/v1/people/email-validation',
+    ],
+    [
+      'zerobounce-verify',
+      { address: 'ada@example.com', status: 'valid' },
+      'https://api.zerobounce.net/v2/validate',
+    ],
+  ])('accepts the documented %s result', async (id, data, endpoint) => {
+    const { w, column } = fixture(id as string);
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (input, init) => {
+        const url = new URL(input instanceof Request ? input.url : input);
+        expect(url.origin + url.pathname).toBe(endpoint);
+        if (id === 'zerobounce-verify') {
+          expect(url.searchParams.get('api_key')).toBe('secret-zero&+?');
+          expect(url.searchParams.get('email')).toBe('ada@example.com');
+          expect(url.searchParams.get('activity_data')).toBe('false');
+          expect(url.searchParams.get('verify_plus')).toBe('false');
+        } else if (id === 'leadmagic-verify') {
+          expect(JSON.parse(init?.body as string)).toEqual({
+            email: 'ada@example.com',
+          });
+          expect(new Headers(init?.headers).get('X-API-Key')).toBe(
+            'secret-leadmagic',
+          );
+        } else
+          expect(new Headers(init?.headers).get('X-API-KEY')).toBe(
+            'secret-hunter',
+          );
+        return Response.json(data);
+      });
+    const result = await executeProviderWaterfall(
+      w,
+      'a',
+      column,
+      connections,
+      fetcher,
+    );
+    expect(result.receipt.status).toBe('passed');
+    expect(result.workspace.rows[0].values.result).toBe('ada@example.com');
+    expect(JSON.stringify(result)).not.toContain('secret-');
+    expect(JSON.stringify(column)).not.toContain('secret-');
+    expect(JSON.stringify(publicHttpConnections(connections))).not.toContain(
+      'secret-',
+    );
+  });
+  it.each([
+    'invalid',
+    'unknown',
+    'catch-all',
+    'spamtrap',
+    'abuse',
+    'do_not_mail',
+  ])(
+    'rejects ZeroBounce %s without outputting a contactable email',
+    async (status) => {
+      const { w, column } = fixture('zerobounce-verify');
+      const result = await executeProviderWaterfall(
+        w,
+        'a',
+        column,
+        connections,
+        async () => Response.json({ address: 'ada@example.com', status }),
+      );
+      expect(result.receipt.status).toBe('review');
+      expect(result.workspace.rows[0].values.result).toBe('');
+    },
+  );
+  it.each([202, 222])(
+    'stops on Hunter HTTP %s without calling another paid provider',
+    async (status) => {
+      const { w, column } = fixture('hunter-verify', 'zerobounce-verify');
+      const fetcher = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          Response.json({ data: { status: 'pending' } }, { status }),
+        );
+      const result = await executeProviderWaterfall(
+        w,
+        'a',
+        column,
+        connections,
+        fetcher,
+      );
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(result.receipt.error).toContain('Hunter');
+    },
+  );
+  it('does not turn a ZeroBounce HTTP-200 credit failure into a miss', async () => {
+    const { w, column } = fixture('zerobounce-verify', 'hunter-verify');
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        Response.json({
+          error: 'Invalid API Key or your account ran out of credits',
+        }),
+      );
+    const result = await executeProviderWaterfall(
+      w,
+      'a',
+      column,
+      connections,
+      fetcher,
+    );
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(result.receipt.error).toContain('ZeroBounce rejected');
+  });
+});

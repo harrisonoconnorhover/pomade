@@ -3,6 +3,7 @@ import { createHttpColumns } from './http-enrichment';
 import type { HttpProviderStep, WorkspaceSnapshot } from './pomade-types';
 export const APOLLO_COMPANY_CONNECTION = 'pomade_apollo_company';
 export const APOLLO_PEOPLE_CONNECTION = 'pomade_apollo_people';
+export const ZEROBOUNCE_CONNECTION = 'pomade_zerobounce';
 export const FINDYMAIL_CONNECTION = 'pomade_findymail';
 export const LEADMAGIC_CONNECTION = 'pomade_leadmagic';
 export const PROSPEO_CONNECTION = 'pomade_prospeo';
@@ -266,5 +267,35 @@ export function findymailVerifyStep(email = 'email'): HttpProviderStep {
     bodyTemplate: JSON.stringify({ email: `{{${email}}}` }),
     responsePath: 'email',
     verification: { path: 'verified', acceptedValues: ['true'] },
+  };
+}
+
+export function emailVerificationStep(
+  provider: 'hunter' | 'leadmagic' | 'zerobounce',
+  email = 'email',
+): HttpProviderStep {
+  if (provider === 'hunter')
+    return {
+      connectionId: HUNTER_CONNECTION,
+      method: 'GET',
+      pathTemplate: `/v2/email-verifier?email={{${email}}}`,
+      responsePath: 'data.email',
+      verification: { path: 'data.status', acceptedValues: ['valid'] },
+    };
+  if (provider === 'zerobounce')
+    return {
+      connectionId: ZEROBOUNCE_CONNECTION,
+      method: 'GET',
+      pathTemplate: `/v2/validate?email={{${email}}}&timeout=10&activity_data=false&verify_plus=false`,
+      responsePath: 'address',
+      verification: { path: 'status', acceptedValues: ['valid'] },
+    };
+  return {
+    connectionId: LEADMAGIC_CONNECTION,
+    method: 'POST',
+    pathTemplate: '/v1/people/email-validation',
+    bodyTemplate: JSON.stringify({ email: `{{${email}}}` }),
+    responsePath: 'email',
+    verification: { path: 'email_status', acceptedValues: ['valid'] },
   };
 }

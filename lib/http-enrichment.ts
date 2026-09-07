@@ -14,8 +14,14 @@ export type HttpConnection = {
   methods: ('GET' | 'POST')[];
   headers: Record<string, string>;
   requestDelayMs?: number;
+  requestTimeoutMs?: number;
+  // Only server-created connections can supply query credentials.
+  secretQuery?: Record<string, string>;
 };
-export type HttpConnectionSummary = Omit<HttpConnection, 'headers'>;
+export type HttpConnectionSummary = Omit<
+  HttpConnection,
+  'headers' | 'secretQuery'
+>;
 export function httpConnections(raw?: string): HttpConnection[] {
   if (!raw?.trim()) return [];
   let value: unknown;
@@ -168,6 +174,8 @@ export function prepareHttpRequest(
     url.hash
   )
     throw new Error('Requests must stay on the configured connection origin.');
+  for (const [key, value] of Object.entries(connection.secretQuery ?? {}))
+    url.searchParams.set(key, value);
   const headers = new Headers(connection.headers);
   headers.set('Accept', 'application/json');
   let body: string | undefined;
@@ -364,10 +372,22 @@ export async function executeHttpRecipe(
       sent = true;
       response = await fetchImpl(request.url, {
         ...request.init,
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.timeout(connection.requestTimeoutMs ?? 15_000),
       });
     } catch {
       throw new Error('Request failed or timed out; it was not retried.');
+    }
+    if (connection.id === 'pomade_hunter' && response.status === 202) {
+      await response.body?.cancel();
+      throw new Error(
+        'Hunter verification is still pending. Run this verification again later; no fallback was automatically started.',
+      );
+    }
+    if (connection.id === 'pomade_hunter' && response.status === 222) {
+      await response.body?.cancel();
+      throw new Error(
+        'Hunter could not complete the SMTP check. Try this verification again later.',
+      );
     }
     let data: unknown;
     let providerMiss = false;
@@ -392,6 +412,10 @@ export async function executeHttpRecipe(
       );
     }
     if (!providerMiss) data = await boundedJson(response);
+    if (connection.id === 'pomade_zerobounce' && jsonPath(data, 'error'))
+      throw new Error(
+        'ZeroBounce rejected the request. Check the API key, credits, and request inputs.',
+      );
     // Findymail documents application errors even with an HTTP 200 response.
     // Never treat account/credit failures as a miss and silently spend on fallback.
     if (connection.id === 'pomade_findymail' && jsonPath(data, 'error')) {

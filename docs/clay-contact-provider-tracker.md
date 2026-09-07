@@ -68,7 +68,7 @@ Pomade. Current verified-email presets inspect the lookup provider's own status.
 
 | Service / Clay source | Documented role | Pomade gap |
 |---|---|---|
-| [ZeroBounce](https://university.clay.com/docs/zerobounce-integration-overview) | Email validation; named as the default in Clay University | Independent email verifier adapter |
+| [ZeroBounce](https://university.clay.com/docs/zerobounce-integration-overview) | Email validation; named as the default in Clay University | Independent verifier preset implemented; accepts `status=valid`. Fixture-tested, live access pending. |
 | [BounceBan](https://www.clay.com/integrations/data-provider/bounceban) | Email verification | Verifier adapter |
 | [Debounce](https://www.clay.com/integrations/data-provider/debounce) | Email validation | Verifier adapter |
 | [Enrichley](https://www.clay.com/integrations/data-provider/enrichley) | Email validation | Verifier adapter |
@@ -169,3 +169,7 @@ unversioned routes and different status descriptions. No new key or plan purchas
 Added name/domain email discovery, professional-profile US phone lookup, and an independent email-verifier preset using the [official API reference](https://app.findymail.com/docs/). Finder responses do not contain an explicit verification status. The phone endpoint documents US coverage and can return landlines. These lookup presets therefore check format only; the separate verifier requires the returned boolean `verified=true`. HTTP-200 error bodies stop the chain instead of masquerading as no-match results. API-key setup is available per account or through `FINDYMAIL_API_KEY`; no real credential or vendor call was used to develop this adapter.
 
 All preset setups can now be saved before connecting keys. Missing connections stop their step at execution; they are never silently skipped. Portable templates keep input mappings and omit credentials.
+
+### Independent email verification (September 7, 2026)
+
+[Hunter](https://hunter.io/api-documentation#email-verifier) and [LeadMagic](https://leadmagic.io/docs/api-reference/email-validation) now have separate existing-email verification presets. [ZeroBounce](https://www.zerobounce.net/docs/email-validation-api-quickstart/v2-validate-emails) has a server-side connection and `valid`-only verifier. ZeroBounce query authentication is attached on the server and excluded from public connection summaries and portable recipes. Optional activity data and Verify+ add-ons are explicitly off. Hunter's HTTP 202 pending and 222 incomplete-check responses stop by default for a later manual retry instead of consuming another provider. This slice does not add automatic asynchronous polling. All new verifiers were tested with synthetic responses; live account access remains unverified.

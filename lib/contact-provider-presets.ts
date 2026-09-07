@@ -1,5 +1,7 @@
 import {
   emailProviderStep,
+  emailVerificationStep,
+  ZEROBOUNCE_CONNECTION,
   prospeoMobileStep,
   leadMagicMobileStep,
   findymailEmailStep,
@@ -118,6 +120,35 @@ export const CONTACT_PROVIDER_PRESETS: ContactProviderPreset[] = [
     accept: 'verified-email',
     note: 'Checks an existing email and accepts only verified=true. Each attempt may use verifier credits.',
     step: ({ email }) => findymailVerifyStep(email),
+  },
+  {
+    id: 'hunter-verify',
+    label: 'Hunter · verify existing email',
+    provider: 'Hunter',
+    connectionId: HUNTER_CONNECTION,
+    inputs: ['email'],
+    accept: 'verified-email',
+    note: 'Accepts valid only. Pending verifications stop for a later retry; they do not silently become misses.',
+    step: ({ email }) => emailVerificationStep('hunter', email),
+  },
+  {
+    id: 'leadmagic-verify',
+    label: 'LeadMagic · verify existing email',
+    provider: 'LeadMagic',
+    connectionId: LEADMAGIC_CONNECTION,
+    inputs: ['email'],
+    accept: 'verified-email',
+    step: ({ email }) => emailVerificationStep('leadmagic', email),
+  },
+  {
+    id: 'zerobounce-verify',
+    label: 'ZeroBounce · verify existing email',
+    provider: 'ZeroBounce',
+    connectionId: ZEROBOUNCE_CONNECTION,
+    inputs: ['email'],
+    accept: 'verified-email',
+    note: 'Accepts valid only. Unknown, catch-all, abuse, spamtrap and do-not-mail results are rejected. Optional paid data add-ons are off.',
+    step: ({ email }) => emailVerificationStep('zerobounce', email),
   },
 ];
 export function contactPreset(id?: string) {
