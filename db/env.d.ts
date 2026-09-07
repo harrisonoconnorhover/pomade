@@ -18,6 +18,7 @@ declare namespace Cloudflare {
     LEADMAGIC_API_KEY?: string;
     FINDYMAIL_API_KEY?: string;
     ZEROBOUNCE_API_KEY?: string;
+    TRESTLE_API_KEY?: string;
     PROSPEO_API_KEY?: string;
     POMADE_RESEARCH_PROVIDER?: string;
     POMADE_CODEX_URL?: string;

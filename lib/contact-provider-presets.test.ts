@@ -323,13 +323,11 @@ describe('independent email validators', () => {
   );
   it('does not turn a ZeroBounce HTTP-200 credit failure into a miss', async () => {
     const { w, column } = fixture('zerobounce-verify', 'hunter-verify');
-    const fetcher = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(
-        Response.json({
-          error: 'Invalid API Key or your account ran out of credits',
-        }),
-      );
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        error: 'Invalid API Key or your account ran out of credits',
+      }),
+    );
     const result = await executeProviderWaterfall(
       w,
       'a',
@@ -340,4 +338,68 @@ describe('independent email validators', () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(result.receipt.error).toContain('ZeroBounce rejected');
   });
+});
+
+describe('Trestle phone validity', () => {
+  const connections = configuredHttpConnections({
+    TRESTLE_API_KEY: 'private-trestle',
+  });
+  it('matches national output to the submitted international number without inventing activity or mobile status', async () => {
+    const { w, column } = fixture('trestle-verify');
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (input, init) => {
+        const url = new URL(input instanceof Request ? input.url : input);
+        expect(url.origin + url.pathname).toBe(
+          'https://api.trestleiq.com/3.0/phone_intel',
+        );
+        expect(url.searchParams.get('phone')).toBe('+12025550123');
+        expect(url.searchParams.has('add_ons')).toBe(false);
+        expect(new Headers(init?.headers).get('x-api-key')).toBe(
+          'private-trestle',
+        );
+        return Response.json({
+          phone_number: '2025550123',
+          country_calling_code: '1',
+          is_valid: true,
+          line_type: 'Landline',
+          activity_score: 50,
+        });
+      });
+    const result = await executeProviderWaterfall(
+      w,
+      'a',
+      column,
+      connections,
+      fetcher,
+    );
+    expect(result.receipt.status).toBe('passed');
+    expect(result.workspace.rows[0].values.result).toBe('+12025550123');
+    expect(JSON.stringify(result)).not.toContain('private-trestle');
+  });
+  it.each([
+    { phone_number: '+12025550123', is_valid: false },
+    { phone_number: '+12025550123', is_valid: null },
+    { phone_number: '2025550123', is_valid: true },
+    { phone_number: '+12025550999', is_valid: true },
+    {
+      phone_number: '+12025550123',
+      is_valid: true,
+      error: { name: 'InternalError' },
+    },
+  ])(
+    'withholds an invalid, unmatched or incomplete response %#',
+    async (data) => {
+      const { w, column } = fixture('trestle-verify');
+      const result = await executeProviderWaterfall(
+        w,
+        'a',
+        column,
+        connections,
+        async () => Response.json(data),
+      );
+      expect(result.receipt.status).toBe('review');
+      expect(result.workspace.rows[0].values.result).toBe('');
+    },
+  );
 });

@@ -1,3 +1,7 @@
+import {
+  normalizeContactProviderResponse,
+  validateContactProviderRequest,
+} from './contact-provider-contracts';
 import { normalizeLookupKey } from './table-lookup';
 import type {
   ActionReceipt,
@@ -204,6 +208,7 @@ export function prepareHttpRequest(
     body = JSON.stringify(visit(template));
     headers.set('Content-Type', 'application/json');
   }
+  validateContactProviderRequest(connection.id, url, body);
   return {
     url: url.toString(),
     init: { method: config.method, headers, body, redirect: 'manual' as const },
@@ -411,7 +416,12 @@ export async function executeHttpRecipe(
         `HTTP ${response.status}${response.status >= 300 && response.status < 400 ? ' — redirect refused' : ''}`,
       );
     }
-    if (!providerMiss) data = await boundedJson(response);
+    if (!providerMiss)
+      data = normalizeContactProviderResponse(
+        connection.id,
+        new URL(request.url),
+        await boundedJson(response),
+      );
     if (connection.id === 'pomade_zerobounce' && jsonPath(data, 'error'))
       throw new Error(
         'ZeroBounce rejected the request. Check the API key, credits, and request inputs.',

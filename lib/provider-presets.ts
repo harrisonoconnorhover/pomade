@@ -3,6 +3,7 @@ import { createHttpColumns } from './http-enrichment';
 import type { HttpProviderStep, WorkspaceSnapshot } from './pomade-types';
 export const APOLLO_COMPANY_CONNECTION = 'pomade_apollo_company';
 export const APOLLO_PEOPLE_CONNECTION = 'pomade_apollo_people';
+export const TRESTLE_CONNECTION = 'pomade_trestle';
 export const ZEROBOUNCE_CONNECTION = 'pomade_zerobounce';
 export const FINDYMAIL_CONNECTION = 'pomade_findymail';
 export const LEADMAGIC_CONNECTION = 'pomade_leadmagic';
@@ -297,5 +298,15 @@ export function emailVerificationStep(
     bodyTemplate: JSON.stringify({ email: `{{${email}}}` }),
     responsePath: 'email',
     verification: { path: 'email_status', acceptedValues: ['valid'] },
+  };
+}
+
+export function trestlePhoneStep(phone = 'phone'): HttpProviderStep {
+  return {
+    connectionId: TRESTLE_CONNECTION,
+    method: 'GET',
+    pathTemplate: `/3.0/phone_intel?phone={{${phone}}}`,
+    responsePath: 'pomade.phone',
+    verification: { path: 'is_valid', acceptedValues: ['true'] },
   };
 }

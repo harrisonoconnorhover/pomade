@@ -3,6 +3,7 @@ import {
   LEADMAGIC_CONNECTION,
   FINDYMAIL_CONNECTION,
   ZEROBOUNCE_CONNECTION,
+  TRESTLE_CONNECTION,
   APOLLO_COMPANY_CONNECTION,
   APOLLO_PEOPLE_CONNECTION,
   HUNTER_CONNECTION,
@@ -16,6 +17,7 @@ export function configuredHttpConnections(env: {
   LEADMAGIC_API_KEY?: string;
   FINDYMAIL_API_KEY?: string;
   ZEROBOUNCE_API_KEY?: string;
+  TRESTLE_API_KEY?: string;
   PROSPEO_API_KEY?: string;
   PDL_API_KEY?: string;
 }): HttpConnection[] {
@@ -24,6 +26,7 @@ export function configuredHttpConnections(env: {
     LEADMAGIC_CONNECTION,
     FINDYMAIL_CONNECTION,
     ZEROBOUNCE_CONNECTION,
+    TRESTLE_CONNECTION,
     APOLLO_COMPANY_CONNECTION,
     APOLLO_PEOPLE_CONNECTION,
     HUNTER_CONNECTION,
@@ -103,6 +106,14 @@ export function configuredHttpConnections(env: {
       methods: ['GET'],
       headers: {},
       secretQuery: { api_key: env.ZEROBOUNCE_API_KEY.trim() },
+    });
+  if (env.TRESTLE_API_KEY?.trim())
+    connections.push({
+      id: TRESTLE_CONNECTION,
+      label: 'Trestle',
+      origin: 'https://api.trestleiq.com',
+      methods: ['GET'],
+      headers: { 'x-api-key': env.TRESTLE_API_KEY.trim() },
     });
   return connections;
 }

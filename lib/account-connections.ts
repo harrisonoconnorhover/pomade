@@ -60,6 +60,12 @@ export const CONNECTIONS: ConnectionDefinition[] = [
     'Independent email verification. The preset accepts only valid results and disables optional activity-data and Verify+ add-ons. Tested with sample responses; live access pending.',
   ),
   api(
+    'trestle',
+    'Trestle',
+    'TRESTLE_API_KEY',
+    'Validate an existing international phone number. Provider validity is separate from ownership, mobile line type, and activity. Tested with sample responses; live access pending.',
+  ),
+  api(
     'pdl',
     'People Data Labs',
     'PDL_API_KEY',

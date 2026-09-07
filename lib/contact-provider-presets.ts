@@ -2,6 +2,8 @@ import {
   emailProviderStep,
   emailVerificationStep,
   ZEROBOUNCE_CONNECTION,
+  TRESTLE_CONNECTION,
+  trestlePhoneStep,
   prospeoMobileStep,
   leadMagicMobileStep,
   findymailEmailStep,
@@ -149,6 +151,16 @@ export const CONTACT_PROVIDER_PRESETS: ContactProviderPreset[] = [
     accept: 'verified-email',
     note: 'Accepts valid only. Unknown, catch-all, abuse, spamtrap and do-not-mail results are rejected. Optional paid data add-ons are off.',
     step: ({ email }) => emailVerificationStep('zerobounce', email),
+  },
+  {
+    id: 'trestle-verify',
+    label: 'Trestle · validate existing phone',
+    provider: 'Trestle',
+    connectionId: TRESTLE_CONNECTION,
+    inputs: ['phone'],
+    accept: 'verified-phone',
+    note: 'Requires an international number and is_valid=true for that same number. This does not confirm ownership, mobile line type, or recent activity. No paid add-ons are requested.',
+    step: ({ phone }) => trestlePhoneStep(phone),
   },
 ];
 export function contactPreset(id?: string) {
