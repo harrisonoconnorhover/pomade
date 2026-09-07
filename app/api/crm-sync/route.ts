@@ -3,6 +3,7 @@ import { env } from 'cloudflare:workers';
 import { ensureDatabase } from '@/db/ensure';
 import {
   previewCrmSync,
+  crmPreviewConnectionMatches,
   executeCrmAction,
   CrmSyncClient,
   type CrmSyncConfig,
@@ -78,6 +79,14 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Preview not found.' }, { status: 404 });
     const plan = JSON.parse(record.plan) as CrmSyncPlan;
     if (plan.status !== 'preview') return Response.json({ plan });
+    if (!(await crmPreviewConnectionMatches(plan, options())))
+      return Response.json(
+        {
+          error:
+            'The CRM connection changed after this preview. Preview again before writing.',
+        },
+        { status: 409 },
+      );
     if (!body.confirmWrite)
       return Response.json(
         { error: 'Review the preview and confirm the CRM write.' },

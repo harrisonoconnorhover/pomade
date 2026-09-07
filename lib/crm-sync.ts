@@ -1,3 +1,4 @@
+import { sha256 } from './deployment';
 import { salesforceFetch } from './salesforce-auth';
 import {
   parseCrmFields,
@@ -34,6 +35,7 @@ export type CrmSyncPlan = {
   id: string;
   workspaceId: string;
   revision: number;
+  connectionFingerprint?: string;
   config: CrmSyncConfig;
   actions: CrmSyncAction[];
   createdAt: number;
@@ -377,6 +379,35 @@ export function validateCrmSyncConfig(
   )
     throw new Error('Choose valid mapped columns.');
 }
+// A preview must never be applied to a different saved CRM connection.
+export async function crmConnectionFingerprint(
+  provider: CrmProvider,
+  options: CrmSourceOptions,
+) {
+  return sha256(
+    JSON.stringify(
+      provider === 'hubspot'
+        ? [provider, options.hubSpotAccessToken ?? '']
+        : [
+            provider,
+            options.salesforceInstanceUrl ?? '',
+            options.salesforceAccessToken ?? '',
+            options.salesforceRefreshToken ?? '',
+            options.salesforceClientId ?? '',
+          ],
+    ),
+  );
+}
+export async function crmPreviewConnectionMatches(
+  plan: CrmSyncPlan,
+  options: CrmSourceOptions,
+) {
+  return (
+    !!plan.connectionFingerprint &&
+    plan.connectionFingerprint ===
+      (await crmConnectionFingerprint(plan.config.provider, options))
+  );
+}
 export async function previewCrmSync(
   workspace: WorkspaceSnapshot,
   rowIds: string[],
@@ -497,6 +528,10 @@ export async function previewCrmSync(
     id: crypto.randomUUID(),
     workspaceId: workspace.id,
     revision: workspace.revision || 0,
+    connectionFingerprint: await crmConnectionFingerprint(
+      config.provider,
+      options,
+    ),
     config,
     actions,
     createdAt: Date.now(),

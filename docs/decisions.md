@@ -1008,7 +1008,9 @@ the database; never rotate it without re-encrypting saved values. Import owner
 environment credentials once. Clear every personal provider/CRM/research setting
 before loading a member's values. Disconnect must not recover an environment
 fallback. Clear provider caches after key changes; CRM replacement also removes
-pending previews and stops queued workflows/refreshes. In-flight requests can
+pending previews and stops queued workflows/refreshes. CRM previews also carry a
+credential fingerprint checked before writes, covering concurrent preview creation
+and connection replacement. In-flight requests can
 finish when access is revoked; later requests and cron selection reject the
 account. Existing owner companion remains owner-scoped; member research uses
 personal Parallel/Gemini keys until individual companion onboarding is added.

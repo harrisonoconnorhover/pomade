@@ -78,7 +78,11 @@ try {
         })
       ).account,
     );
-    const settings = await api(who, '/api/account');
+    const [settings] = await Promise.all([
+      api(who, '/api/account'),
+      api(who, '/api/tables'),
+      api(who, '/api/providers/apollo'),
+    ]);
     assert.ok(settings.connections.every((c) => !c.configured));
     assert.equal(settings.members, undefined);
     const tables = await api(who, '/api/tables');

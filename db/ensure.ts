@@ -119,6 +119,8 @@ export async function ensureDatabaseSchema(db: D1Database) {
       status TEXT NOT NULL,
       row_ids TEXT NOT NULL,
       column_ids TEXT,
+      workbook_run_id TEXT,
+      resume_column_ids TEXT,
       cursor INTEGER NOT NULL DEFAULT 0,
       completed_count INTEGER NOT NULL DEFAULT 0,
       skipped_count INTEGER NOT NULL DEFAULT 0,

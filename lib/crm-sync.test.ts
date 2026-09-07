@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   CrmSyncClient,
   previewCrmSync,
+  crmConnectionFingerprint,
+  crmPreviewConnectionMatches,
   executeCrmAction,
   type CrmSyncConfig,
 } from './crm-sync';
@@ -349,4 +351,37 @@ describe('CRM URL normalization', () => {
     expect(result.status).toBe('verified');
     expect(result.observed).toEqual({ website: 'http://example.com' });
   });
+});
+
+it('binds a CRM preview to the connection used to create it', async () => {
+  const options = {
+    hubSpotAccessToken: 'test',
+    fetchImpl: vi
+      .fn()
+      .mockResolvedValue(Response.json({ results: [] })) as typeof fetch,
+  };
+  const plan = await previewCrmSync(workspace(), ['r'], config, options);
+  expect(await crmPreviewConnectionMatches(plan, options)).toBe(true);
+  expect(
+    await crmPreviewConnectionMatches(plan, {
+      ...options,
+      hubSpotAccessToken: 'different-account',
+    }),
+  ).toBe(false);
+  expect(
+    await crmPreviewConnectionMatches(
+      { ...plan, connectionFingerprint: undefined },
+      options,
+    ),
+  ).toBe(false);
+  const sf = {
+    salesforceInstanceUrl: 'https://example.my.salesforce.com',
+    salesforceAccessToken: 'first',
+  };
+  expect(await crmConnectionFingerprint('salesforce', sf)).not.toBe(
+    await crmConnectionFingerprint('salesforce', {
+      ...sf,
+      salesforceAccessToken: 'second',
+    }),
+  );
 });
