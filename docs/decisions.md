@@ -1175,3 +1175,9 @@ Selecting a CSV opens a preview rather than overwriting the active sheet. New sh
 ### 2026-09-07 — Search long run receipts
 - Receipt search covers record labels, actions, output values and errors, including provider-attempt errors. Status filtering narrows to passed/review actions. Changing filters resets pagination; the summary remains the whole run, with matching and total counts separated in the footer.
 - Browser checks used 205 simulated actions, including 20 review results, and passed search/status combinations, page resets, empty results, passed-only pagination, reopen reset and 390px layout. No provider calls or data writes occurred.
+
+### 2026-09-07 — Verified extended private release
+- Private hosted version 34 and the retained local server use runtime source `d79f057`. Deployment succeeded without changing the one-owner audience. Final documentation/test-helper commits do not change the deployed runtime.
+- Final release checks preserved all 24 original local and 16 hosted sheets, all 28 current local sheet contents, and seven configured hosted connections. Six served assets matched each build; private anonymous access was denied and callback health passed. Eleven browser smoke checks passed in each environment without saved-data writes or page errors.
+- Browser artifacts now identify local versus hosted runs so one environment cannot overwrite the other's screenshots/report. Final local workbook gzip measured 149,888 bytes, 23.7% below the earlier 196,409-byte entry; this is an artifact measurement, not a load-time benchmark.
+- A final hosted research draft stayed intact through 181.310 seconds of natural polling (45 workspace polls, 46 job polls). Cancel preserved the entire saved snapshot, including revision/timestamp. No API mutations or provider executions occurred. The final phone-to-desktop resize check confirmed the grid returned from 390px to 1,232px without errors; screenshot capture now waits for that redraw.

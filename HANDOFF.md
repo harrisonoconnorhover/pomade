@@ -2,37 +2,38 @@
 
 ## Finished
 
-- Research columns now support editing prompts/providers in place, plus model and effort for ChatGPT research. Cancel discards drafts; Save preserves IDs, output fields, mappings and existing results.
-- Existing provider waterfalls support reordering and error fallback settings. Waiting runs retain their original configuration; changed recipes pause enabled schedules for review.
-- Columns search opens settings directly, including hidden fields. Explicit status/saved-view filters replace cycling. Arrow keys keep record details aligned; source links scroll to the correct row on desktop and phone.
-- Run receipts expose every action through searchable 100-item pages, with review/passed filters, full-run totals and usable mobile controls.
-- Earlier night-shift CSV, run controls, CRM refresh, transfer and lookup improvements remain. One synthetic company was created and verified in each dev CRM earlier tonight. Current extension is built locally; private deployment is pending final publication checks.
+- Private hosted version **34** and localhost:8798 run source `d79f057`. Local commits are saved; no GitHub push, purchases or access expansion occurred.
+- Research settings edit prompts/providers in place, plus ChatGPT model/effort. Save preserves outputs, mappings and results; Cancel discards drafts. Model loading has an in-place retry.
+- Existing waterfalls support provider reordering and error fallback settings. Waiting runs retain their original configuration; changed recipes pause enabled schedules.
+- Columns search opens settings, including hidden fields. Explicit status/saved-view filters combine with search. Arrow keys align record details; source links select and scroll to their row on desktop and phone.
+- Run receipts expose every action through searchable 100-item pages and review/passed filters. Earlier CSV, run-control, CRM refresh, transfer and lookup improvements remain. One synthetic company was verified in each dev CRM earlier tonight.
 
 ## Try It
 
-- Open **Columns**, search for a research or waterfall column, and click its settings button. Change settings, then Save or Cancel. Configuration alone does not execute providers.
-- Use **Filter** to choose a status or saved view. Search combines with it; **Clear filters** resets both.
-- Open a source-row link or use arrow keys with **Details** open. In **Run history**, use Previous/Next on long receipts. See `docs/workbook-quick-start.md`.
+- Open [private Pomade](https://pomade.deleteddeleted.chatgpt.site) or [local Pomade](http://localhost:8798). Their saved data and connections remain separate.
+- In **Columns**, search for a research/waterfall column and open its settings. For model/effort, choose **ChatGPT subscription** and uncheck **Use app defaults**. Save or Cancel; configuration does not execute providers.
+- Use **Filter** and row search, or **Run history → select a run → Needs review** and receipt search. See [the quick start](docs/workbook-quick-start.md).
 
 ## Checks
 
-- 58 focused tests across seven files passed. Typecheck, lint, diff checks, local build and hosted build passed.
-- Browser checks passed for research drafts, model inheritance, provider ordering, waiting-job protection, hidden-column settings, receipt pagination, explicit filters, row links and 390px layouts. Synthetic saves made no provider calls. Eleven local workbook smoke checks passed with zero writes or page errors.
-- A real local save/reload/restore test made exactly two saves on the disposable QA sheet; complete contents matched afterward, excluding revision/timestamp. No enrichment ran. Hosted access remains one owner; release preservation and hosted smoke checks are pending.
+- 58 focused tests across seven files passed, plus typecheck, lint, diff checks and local/hosted production builds.
+- Browser regressions passed for drafts, model inheritance/recovery, waterfall ordering, waiting-job protection, hidden-column settings, filters, receipts, row links and 390px layouts. Eleven actual local and eleven hosted smoke checks passed with zero saved-data writes or page errors.
+- A real local save/reload/restore made exactly two saves on the disposable QA sheet; its contents matched afterward apart from revision/timestamp. No enrichment ran.
+- An unsaved hosted research draft survived 181 seconds of natural polling; Cancel left the complete saved snapshot unchanged. Zero API mutations, provider executions or browser errors.
+- Release checks preserved all 24 original local sheets and 16 hosted sheets; all 28 local saved contents remained unchanged. Seven hosted connections remain configured. Six served assets matched each build; anonymous access was blocked and Apollo callback health passed.
 
 ## Decisions
 
-- Preserve existing columns/results when changing recipes; apply the new settings on the next run.
-- Keep local and hosted data separate, with the hosted audience restricted to the existing owner. No GitHub push, purchases or access expansion.
+- Recipe edits retain current answers and apply on the next run.
+- Preserve the existing hosted audience: one owner. Local and hosted data remain separate.
 
 ## Remaining
 
-- Publish and verify the prepared private version; leave localhost:8798 running.
-- Actual Apollo phone enrichment needs eligible API access; other unconnected adapters need credentials and live coverage.
+- Live Apollo phone enrichment needs eligible API access; unconnected adapters need credentials and live coverage.
 - Fully unattended hosted timers remain unverified. ChatGPT research needs the Mac helper.
 
 ## Review First
 
-- `docs/workbook-quick-start.md` and Column settings in the UI.
-- `lib/column-management.ts`, the grid, column finder and workspace filter/receipt controls.
-- Browser regressions in `scripts/test-*-ui.mjs`; ignored screenshots in `outputs/nightshift/2026-09-07/`.
+- Column settings and [quick start](docs/workbook-quick-start.md).
+- `lib/column-management.ts` and workspace filter/receipt controls.
+- Browser scripts in `scripts/test-*-ui.mjs`; ignored evidence in `outputs/nightshift/2026-09-07/`.

@@ -1,7 +1,7 @@
-// Read-only smoke test of the owner-private deployment. Credentials stay in env.
+// Read-only smoke test of a local or owner-private workbook. Credentials stay in env.
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 const origin = process.env.POMADE_HOSTED_URL?.replace(/\/$/, '');
 if (
   !origin ||
@@ -9,6 +9,14 @@ if (
   !process.env.POMADE_OWNER_TOKEN
 )
   throw new Error('Owner-private smoke-test environment is required.');
+const environment = ['localhost', '127.0.0.1', '[::1]'].includes(
+  new URL(origin).hostname,
+)
+  ? 'local'
+  : 'hosted';
+const outputDirectory = 'outputs/nightshift/2026-09-07';
+await mkdir(outputDirectory, { recursive: true });
+const artifactPath = (name) => `${outputDirectory}/${environment}-${name}`;
 const headers = {
   'OAI-Sites-Authorization': 'Bearer ' + process.env.POMADE_SITES_TOKEN,
   'X-Pomade-Owner-Key': process.env.POMADE_OWNER_TOKEN,
@@ -189,13 +197,25 @@ try {
     1,
   );
   await page.screenshot({
-    path: 'outputs/nightshift/2026-09-07/hosted-lookup-mobile.png',
+    path: artifactPath('lookup-mobile.png'),
     animations: 'disabled',
   });
   await close();
   await page.setViewportSize({ width: 1440, height: 1000 });
+  // Glide measures its viewport after resize; capture the completed redraw.
+  await page.waitForFunction(
+    () =>
+      (document.querySelector('canvas')?.getBoundingClientRect().width ?? 0) >
+      1000,
+  );
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
   await page.screenshot({
-    path: 'outputs/nightshift/2026-09-07/hosted-desktop.png',
+    path: artifactPath('desktop.png'),
     animations: 'disabled',
   });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -203,7 +223,7 @@ try {
     .getByRole('button', { name: 'Hide navigation', exact: true })
     .click();
   await page.screenshot({
-    path: 'outputs/nightshift/2026-09-07/hosted-mobile.png',
+    path: artifactPath('mobile.png'),
     animations: 'disabled',
   });
   assert.equal(
@@ -237,7 +257,7 @@ try {
       .evaluate((e) => e.scrollLeft >= 400),
   );
   await page.screenshot({
-    path: 'outputs/nightshift/2026-09-07/hosted-mobile-scrolled.png',
+    path: artifactPath('mobile-scrolled.png'),
     animations: 'disabled',
   });
 
@@ -264,6 +284,7 @@ try {
   const result = {
     passed: true,
     tableId: table.id,
+    environment,
     checks: [
       'Private workbook loads',
       'Right-click opens the column chooser',
@@ -280,14 +301,11 @@ try {
     savedDataWrites: writes.length,
     pageErrors: errors,
   };
-  await writeFile(
-    'outputs/nightshift/2026-09-07/hosted-ui.json',
-    JSON.stringify(result, null, 2),
-  );
+  await writeFile(artifactPath('ui.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result));
 } catch (error) {
   await page.screenshot({
-    path: 'outputs/nightshift/2026-09-07/hosted-failure.png',
+    path: artifactPath('failure.png'),
   });
   throw error;
 } finally {
