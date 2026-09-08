@@ -6,8 +6,8 @@ column budget; there is no separate action-column quota. A provider waterfall ha
 **one to four provider steps** and creates **three columns**: result, winning provider
 and status. For example, ten existing columns leave room for thirty waterfalls.
 These are configured software limits, not a performance benchmark at the maximum.
-Background runs are separately bounded to 100 rows and at most 50 external actions
-per job. One research action may return multiple fields.
+Background runs are separately bounded to 100 rows and at most 50 provider
+submissions per job; fallback and verification steps count separately. One research action may return multiple fields.
 
 Most valuable next work, in order:
 
@@ -18,9 +18,11 @@ Most valuable next work, in order:
    setup is implemented, while live phone enrichment still needs eligible API access.
    See the [provider tracker](clay-contact-provider-tracker.md) for tested versus
    credential-dependent support.
-2. **Cost visibility.** Display provider balances, an estimated run cost and a
-   configurable spending ceiling. Report cost per additional valid result, rather
-   than counting a provider no-match as a technical failure.
+2. **Cost visibility.** Run history already separates accepted results, extra
+   fallback matches, errors and reported provider credits; unknown costs stay
+   explicit. Next add account balances, comparable cost estimates and a spending
+   ceiling. Each vendor defines credits differently, so current credit totals
+   are not dollar costs.
 3. **Repeatable provider comparison.** Run the same small business-contact set
    through each provider to measure fallback value, verification differences and
    the order that gives the best result for our budget.
