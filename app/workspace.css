@@ -1825,3 +1825,5 @@
 @media(max-width: 500px) { .lookup-builder .lookup-fields { grid-template-columns: 1fr; } }
 
 .lookup-builder [data-slot="dialog-title"] { padding-right: 24px; }
+.lookup-builder > .lookup-add-button { z-index: 1; }
+.lookup-builder > .lookup-add-button:disabled { opacity: 1; background: #edf1ec; color: #65756a; }
