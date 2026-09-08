@@ -1152,3 +1152,8 @@ Selecting a CSV opens a preview rather than overwriting the active sheet. New sh
 - A checked selection scope can be turned off even after all selected rows are cleared. Empty selections remain blocked until the user explicitly changes scope; they never silently expand to all records.
 - Transfer controls now have readable labels, responsive field groups, distinct success messages and recognizable record names in previews.
 - Eight transfer tests and seven actual browser checks passed. The browser saved a rule and transferred one synthetic company between existing QA sheets, preserved unrelated rows and unmapped data, and verified a second preview would add no duplicates. No provider or CRM calls were made.
+
+### 2026-09-07 — Useful lookup defaults and current source data
+- Lookup Match rule now offers Automatic: website/domain normalization only when both chosen columns clearly represent websites, otherwise text. Saved recipes still contain the resolved existing mode. An explicit user choice survives source and column changes.
+- Every reopen/reload has a distinct request identity, so a failed refresh cannot leave stale preview data or Add enabled. Retry preserves still-valid source keys and output selections.
+- Eighteen lookup tests and seven browser checks passed, including company names with spaces, domain/text defaults, explicit Exact preservation, failed-source recovery, and a real local lookup run with saved results. Source data, CRM mappings and transfer rules stayed intact. Local-only runs continue directly without provider consent; singular and filtered row labels are now explicit.

@@ -3397,13 +3397,7 @@ export default function PomadeWorkspace({
                 {running ? <LoaderCircle className="spin" /> : <Play />}
                 {running
                   ? 'Running…'
-                  : `Run ${runTargetIds.length} ${
-                      selectedRowIds.length
-                        ? 'selected'
-                        : filter === 'All' && !query
-                          ? 'rows'
-                          : 'visible'
-                    }`}
+                  : `Run ${runTargetIds.length}${selectedRowIds.length ? ' selected' : filter === 'All' && !query && !activeSavedView ? '' : ' visible'} ${runTargetIds.length === 1 ? 'row' : 'rows'}`}
               </Button>
             </div>
           </div>
@@ -3682,7 +3676,7 @@ export default function PomadeWorkspace({
                 {visibleRows.length !== workspace.rows.length
                   ? ` of ${workspace.rows.length.toLocaleString()}`
                   : ''}{' '}
-                rows
+                {workspace.rows.length === 1 ? 'row' : 'rows'}
               </span>
               <Button
                 variant="ghost"
@@ -3813,7 +3807,9 @@ export default function PomadeWorkspace({
               </button>
             ) : null}
             <span>
-              {workspace.rows.length} records · {recipeCount} recipes
+              {workspace.rows.length}{' '}
+              {workspace.rows.length === 1 ? 'record' : 'records'} ·{' '}
+              {recipeCount} {recipeCount === 1 ? 'recipe' : 'recipes'}
             </span>
             {workspace.schedule?.enabled && workspace.schedule.nextRunAt ? (
               <button type="button" onClick={openScheduleBuilder}>
@@ -5854,8 +5850,8 @@ export default function PomadeWorkspace({
             >
               <Globe2 />
               {effectiveRunMode === 'background'
-                ? `Queue ${pendingRunRowIds.length} rows`
-                : `Run ${pendingRunRowIds.length} rows`}
+                ? `Queue ${pendingRunRowIds.length} ${pendingRunRowIds.length === 1 ? 'row' : 'rows'}`
+                : `Run ${pendingRunRowIds.length} ${pendingRunRowIds.length === 1 ? 'row' : 'rows'}`}
             </Button>
           </div>
         </DialogContent>

@@ -53,6 +53,25 @@ export function aggregateLookupValues(
   };
 }
 
+export function suggestLookupNormalization(
+  local?: Pick<PomadeColumn, 'id' | 'title'>,
+  source?: Pick<PomadeColumn, 'id' | 'title'>,
+): TableLookup['normalization'] {
+  const domainNames = new Set([
+    'domain',
+    'website',
+    'company_domain',
+    'company_website',
+    'website_url',
+  ]);
+  const isDomain = (column?: Pick<PomadeColumn, 'id' | 'title'>) =>
+    column &&
+    [column.id, column.title].some((value) =>
+      domainNames.has(value.trim().toLowerCase().replace(/\s+/g, '_')),
+    );
+  return isDomain(local) && isDomain(source) ? 'domain' : 'text';
+}
+
 export function normalizeLookupKey(
   value: string,
   mode: TableLookup['normalization'],

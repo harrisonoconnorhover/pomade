@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -9,7 +9,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { createLookupColumns, createLookupResolver } from '@/lib/table-lookup';
+import {
+  createLookupColumns,
+  createLookupResolver,
+  suggestLookupNormalization,
+} from '@/lib/table-lookup';
 import type {
   PomadeColumn,
   TableLookup,
@@ -30,7 +34,11 @@ export default function TableLookupBuilder({
 }) {
   const [tables, setTables] = useState<TableSummary[]>([]);
   const [sourceId, setSourceId] = useState('');
-  const [source, setSource] = useState<WorkspaceSnapshot>();
+  const [sourceResult, setSourceResult] = useState<{
+    key: string;
+    workspace?: WorkspaceSnapshot;
+    error?: string;
+  }>();
   const [matchId, setMatchId] = useState(
     workspace.columns.some((c) => c.id === 'domain')
       ? 'domain'
@@ -38,8 +46,16 @@ export default function TableLookupBuilder({
   );
   const [sourceMatchId, setSourceMatchId] = useState('');
   const [outputIds, setOutputIds] = useState<string[]>([]);
-  const [normalization, setNormalization] =
-    useState<TableLookup['normalization']>('domain');
+  const [matchRule, setMatchRule] = useState<
+    'automatic' | TableLookup['normalization']
+  >('automatic');
+  const [sourceRevision, setSourceRevision] = useState(0);
+  const lastLoadedSourceId = useRef('');
+  const sourceRequestKey = `${sourceId}:${sourceRevision}`;
+  function changeOpen(value: boolean) {
+    if (!value) setSourceRevision((revision) => revision + 1);
+    onOpenChange(value);
+  }
   const [comparison, setComparison] =
     useState<NonNullable<TableLookup['comparison']>>('equals');
   const [resultMode, setResultMode] =
@@ -73,6 +89,7 @@ export default function TableLookupBuilder({
   useEffect(() => {
     if (!open || !sourceId) return;
     let cancelled = false;
+    const sameSource = lastLoadedSourceId.current === sourceId;
     fetch(`/api/workspace?workspaceId=${encodeURIComponent(sourceId)}`)
       .then(async (response) => {
         if (!response.ok) throw new Error('Source table could not be loaded.');
@@ -80,23 +97,48 @@ export default function TableLookupBuilder({
           workspace: WorkspaceSnapshot;
         };
         if (cancelled) return;
-        setSource(result.workspace);
-        setSourceMatchId(
-          result.workspace.columns.some((column) => column.id === 'domain')
-            ? 'domain'
-            : (result.workspace.columns[0]?.id ?? ''),
+        setSourceResult({ key: sourceRequestKey, workspace: result.workspace });
+        lastLoadedSourceId.current = sourceId;
+        setSourceMatchId((current) =>
+          sameSource &&
+          result.workspace.columns.some((column) => column.id === current)
+            ? current
+            : (result.workspace.columns.find((column) => column.id === 'domain')
+                ?.id ??
+              result.workspace.columns.find(
+                (column) => column.kind !== 'status',
+              )?.id ??
+              ''),
         );
-        setOutputIds([]);
+        setOutputIds((current) =>
+          sameSource
+            ? current.filter((id) =>
+                result.workspace.columns.some((column) => column.id === id),
+              )
+            : [],
+        );
         setError('');
       })
       .catch((e: Error) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled)
+          setSourceResult({ key: sourceRequestKey, error: e.message });
       });
     return () => {
       cancelled = true;
     };
-  }, [open, sourceId]);
-  const currentSource = source?.id === sourceId ? source : undefined;
+  }, [open, sourceId, sourceRequestKey]);
+  const sourceLoading =
+    open && Boolean(sourceId) && sourceResult?.key !== sourceRequestKey;
+  const currentSource =
+    sourceResult?.key === sourceRequestKey ? sourceResult.workspace : undefined;
+  const sourceError =
+    sourceResult?.key === sourceRequestKey ? sourceResult.error : undefined;
+  const suggestedNormalization = suggestLookupNormalization(
+    workspace.columns.find((column) => column.id === matchId),
+    currentSource?.columns.find((column) => column.id === sourceMatchId),
+  );
+  const normalization =
+    matchRule === 'automatic' ? suggestedNormalization : matchRule;
   const preview = useMemo(() => {
     if (!currentSource || (resultMode !== 'count' && !outputIds.length))
       return undefined;
@@ -152,7 +194,7 @@ export default function TableLookupBuilder({
           resultMode,
         }),
       );
-      onOpenChange(false);
+      changeOpen(false);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : 'The lookup could not be added.',
@@ -160,7 +202,7 @@ export default function TableLookupBuilder({
     }
   }
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent className="lookup-builder">
         <DialogHeader>
           <DialogTitle>Look up fields from another table</DialogTitle>
@@ -175,6 +217,7 @@ export default function TableLookupBuilder({
           <label>
             Source table
             <select
+              aria-label="Source table"
               value={sourceId}
               onChange={(event) => {
                 setSourceId(event.target.value);
@@ -194,6 +237,7 @@ export default function TableLookupBuilder({
           <label>
             Match this table’s column
             <select
+              aria-label="Match this table’s column"
               value={matchId}
               onChange={(event) => setMatchId(event.target.value)}
             >
@@ -207,6 +251,7 @@ export default function TableLookupBuilder({
           <label>
             To the source column
             <select
+              aria-label="To the source column"
               value={sourceMatchId}
               disabled={!currentSource}
               onChange={(event) => setSourceMatchId(event.target.value)}
@@ -224,13 +269,18 @@ export default function TableLookupBuilder({
           <label>
             Match rule
             <select
-              value={normalization}
+              aria-label="Match rule"
+              value={matchRule}
               onChange={(event) =>
-                setNormalization(
-                  event.target.value as TableLookup['normalization'],
-                )
+                setMatchRule(event.target.value as typeof matchRule)
               }
             >
+              <option value="automatic">
+                Automatic ·{' '}
+                {suggestedNormalization === 'domain'
+                  ? 'Website / domain'
+                  : 'Text'}
+              </option>
               <option value="domain">
                 Website / domain (ignore www and paths)
               </option>
@@ -239,10 +289,31 @@ export default function TableLookupBuilder({
             </select>
           </label>
         </div>
+        <div className="lookup-source-status">
+          <span>
+            {sourceLoading
+              ? 'Loading saved source values…'
+              : currentSource
+                ? `${currentSource.rows.length} saved source rows`
+                : 'Source is unavailable'}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!sourceId || sourceLoading}
+            onClick={() => {
+              setError('');
+              setSourceRevision((value) => value + 1);
+            }}
+          >
+            {currentSource ? 'Reload source' : 'Retry source'}
+          </Button>
+        </div>
         <div className="lookup-fields">
           <label>
             Comparison
             <select
+              aria-label="Comparison"
               value={comparison}
               onChange={(e) =>
                 setComparison(e.target.value as typeof comparison)
@@ -255,6 +326,7 @@ export default function TableLookupBuilder({
           <label>
             Result mode
             <select
+              aria-label="Result mode"
               value={resultMode}
               onChange={(e) =>
                 setResultMode(e.target.value as typeof resultMode)
@@ -342,8 +414,10 @@ export default function TableLookupBuilder({
             ) : null}
           </div>
         ) : null}
-        {error || (preview && 'error' in preview) ? (
-          <p className="template-error">{error || preview?.error}</p>
+        {error || sourceError || (preview && 'error' in preview) ? (
+          <p className="template-error" role="alert">
+            {error || sourceError || preview?.error}
+          </p>
         ) : null}
         <p className="lookup-note">
           Runs read saved source values. Unique mode flags missing or multiple

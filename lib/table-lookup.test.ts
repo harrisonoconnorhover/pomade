@@ -5,6 +5,7 @@ import {
   createLookupColumns,
   createLookupResolver,
   normalizeLookupKey,
+  suggestLookupNormalization,
 } from './table-lookup';
 import { executeWorkspace } from './local-recipe-engine';
 import {
@@ -406,5 +407,40 @@ describe('table lookup recipes', () => {
     );
     expect(normalizeLookupKey('employee@example.com', 'domain')).toBe('');
     expect(normalizeLookupKey('not a domain', 'domain')).toBe('');
+  });
+});
+
+describe('automatic lookup matching', () => {
+  it('uses domain matching only when both selected fields clearly represent websites', () => {
+    expect(
+      suggestLookupNormalization(
+        { id: 'domain', title: 'Company domain' },
+        { id: 'website_url', title: 'Website' },
+      ),
+    ).toBe('domain');
+    expect(
+      suggestLookupNormalization(
+        { id: 'company', title: 'Company' },
+        { id: 'company', title: 'Company' },
+      ),
+    ).toBe('text');
+    expect(
+      suggestLookupNormalization(
+        { id: 'email', title: 'Email' },
+        { id: 'email', title: 'Email' },
+      ),
+    ).toBe('text');
+    expect(
+      suggestLookupNormalization(
+        { id: 'domain', title: 'Domain' },
+        { id: 'email', title: 'Email' },
+      ),
+    ).toBe('text');
+    expect(
+      suggestLookupNormalization(
+        { id: 'linkedin_url', title: 'LinkedIn URL' },
+        { id: 'linkedin_url', title: 'LinkedIn URL' },
+      ),
+    ).toBe('text');
   });
 });
