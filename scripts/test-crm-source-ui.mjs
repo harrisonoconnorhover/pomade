@@ -33,6 +33,27 @@ const state = {
 };
 const refreshRequests = [],
   previewRequests = [];
+let delayRefresh = false,
+  failSaves = false,
+  refreshedWorkspace;
+let releaseRefresh;
+const refreshGate = new Promise((resolve) => {
+  releaseRefresh = resolve;
+});
+await page.addInitScript(() =>
+  Object.defineProperty(navigator, 'clipboard', {
+    value: {},
+    configurable: true,
+  }),
+);
+await page.route('**/api/workspace?*', (route) =>
+  route.request().method() === 'PUT' && failSaves
+    ? route.fulfill({
+        status: 503,
+        json: { error: 'QA delayed save; edits remain in this tab.' },
+      })
+    : route.continue(),
+);
 await page.route('**/api/providers/crm', (route) => {
   if (route.request().method() === 'GET')
     return route.fulfill({
@@ -69,9 +90,14 @@ await page.route('**/api/providers/crm/segments?*', (route) =>
 await page.route('**/api/providers/accounts', (route) =>
   route.fulfill({ json: { accounts: [] } }),
 );
-await page.route('**/api/crm-refresh**', (route) => {
-  if (route.request().method() === 'POST')
+await page.route('**/api/crm-refresh**', async (route) => {
+  if (route.request().method() === 'POST') {
     refreshRequests.push(route.request().postDataJSON());
+    if (delayRefresh) {
+      await refreshGate;
+      return route.fulfill({ json: { state, workspace: refreshedWorkspace } });
+    }
+  }
   return route.fulfill({ json: { state } });
 });
 const path = '/api/workspace?workspaceId=' + tableId;
@@ -164,12 +190,81 @@ try {
   assert.equal(refreshRequests.length, 2);
   for (const request of refreshRequests)
     assert.deepEqual(request, { workspaceId: tableId, action: 'refresh' });
+  // Hold one refresh while a grid edit has not yet saved. The remote API change
+  // represents the CRM result; no external CRM request is made in this test.
+  delayRefresh = true;
+  failSaves = true;
+  const pendingRefresh = page.waitForRequest(
+    (r) => r.url().endsWith('/api/crm-refresh') && r.method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Refresh now', exact: true }).click();
+  await pendingRefresh;
+  const box = await page.locator('canvas').first().boundingBox();
+  await page.mouse.click(box.x + 90, box.y + 65);
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
+  await page.screenshot({
+    path: out + '/crm-refresh-edit-selection.png',
+    animations: 'disabled',
+  });
+  const failedSave = page.waitForResponse(
+    (r) =>
+      r.url().includes('/api/workspace?') &&
+      r.request().method() === 'PUT' &&
+      r.status() === 503,
+  );
+  const localValue = 'Typed while refreshing ' + Date.now();
+  await page.evaluate((value) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', value);
+    window.dispatchEvent(
+      new ClipboardEvent('paste', {
+        clipboardData: data,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  }, localValue);
+  await failedSave;
+  const base = await get();
+  const remote = structuredClone(base);
+  remote.rows[0].values.domain = 'refresh-qa.example.test';
+  remote.updatedAt = Date.now();
+  const refreshSave = await page.request.put(origin + path, {
+    data: { workspace: remote, baseWorkspace: base },
+  });
+  assert.equal(refreshSave.status(), 200);
+  refreshedWorkspace = (await refreshSave.json()).workspace;
+  failSaves = false;
+  const mergedSave = page.waitForResponse(
+    (r) =>
+      r.url().includes('/api/workspace?') &&
+      r.request().method() === 'PUT' &&
+      r.status() === 200 &&
+      r.request().postDataJSON().workspace.rows[0].values.company ===
+        localValue,
+  );
+  releaseRefresh();
+  await mergedSave;
+  const merged = await get();
+  assert.equal(merged.rows[0].values.company, localValue);
+  assert.equal(merged.rows[0].values.domain, 'refresh-qa.example.test');
+  assert.deepEqual(merged.rows.slice(1), base.rows.slice(1));
   assert.deepEqual(errors, []);
   // Remove the synthetic segment reference, leaving all saved row values and recipes intact.
   const current = await get();
   const restored = await page.request.put(origin + path, {
     data: {
-      workspace: { ...current, source: before.source, updatedAt: Date.now() },
+      workspace: {
+        ...current,
+        source:
+          before.source?.segment?.id === 'qa_empty' ? undefined : before.source,
+        updatedAt: Date.now(),
+      },
       baseWorkspace: current,
     },
   });
@@ -184,6 +279,9 @@ try {
       'original values and recipes preserved',
       'refresh uses saved settings before settings dialog opens',
       'discarded settings draft does not alter refresh',
+      'edit made during delayed refresh remains intact',
+      'CRM result and local edit both persist',
+      'unrelated rows remain unchanged',
       'synthetic source reference removed',
     ],
     pageErrors: errors,

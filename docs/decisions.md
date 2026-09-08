@@ -1133,3 +1133,8 @@ Selecting a CSV opens a preview rather than overwriting the active sheet. New sh
 ### 2026-09-07 — Preserve research drafts across output formats
 - Switching between one answer, structured fields and list rows adapts untouched examples only. Custom prompts, field names and value types remain intact even while the single-answer view hides the field list.
 - Three focused tests and five browser checks passed, including all output modes, mobile fit and cancelling without changing the saved sheet. The prompt has an explicit accessible label.
+
+### 2026-09-07 — Merge edits made during manual CRM refresh
+- A manual refresh now reconciles its committed snapshot with the latest local edits, just like job polling. Conflicts retain local data and display the refresh error; stale responses cannot move the saved baseline backward.
+- Ten CRM source browser checks passed, including a deliberately delayed refresh, an unsaved grid edit, both values persisting, and unrelated rows remaining intact. Responses were mocked; no external CRM requests were made.
+- Fifteen focused merge, CRM refresh and workbook-run tests passed. The database test also proves a refresh rejects a concurrent saved edit and returns the committed revision on success. Existing revision and transaction protection needed no backend change.

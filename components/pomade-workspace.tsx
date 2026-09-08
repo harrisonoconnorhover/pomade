@@ -3198,11 +3198,24 @@ export default function PomadeWorkspace({
             workspace={workspace}
             ready={canLeaveTable && !jobLocksWorkspace}
             hosted={deployment.hosted}
-            onRefresh={(next) => {
-              lastSaved.current = next;
-              setSavedWorkspace(next);
-              setWorkspace(next);
-              setSaveState('Saved');
+            onRefresh={(remote) => {
+              try {
+                const next = reconcileWorkspaceUpdate(
+                  lastSaved.current ?? workspace,
+                  latestLocal.current,
+                  remote,
+                );
+                lastSaved.current = next.saved;
+                latestLocal.current = next.workspace;
+                setSavedWorkspace(next.saved);
+                setWorkspace(next.workspace);
+                setSaveState(
+                  next.workspace === next.saved ? 'Saved' : 'Saving',
+                );
+              } catch (error) {
+                setSaveState('Offline');
+                throw error;
+              }
             }}
           />
           <div className="table-toolbar">

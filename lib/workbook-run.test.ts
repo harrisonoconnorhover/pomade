@@ -271,5 +271,36 @@ describe('durable workbook execution', () => {
     expect((await getCrmRefresh(db, a.id))?.nextRunAt).toBeGreaterThan(
       Date.now(),
     );
+    const persisted = () =>
+      JSON.parse(
+        String(
+          sql.prepare('SELECT snapshot FROM workspaces WHERE id=?').get(a.id)
+            ?.snapshot,
+        ),
+      ) as WorkspaceSnapshot;
+    expect(result.workspace.revision).toBe(persisted().revision);
+    await expect(
+      refreshCrmWorkspace(db, a.id, {
+        hubSpotAccessToken: 'test',
+        fetchImpl: async () => {
+          const edited = persisted();
+          edited.rows[0].values.research = 'Typed during provider request';
+          save(sql, edited);
+          return Response.json({
+            results: [
+              {
+                id: '1',
+                properties: { name: 'Too late', domain: 'example.com' },
+              },
+            ],
+          });
+        },
+      }),
+    ).rejects.toThrow('Workspace changed');
+    expect(persisted().rows[0].values).toMatchObject({
+      company: 'Current',
+      research: 'Typed during provider request',
+    });
+    expect((await getCrmRefresh(db, a.id))?.status).toBe('failed');
   });
 });
