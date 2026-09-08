@@ -965,7 +965,7 @@ body {
 .receipt-dialog {
   max-width: 620px !important;
   max-height: min(720px, calc(100vh - 48px));
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
 }
 .receipt-pagination {
   display: flex;
@@ -4540,3 +4540,9 @@ body {
 .waterfall-step-label small { font-size: 10px; color: #68756e; overflow-wrap: anywhere; }
 .waterfall-error-choice { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.5; }
 .column-editor-dialog .rename-actions { position: sticky; bottom: 0; margin: 0; padding: 12px 0; background: #fff; border-top: 1px solid #e4e4dd; z-index: 2; flex-wrap: wrap; }
+
+.receipt-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.receipt-controls input, .receipt-controls select { min-width: 0; height: 36px; padding: 0 10px; border: 1px solid #cfd3cd; border-radius: 8px; background: #fff; color: #23362c; font-size: 12px; }
+.receipt-controls button { grid-column: 1 / -1; justify-self: start; }
+.receipt-controls input:focus, .receipt-controls select:focus { outline: 2px solid #75937f; outline-offset: 1px; }
+.receipt-empty { margin: 0; padding: 24px 16px; text-align: center; color: #68756e; font-size: 12px; }

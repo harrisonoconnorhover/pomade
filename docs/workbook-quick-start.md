@@ -31,8 +31,10 @@ signal recipes in **Recipe library** and save your customized column as a templa
 Use **Columns** to search, jump, hide or show fields. Hidden columns retain their
 values and still participate in recipes. The settings button beside each search
 result opens that column directly, including hidden columns. In **Column settings**,
-you can edit an existing research prompt, provider, model and effort, or reorder
-an existing provider waterfall. **Cancel** discards the draft; **Save settings**
+you can edit an existing research prompt or provider, or reorder an existing
+provider waterfall. For model and effort controls, choose **ChatGPT subscription**
+under **Research with**, then uncheck **Use app defaults**. If the model list
+cannot load, **Refresh models** retries without discarding your draft. **Cancel** discards the draft; **Save settings**
 keeps the existing outputs and answers. Changed recipes pause an enabled schedule
 for review. A waiting waterfall run must finish or be cancelled before reordering.
 
@@ -54,7 +56,9 @@ Optional verification also counts toward the request limit. A configured API
 key does not guarantee that your vendor plan permits every action. Background
 runs retain completed steps and expose waiting, pause, resume and retry states.
 Use **Run history** to inspect outcomes and evidence. Long receipts have Previous
-and Next pages with 100 actions per page; the summary totals cover the full run.
+and Next pages with 100 actions per page. Search by company, action, result or
+error, or choose **Needs review** to focus on unresolved actions. Filtering resets
+to the first page; the summary totals continue to cover the full run.
 
 Arrow keys keep **Details** aligned with the selected row. A source-row link opens
 the correct record and scrolls to it, even far down a sheet.

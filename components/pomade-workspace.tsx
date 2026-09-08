@@ -630,6 +630,8 @@ export default function PomadeWorkspace({
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptPage, setReceiptPage] = useState(0);
+  const [receiptQuery, setReceiptQuery] = useState('');
+  const [receiptStatus, setReceiptStatus] = useState('all');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [workspaceVersions, setWorkspaceVersions] = useState<
@@ -1427,6 +1429,31 @@ export default function PomadeWorkspace({
     ? selectedRowIds
     : visibleRows.map((row) => row.id);
   const currentReceipt = receiptRun ?? latestRun;
+  const filteredReceipts = useMemo(() => {
+    const terms = receiptQuery
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    return (currentReceipt?.receipts ?? []).filter((receipt) => {
+      if (receiptStatus !== 'all' && receipt.status !== receiptStatus)
+        return false;
+      const text = [
+        receipt.rowLabel,
+        receipt.action,
+        receipt.after,
+        receipt.error,
+        ...(receipt.attempts ?? []).flatMap((attempt) => [
+          attempt.action,
+          attempt.error,
+        ]),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return terms.every((term) => text.includes(term));
+    });
+  }, [currentReceipt, receiptQuery, receiptStatus]);
   const handoffRowIds = selectedRowIds.length
     ? selectedRowIds
     : selected
@@ -2886,6 +2913,8 @@ export default function PomadeWorkspace({
     if (!run) return;
     setReceiptRun(run);
     setReceiptPage(0);
+    setReceiptQuery('');
+    setReceiptStatus('all');
     setReceiptOpen(true);
   }
 
@@ -6543,11 +6572,47 @@ export default function PomadeWorkspace({
               <strong>{currentReceipt?.externalWrites ?? 0}</strong>
             </div>
           </div>
+          <div className="receipt-controls">
+            <input
+              aria-label="Search run receipt"
+              placeholder="Find a company, action, or error…"
+              value={receiptQuery}
+              onChange={(event) => {
+                setReceiptQuery(event.target.value);
+                setReceiptPage(0);
+              }}
+            />
+            <select
+              aria-label="Receipt status"
+              value={receiptStatus}
+              onChange={(event) => {
+                setReceiptStatus(event.target.value);
+                setReceiptPage(0);
+              }}
+            >
+              <option value="all">All results</option>
+              <option value="review">Needs review</option>
+              <option value="passed">Passed</option>
+            </select>
+            {receiptQuery || receiptStatus !== 'all' ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setReceiptQuery('');
+                  setReceiptStatus('all');
+                  setReceiptPage(0);
+                }}
+              >
+                Clear receipt filters
+              </Button>
+            ) : null}
+          </div>
           <div
             className="receipt-log"
             key={`${currentReceipt?.id}-${receiptPage}`}
           >
-            {currentReceipt?.receipts
+            {filteredReceipts
               .slice(receiptPage * 100, (receiptPage + 1) * 100)
               .map((receipt) => (
                 <div key={receipt.id}>
@@ -6711,12 +6776,19 @@ export default function PomadeWorkspace({
                   </div>
                 </div>
               ))}
+            {!filteredReceipts.length ? (
+              <p className="receipt-empty">
+                {currentReceipt?.receipts.length
+                  ? 'No matching actions. Try another search or clear the filters.'
+                  : 'No action details recorded.'}
+              </p>
+            ) : null}
           </div>
           <div className="receipt-pagination">
             <span aria-live="polite">
-              {currentReceipt?.receipts.length
-                ? `${receiptPage * 100 + 1}–${Math.min((receiptPage + 1) * 100, currentReceipt.receipts.length)} of ${currentReceipt.receipts.length} actions`
-                : 'No action details recorded'}
+              {filteredReceipts.length
+                ? `${receiptPage * 100 + 1}–${Math.min((receiptPage + 1) * 100, filteredReceipts.length)} of ${filteredReceipts.length} actions${receiptQuery || receiptStatus !== 'all' ? ` · ${currentReceipt?.receipts.length ?? 0} total` : ''}`
+                : '0 matching actions'}
             </span>
             <Button
               variant="outline"
@@ -6729,10 +6801,7 @@ export default function PomadeWorkspace({
             <Button
               variant="outline"
               aria-label="Next page"
-              disabled={
-                (receiptPage + 1) * 100 >=
-                (currentReceipt?.receipts.length ?? 0)
-              }
+              disabled={(receiptPage + 1) * 100 >= filteredReceipts.length}
               onClick={() => setReceiptPage((page) => page + 1)}
             >
               Next <ChevronRight />

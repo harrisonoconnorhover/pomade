@@ -2,10 +2,10 @@
 
 ## Finished
 
-- Research columns now support editing the prompt, provider, model and effort in place. Cancel discards drafts; Save preserves IDs, output fields, mappings and existing results.
+- Research columns now support editing prompts/providers in place, plus model and effort for ChatGPT research. Cancel discards drafts; Save preserves IDs, output fields, mappings and existing results.
 - Existing provider waterfalls support reordering and error fallback settings. Waiting runs retain their original configuration; changed recipes pause enabled schedules for review.
 - Columns search opens settings directly, including hidden fields. Explicit status/saved-view filters replace cycling. Arrow keys keep record details aligned; source links scroll to the correct row on desktop and phone.
-- Run receipts expose every action through 100-item pages, with full-run totals and usable mobile controls.
+- Run receipts expose every action through searchable 100-item pages, with review/passed filters, full-run totals and usable mobile controls.
 - Earlier night-shift CSV, run controls, CRM refresh, transfer and lookup improvements remain. One synthetic company was created and verified in each dev CRM earlier tonight. Current extension is built locally; private deployment is pending final publication checks.
 
 ## Try It
