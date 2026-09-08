@@ -20,6 +20,8 @@
 - Actual browser checks covered imports/exports, paste, run scope, failure recovery, research drafts, capacity, formula search, CRM previews/readback, transfers and lookups. Desktop, tablet and 390px layouts were inspected. Final hosted verification passed: nine checks, zero saved writes or page errors. Refreshed stale local font cache; the local browser now loads font assets correctly.
 - Release checks confirmed all 24 original local and 16 hosted sheets preserved; four additional local QA sheets remain. All saved content matched the pre-release snapshot, seven hosted connections remained configured, six served assets per installation matched builds, anonymous access returned 401, and the public callback health check passed.
 
+- Hosted background polling stayed error-free for 90 seconds.
+
 ## Decisions
 
 - The hosted audience remains exactly one owner; local and hosted data remain separate. No GitHub push, purchases, or access expansion.
