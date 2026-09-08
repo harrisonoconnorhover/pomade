@@ -46,6 +46,7 @@ const errors = [], consoleErrors = [], failedResponses = [];
 const syntheticPuts = [], blockedWrites = [];
 let workspaceReads = 0;
 let settingsReads = 0;
+const settingsRefreshQueries = [];
 const screenshots = [
   'outputs/nightshift/2026-09-07/research-model-settings-desktop.png',
   'outputs/nightshift/2026-09-07/research-model-settings-mobile.png',
@@ -98,11 +99,13 @@ await page.route(`${origin}/api/**`, async (route) => {
   } });
   if (url.pathname === '/api/providers/research') return json({
     provider: 'parallel', configured: false, ready: false,
-    label: 'Parallel', model: 'QA status only', alternatives: [{ provider: 'codex', configured: true, label: 'ChatGPT subscription' }],
+    label: 'Parallel', model: 'QA status only', alternatives: [{ provider: 'codex', configured: false, label: 'ChatGPT subscription' }],
     capabilities: { webResearch: true, citations: true, maximumActionsPerRun: 10 },
   });
   if (url.pathname === '/api/providers/research/settings') {
     settingsReads++;
+    settingsRefreshQueries.push(url.searchParams.get('refresh'));
+    if (settingsReads === 1) return route.fulfill({ status: 503, json: { error: 'Synthetic model lookup unavailable.' } });
     return json({ defaults: {}, models: [{
       id: 'qa-model-a', name: 'QA model A', isDefault: true,
       defaultReasoningEffort: 'medium',
@@ -190,7 +193,23 @@ try {
   await page.getByRole('button', { name: /^Columns 4\/5/ }).waitFor();
 
   await openResearchSettings();
+  assert.equal(settingsReads, 0, 'An unconfigured Codex provider must not be queried before choosing it.');
+  const draftPrompt = 'Preserve this unsaved question while retrying the model list for {{company}}.';
+  await settings().getByLabel(/^Research prompt/).fill(draftPrompt);
+  await settings().getByLabel(/^Research with/).selectOption('codex');
+  const modelError = settings().getByRole('alert').filter({ hasText: 'Research settings could not be loaded.' });
+  await modelError.waitFor();
+  assert.equal(settingsReads, 1, 'Choosing Codex must request account models even when the provider status says unconfigured.');
+  assert.equal(await settings().getByLabel(/^Research prompt/).inputValue(), draftPrompt, 'Model loading failure must retain the unsaved prompt.');
+  assert.equal(syntheticPuts.length, 0);
+  await settings().getByRole('button', { name: 'Refresh models', exact: true }).click();
+  await model().locator('option[value="qa-model-a"]').waitFor({ state: 'attached' });
+  await modelError.waitFor({ state: 'hidden' });
+  assert.deepEqual(settingsRefreshQueries, ['false', 'true'], 'Refresh models must retry with refresh=true.');
+  assert.equal(await settings().getByLabel(/^Research prompt/).inputValue(), draftPrompt, 'Successful model refresh must retain the unsaved prompt.');
+  assert.equal(syntheticPuts.length, 0, 'Model refresh must not save draft settings.');
   await chooseExplicitModel();
+  assert.equal(await settings().getByLabel(/^Research prompt/).inputValue(), draftPrompt);
   await cancelSettings();
   // Cover the workspace autosave debounce so a cancelled draft cannot sneak into a later save.
   await page.waitForTimeout(650);
@@ -254,6 +273,7 @@ try {
     [inherit(), 'Use app defaults checkbox'],
     [model(), 'Model select'],
     [effort(), 'Effort select'],
+    [settings().getByRole('button', { name: 'Refresh models', exact: true }), 'Refresh models'],
     [settings().getByRole('button', { name: 'Save settings', exact: true }), 'Save settings'],
     [settings().getByRole('button', { name: 'Cancel', exact: true }), 'Cancel'],
   ]) {
@@ -270,14 +290,17 @@ try {
   assertPreservedData();
 
   assert.ok(workspaceReads >= 2);
-  assert.ok(settingsReads >= 1, 'The synthetic account model list must be loaded.');
+  assert.ok(settingsReads >= 2, 'The synthetic model list must be retried and loaded.');
   assert.deepEqual(blockedWrites, [], 'No execution, provider defaults, CRM, or other mutation may be attempted.');
   assert.deepEqual(errors, []);
-  assert.deepEqual(consoleErrors, []);
-  assert.deepEqual(failedResponses, []);
+  assert.equal(consoleErrors.length, 1, 'Only the deliberately failed model request may log a console error.');
+  assert.match(consoleErrors[0], /Failed to load resource.*503/);
+  assert.deepEqual(failedResponses, [{ path: '/api/providers/research/settings', status: 503 }]);
   console.log(JSON.stringify({
     passed: true, tableId,
     checks: [
+      'Choosing unconfigured Codex loads models, reports one 503 and offers Refresh models',
+      'Refresh models retries successfully and retains the unsaved prompt',
       'provider, model and effort changes remain drafts until Save',
       'Cancel issues no PUT and restores original provider and inheritance',
       'Save and reopen preserve the explicit model and high effort',
@@ -285,9 +308,9 @@ try {
       'Explicit default settings {} stay distinct from inheritance, including after reload',
       'Original research prompt, hidden state, output shape and all row results remain intact',
       '390px controls fit and mobile Cancel discards draft model changes',
-      'Only three intercepted workspace PUTs; no provider execution or browser errors',
+      'Only three intercepted workspace PUTs; no provider execution or unexpected browser errors',
     ],
-    workspaceReads, settingsReads, syntheticPuts: syntheticPuts.length,
+    workspaceReads, settingsReads, settingsRefreshQueries, syntheticPuts: syntheticPuts.length,
     blockedWrites, pageErrors: errors, consoleErrors, failedResponses, screenshots,
   }));
 } catch (error) {
@@ -295,7 +318,7 @@ try {
   await page.screenshot({ path: screenshot, animations: 'disabled' }).catch(() => {});
   console.error(JSON.stringify({
     passed: false, error: error instanceof Error ? error.message : String(error),
-    workspaceReads, settingsReads, syntheticPuts: syntheticPuts.length,
+    workspaceReads, settingsReads, settingsRefreshQueries, syntheticPuts: syntheticPuts.length,
     lastColumn: researchColumn(), blockedWrites, pageErrors: errors,
     consoleErrors, failedResponses, screenshot,
   }));

@@ -683,11 +683,14 @@ export default function PomadeWorkspace({
     status?: ResearchProviderStatus;
   }>({ revision: -1 });
   const researchStatus = researchCheck.status;
+  const [columnEditorProvider, setColumnEditorProvider] =
+    useState<PomadeColumn['researchProvider']>();
   const codexSettings = useCodexResearchSettings(
-    Boolean(
-      researchStatus?.alternatives?.find((p) => p.provider === 'codex')
-        ?.configured ?? researchStatus?.provider === 'codex',
-    ) &&
+    ((columnEditorOpen && columnEditorProvider === 'codex') ||
+      Boolean(
+        researchStatus?.alternatives?.find((p) => p.provider === 'codex')
+          ?.configured ?? researchStatus?.provider === 'codex',
+      )) &&
       (researchBuilderOpen ||
         recipeSettingsOpen ||
         sourcesOpen ||
@@ -730,8 +733,6 @@ export default function PomadeWorkspace({
   );
   const [columnEditorContinueOnError, setColumnEditorContinueOnError] =
     useState(false);
-  const [columnEditorProvider, setColumnEditorProvider] =
-    useState<PomadeColumn['researchProvider']>();
   const [columnEditorModel, setColumnEditorModel] =
     useState<CodexResearchSettings>();
   const [pendingRunRowIds, setPendingRunRowIds] = useState<string[]>([]);
@@ -3752,7 +3753,8 @@ export default function PomadeWorkspace({
                     ]
                       .filter((status) => status !== 'All')
                       .map((status) => (
-                        <DropdownMenuRadioItem closeOnClick
+                        <DropdownMenuRadioItem
+                          closeOnClick
                           key={status}
                           value={`status:${status}`}
                         >
@@ -3763,7 +3765,8 @@ export default function PomadeWorkspace({
                       <DropdownMenuSeparator />
                     ) : null}
                     {(workspace.savedViews ?? []).map((view) => (
-                      <DropdownMenuRadioItem closeOnClick
+                      <DropdownMenuRadioItem
+                        closeOnClick
                         key={view.id}
                         value={`view:${view.id}`}
                       >
@@ -7253,6 +7256,21 @@ export default function PomadeWorkspace({
                 disabled={jobLocksWorkspace || codexSettings.loading}
                 onChange={setColumnEditorModel}
               />
+              <div className="codex-settings-actions">
+                <Button
+                  variant="outline"
+                  disabled={codexSettings.loading || jobLocksWorkspace}
+                  onClick={codexSettings.refresh}
+                >
+                  <RefreshCw />
+                  {codexSettings.loading ? 'Loading models…' : 'Refresh models'}
+                </Button>
+              </div>
+              {codexSettings.data?.error ? (
+                <p className="source-error" role="alert">
+                  {codexSettings.data.error}
+                </p>
+              ) : null}
             </>
           ) : null}
           <div className="column-editor-meta">

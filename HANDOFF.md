@@ -18,7 +18,7 @@
 
 - 58 focused tests across seven files passed. Typecheck, lint, diff checks, local build and hosted build passed.
 - Browser checks passed for research drafts, model inheritance, provider ordering, waiting-job protection, hidden-column settings, receipt pagination, explicit filters, row links and 390px layouts. Synthetic saves made no provider calls. Eleven local workbook smoke checks passed with zero writes or page errors.
-- Existing hosted access remains one owner, no groups or external visitors. Release preservation checks and hosted smoke verification are pending the new deployment.
+- A real local save/reload/restore test made exactly two saves on the disposable QA sheet; complete contents matched afterward, excluding revision/timestamp. No enrichment ran. Hosted access remains one owner; release preservation and hosted smoke checks are pending.
 
 ## Decisions
 

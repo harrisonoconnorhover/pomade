@@ -191,8 +191,8 @@ export function CodexModelPicker({
       </div>
       {!models.length ? (
         <p className="source-help">
-          Account models are not loaded yet. Open ChatGPT research defaults
-          below to check the connection and refresh models.
+          Account models are not loaded yet. Refresh the model list or check
+          your ChatGPT connection.
         </p>
       ) : null}
       {model ? (
