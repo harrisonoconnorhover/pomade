@@ -2,38 +2,36 @@
 
 ## Finished
 
-- Added **Columns** search, click-to-jump, individual hide/show and Show all. Visibility persists with the sheet; hidden data, formulas and enrichment steps remain intact.
-- Added **Provider catalog** with provider/action search, Email/Phone/Company/Research filters, required inputs and account connection badges before selection.
-- Catalog choices open existing provider or research setup. Research selection persists for single answers, structured fields and lists. Company presets can be saved before connecting a key.
-- Added ordered related-sheet tabs from actual workbook membership, preserving account boundaries and navigation/save guards.
-- Released all three features locally at http://localhost:8798 and to the existing owner-private site (hosted version 29, source `da0d904`).
+- Polished column discovery, provider setup, mobile builders, formula input search and research drafts. Improved phone grid scrolling. Added clear capacity checks for the existing 100-column limit, including multi-output actions.
+- Added CSV preview with a new-sheet default and mapped append, explicit export scope/hidden-column choices, and correct multi-cell paste/clear behavior with filters and formulas.
+- Added selectable run actions, consistent request ceilings, recovery from unavailable history/providers, and protection for edits arriving during job polling or CRM refresh.
+- Improved CRM mapping and verified-result review. Created one synthetic company in each existing HubSpot/Salesforce dev account and independently read back the record and custom fields. Verified a real local table transfer and lookup; improved matching defaults, reload/retry states and mobile controls.
+- Released runtime `41e0d54` as private hosted version 32 and left the same local build running at http://localhost:8798. Deferred optional CSV/planner code; the workbook entry is 25.3% smaller compressed. Added `docs/workbook-quick-start.md` and corrected refresh/scheduling instructions.
 
 ## Try It
 
-- Open **Columns**, search a name and click it to jump. Uncheck a column to hide it; use Show all to restore the full view.
-- Open **Enrich → Provider catalog**, or choose Email & phone / AI research from Add column. Search a provider, check its required inputs, then configure the action. Creating a column does not run it.
-- Open a workbook created from a prompt; related sheets appear beneath the main sheet switcher. Standalone sheets keep the general switcher.
+- Right-click the grid or use the far-right **Add column** rail. Try AI research, switch its output format, and inspect **Columns** search. Setup alone does not run enrichment.
+- Use **Load data** to preview CSV/CRM inputs. Check rows or filter, then review Run actions; use **More → Export CSV** to select exactly what to download.
+- Use **Send → Transfer to table**, **Add column → Lookup another table**, or **Send → Write to CRM**. The local **Night shift QA CRM round trip** sheet holds the verified synthetic examples. Saved CRM sources expose **Refresh settings**.
 
 ## Checks
 
-- 127 focused tests passed across eight files, covering hidden-column execution and merging, visible drag mapping, provider search and status, workbook membership, existing provider factories and recipe execution.
-- Typecheck, lint, diff checks, and both local/hosted production builds passed.
-- Live checks passed: 24 local and 16 hosted table IDs preserved, seven hosted connections intact, managed Apollo callback unchanged, anonymous workbook access returns 401. Three related sheets expose correct plan membership in each version; catalog connection endpoints respond correctly.
-- Four served JavaScript/CSS assets per version match their respective production builds. Evidence: ignored `outputs/navigation/2026-09-07/release-check.json`.
-- No browser interaction or visual QA was performed for this implementation.
+- 118 focused tests across 18 files passed; the final lookup checks also passed. Typecheck, lint, diff checks, and both production builds passed.
+- Actual browser checks covered imports/exports, paste, run scope, failure recovery, research drafts, capacity, formula search, CRM previews/readback, transfers and lookups. Desktop, tablet and 390px layouts were inspected. Final hosted verification passed: nine checks, zero saved writes or page errors. Refreshed stale local font cache; the local browser now loads font assets correctly.
+- Release checks confirmed all 24 original local and 16 hosted sheets preserved; four additional local QA sheets remain. All saved content matched the pre-release snapshot, seven hosted connections remained configured, six served assets per installation matched builds, anonymous access returned 401, and the public callback health check passed.
 
 ## Decisions
 
-- Visibility is display-only; full-sheet exports and recipe inputs include hidden fields.
-- Configured keys do not imply paid API scope. Apollo phone setup still requires its key and public callback; ChatGPT research still requires the Mac.
-- Keep the existing owner-private hosting audience and local data. No GitHub push or live provider enrichment is part of this update.
+- The hosted audience remains exactly one owner; local and hosted data remain separate. No GitHub push, purchases, or access expansion.
+- Provider setup tests used synthetic responses; real CRM writes were limited to the two labeled dev-account records.
 
 ## Remaining
 
-- Real Apollo phone calls still require eligible API access; the callback service is unchanged.
+- Real Apollo phone enrichment still needs eligible API access. Other unconnected provider adapters need live credentials and coverage testing.
+- Fully unattended hosted timers remain unverified; open-site/companion wakeups work. ChatGPT research needs the Mac helper.
 
 ## Review First
 
-- `components/column-finder.tsx`, `lib/grid-columns.ts` and grid integration.
-- `components/provider-catalog.tsx`, `lib/provider-catalog.ts` and builder selection.
-- `lib/workbook.ts`, related-sheet navigation and `app/workspace.css`.
+- `docs/workbook-quick-start.md` and the four local QA sheets.
+- `components/pomade-workspace.tsx`, lookup/transfer/CRM builders and `app/workspace.css`.
+- Ignored evidence in `outputs/nightshift/2026-09-07/`; browser scripts in `scripts/test-*-ui.mjs`.
