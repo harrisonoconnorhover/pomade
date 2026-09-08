@@ -5,7 +5,7 @@ and connections. Check the Local/Hosted label before importing data.
 
 ## Start with data
 
-Use **Load data** for a CSV, HubSpot or Salesforce. CSV imports show a preview
+Use **Add data → Load data** for a CSV, HubSpot or Salesforce. CSV imports show a preview
 and default to **Create a new sheet**. Choose **Add rows to this sheet** only
 when you want to append; map each incoming field to an existing data column,
 a new column, or Skip. Appending does not replace existing rows. CSV files are

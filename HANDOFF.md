@@ -17,7 +17,7 @@
 ## Checks
 
 - 58 focused tests across seven files passed, plus typecheck, lint, diff checks and local/hosted production builds.
-- Browser regressions passed for drafts, model inheritance/recovery, waterfall ordering, waiting-job protection, hidden-column settings, filters, receipts, row links and 390px layouts. Eleven actual local and eleven hosted smoke checks passed with zero saved-data writes or page errors.
+- Browser regressions passed for drafts, model inheritance/recovery, waterfall ordering, waiting-job protection, hidden-column settings, filters, receipts, row links and 390px layouts. Eleven actual local and eleven hosted smoke checks passed with zero saved-data writes or page errors. Keyboard focus/Escape checks passed; the actual local ChatGPT catalog loaded seven models without executing research.
 - A real local save/reload/restore made exactly two saves on the disposable QA sheet; its contents matched afterward apart from revision/timestamp. No enrichment ran.
 - An unsaved hosted research draft survived 181 seconds of natural polling; Cancel left the complete saved snapshot unchanged. Zero API mutations, provider executions or browser errors.
 - Release checks preserved all 24 original local sheets and 16 hosted sheets; all 28 local saved contents remained unchanged. Seven hosted connections remain configured. Six served assets matched each build; anonymous access was blocked and Apollo callback health passed.
