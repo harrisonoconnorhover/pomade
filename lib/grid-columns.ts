@@ -1,5 +1,16 @@
 import type { WorkspaceSnapshot, ResearchValueType } from './pomade-types';
 
+export function columnCapacityError(
+  workspace: Pick<WorkspaceSnapshot, 'columns'>,
+  addedColumns = 1,
+): string | undefined {
+  const remaining = Math.max(0, 100 - workspace.columns.length);
+  if (addedColumns <= remaining) return undefined;
+  if (!remaining)
+    return 'This sheet has reached its 100-column limit. Remove a column or use another sheet.';
+  return `This action adds ${addedColumns} columns, but only ${remaining} ${remaining === 1 ? 'space remains' : 'spaces remain'}. Remove columns or use another sheet.`;
+}
+
 export function resizeWorkspaceColumn(
   workspace: WorkspaceSnapshot,
   columnId: string,
@@ -64,6 +75,8 @@ export function addWorkspaceDataColumn(
   input: { id: string; title: string; valueType: ResearchValueType },
   now = Date.now(),
 ): WorkspaceSnapshot {
+  const capacityError = columnCapacityError(workspace);
+  if (capacityError) throw new Error(capacityError);
   const title = input.title.replace(/\s+/g, ' ').trim();
   if (!title || title.length > 80)
     throw new Error('Use a column name between 1 and 80 characters.');

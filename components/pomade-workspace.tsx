@@ -145,6 +145,7 @@ import {
 } from '@/lib/local-recipe-engine';
 import {
   addWorkspaceDataColumn,
+  columnCapacityError,
   moveVisibleWorkspaceColumn,
   setWorkspaceColumnHidden,
   showAllWorkspaceColumns,
@@ -1181,6 +1182,14 @@ export default function PomadeWorkspace({
   const automaticFormulaCount = recipeColumns.filter(
     (column) => column.kind === 'formula' && column.autoRun,
   ).length;
+  const singleColumnLimit = columnCapacityError(workspace);
+  const waterfallColumnLimit = columnCapacityError(workspace, 2);
+  const researchColumnLimit = columnCapacityError(
+    workspace,
+    researchOutputMode === 'single'
+      ? 1
+      : researchFields.filter((field) => field.title.trim()).length,
+  );
   const researchOutputReady =
     researchOutputMode === 'single'
       ? Boolean(researchColumnName.trim())
@@ -1528,6 +1537,7 @@ export default function PomadeWorkspace({
   }
 
   function addRecipeColumn(preset: RecipePreset) {
+    if (singleColumnLimit || jobLocksWorkspace) return;
     const used = new Set(workspace.columns.map((column) => column.id));
     const id = uniqueId(slugify(preset.title), used);
     const {
@@ -1889,6 +1899,7 @@ export default function PomadeWorkspace({
   }
 
   function addCustomFormulaColumn() {
+    if (singleColumnLimit || jobLocksWorkspace) return;
     const title = formulaColumnName.trim();
     const expression = formulaExpression.trim();
     if (!title || !expression) return;
@@ -1907,6 +1918,7 @@ export default function PomadeWorkspace({
   }
 
   function addWaterfallColumn() {
+    if (waterfallColumnLimit || jobLocksWorkspace) return;
     const title = waterfallColumnName.trim();
     if (!title || !waterfallReady) return;
     const used = new Set(workspace.columns.map((column) => column.id));
@@ -1969,6 +1981,7 @@ export default function PomadeWorkspace({
   }
 
   function addWebResearchColumn() {
+    if (researchColumnLimit || jobLocksWorkspace) return;
     const prompt = researchPrompt.trim();
     if (!prompt) return;
     if (researchOutputMode === 'single') {
@@ -4207,6 +4220,11 @@ export default function PomadeWorkspace({
               appear at the end of your workflow, before run status.
             </DialogDescription>
           </DialogHeader>
+          {singleColumnLimit ? (
+            <p className="template-error" role="alert">
+              {singleColumnLimit}
+            </p>
+          ) : null}
           <label className="recipe-library-search">
             <Search aria-hidden="true" />
             <input
@@ -4533,7 +4551,7 @@ export default function PomadeWorkspace({
                     <button
                       key={`${preset.recipe}-${preset.title}`}
                       type="button"
-                      disabled={jobLocksWorkspace}
+                      disabled={jobLocksWorkspace || Boolean(singleColumnLimit)}
                       onClick={() =>
                         preset.recipe === 'custom-formula'
                           ? openFormulaBuilder()
@@ -4617,9 +4635,9 @@ export default function PomadeWorkspace({
                 <option value="boolean">True / false</option>
               </select>
             </label>
-            {dataColumnError ? (
+            {dataColumnError || singleColumnLimit ? (
               <p className="template-error" role="alert">
-                {dataColumnError}
+                {dataColumnError || singleColumnLimit}
               </p>
             ) : null}
             <div className="data-column-actions">
@@ -4632,7 +4650,11 @@ export default function PomadeWorkspace({
               </Button>
               <Button
                 type="submit"
-                disabled={!dataColumnName.trim() || jobLocksWorkspace}
+                disabled={
+                  !dataColumnName.trim() ||
+                  jobLocksWorkspace ||
+                  Boolean(singleColumnLimit)
+                }
               >
                 <Plus /> Add column
               </Button>
@@ -5091,6 +5113,11 @@ export default function PomadeWorkspace({
           </section>
           <div className="research-builder-actions">
             <p>The new column stays editable and runs in column order.</p>
+            {singleColumnLimit ? (
+              <p className="template-error" role="alert">
+                {singleColumnLimit}
+              </p>
+            ) : null}
             <Button
               variant="outline"
               onClick={() => setFormulaBuilderOpen(false)}
@@ -5099,7 +5126,11 @@ export default function PomadeWorkspace({
             </Button>
             <Button
               onClick={addCustomFormulaColumn}
-              disabled={!formulaColumnName.trim() || !formulaExpression.trim()}
+              disabled={
+                !formulaColumnName.trim() ||
+                !formulaExpression.trim() ||
+                Boolean(singleColumnLimit)
+              }
             >
               <Plus /> Add formula column
             </Button>
@@ -5235,7 +5266,15 @@ export default function PomadeWorkspace({
             >
               Cancel
             </Button>
-            <Button onClick={addWaterfallColumn} disabled={!waterfallReady}>
+            {waterfallColumnLimit ? (
+              <p className="template-error" role="alert">
+                {waterfallColumnLimit}
+              </p>
+            ) : null}
+            <Button
+              onClick={addWaterfallColumn}
+              disabled={!waterfallReady || Boolean(waterfallColumnLimit)}
+            >
               <Plus /> Add waterfall
             </Button>
           </div>
@@ -5477,9 +5516,18 @@ export default function PomadeWorkspace({
             >
               Cancel
             </Button>
+            {researchColumnLimit ? (
+              <p className="template-error" role="alert">
+                {researchColumnLimit}
+              </p>
+            ) : null}
             <Button
               onClick={addWebResearchColumn}
-              disabled={!researchOutputReady || !researchPrompt.trim()}
+              disabled={
+                !researchOutputReady ||
+                !researchPrompt.trim() ||
+                Boolean(researchColumnLimit)
+              }
             >
               <Plus />
               {researchOutputMode === 'structured'

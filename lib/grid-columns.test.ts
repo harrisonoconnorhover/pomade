@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   addWorkspaceDataColumn,
+  columnCapacityError,
   moveWorkspaceColumn,
   moveVisibleWorkspaceColumn,
   setWorkspaceColumnHidden,
@@ -83,6 +84,35 @@ describe('adding ordinary data columns', () => {
     expect(workspace.rows[0].values).not.toHaveProperty('revenue_band');
     expect(added.schedule).toEqual(workspace.schedule);
     expect(added.updatedAt).toBe(123);
+  });
+
+  it('allows the final column and blocks overflow without changing the sheet', () => {
+    const workspace = createSampleWorkspace();
+    while (workspace.columns.length < 99)
+      workspace.columns.splice(-1, 0, {
+        id: `field_${workspace.columns.length}`,
+        title: `Field ${workspace.columns.length}`,
+        kind: 'text',
+        width: 120,
+      });
+    expect(columnCapacityError(workspace, 2)).toContain('only 1 space remains');
+    const full = addWorkspaceDataColumn(workspace, {
+      id: 'last',
+      title: 'Last field',
+      valueType: 'text',
+    });
+    expect(full.columns).toHaveLength(100);
+    expect(columnCapacityError(full)).toContain('100-column limit');
+    const before = structuredClone(full);
+    expect(() =>
+      addWorkspaceDataColumn(full, {
+        id: 'overflow',
+        title: 'Overflow',
+        valueType: 'text',
+      }),
+    ).toThrow('100-column limit');
+    expect(full).toEqual(before);
+    expect(workspace.columns).toHaveLength(99);
   });
 
   it('also works in a sheet without a run-status column', () => {

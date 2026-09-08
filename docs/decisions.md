@@ -1138,3 +1138,7 @@ Selecting a CSV opens a preview rather than overwriting the active sheet. New sh
 - A manual refresh now reconciles its committed snapshot with the latest local edits, just like job polling. Conflicts retain local data and display the refresh error; stale responses cannot move the saved baseline backward.
 - Ten CRM source browser checks passed, including a deliberately delayed refresh, an unsaved grid edit, both values persisting, and unrelated rows remaining intact. Responses were mocked; no external CRM requests were made.
 - Fifteen focused merge, CRM refresh and workbook-run tests passed. The database test also proves a refresh rejects a concurrent saved edit and returns the committed revision on success. Existing revision and transaction protection needed no backend change.
+
+### 2026-09-07 — Enforce capacity before adding columns
+- Ordinary fields, preset/custom formulas, data waterfalls and single/structured/list research check the existing 100-column save limit before changing a sheet. Multi-output builders show the required and remaining space and preserve the open draft when it cannot fit.
+- Ten grid-column tests and six browser checks passed, including right-click discovery, the permanent Add column rail, 99-to-100 acceptance, overflow blocking, and a mobile warning. The capacity browser fixture was intercepted locally and did not alter saved sheet data.
