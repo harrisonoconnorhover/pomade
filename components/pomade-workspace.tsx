@@ -57,6 +57,7 @@ import {
 import dynamic from 'next/dynamic';
 import RunScopePicker from '@/components/run-scope-picker';
 import { runBudget } from '@/lib/run-budget';
+import { changeResearchDraftMode } from '@/lib/research-draft';
 import { runJobLocksWorkspace } from '@/lib/run-job';
 import { reconcileWorkspaceUpdate } from '@/lib/workspace-merge';
 import { applyGridEdits, visibleSelection } from '@/lib/grid-edits';
@@ -1826,15 +1827,23 @@ export default function PomadeWorkspace({
   }
 
   function chooseResearchOutputMode(mode: ResearchOutputMode) {
-    if (mode === researchOutputMode) return;
-    if (mode === 'list' && researchOutputMode === 'single') {
-      setResearchPrompt(DEFAULT_LIST_RESEARCH_PROMPT);
-      setResearchFields(defaultListResearchFields());
-    } else if (researchOutputMode === 'list' && mode === 'single') {
-      setResearchPrompt(DEFAULT_RESEARCH_PROMPT);
-      setResearchFields(defaultResearchFields());
-    }
-    setResearchOutputMode(mode);
+    const next = changeResearchDraftMode(
+      {
+        mode: researchOutputMode,
+        prompt: researchPrompt,
+        fields: researchFields,
+      },
+      mode,
+      {
+        prompt: DEFAULT_RESEARCH_PROMPT,
+        listPrompt: DEFAULT_LIST_RESEARCH_PROMPT,
+        fields: defaultResearchFields(),
+        listFields: defaultListResearchFields(),
+      },
+    );
+    setResearchPrompt(next.prompt);
+    setResearchFields(next.fields);
+    setResearchOutputMode(next.mode);
   }
 
   function openFormulaBuilder() {
@@ -5428,6 +5437,7 @@ export default function PomadeWorkspace({
           <label className="research-field">
             <span>Research prompt</span>
             <textarea
+              aria-label="Research prompt"
               value={researchPrompt}
               maxLength={4_000}
               onChange={(event) => setResearchPrompt(event.target.value)}

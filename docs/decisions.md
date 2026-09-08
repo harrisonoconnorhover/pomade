@@ -1129,3 +1129,7 @@ Selecting a CSV opens a preview rather than overwriting the active sheet. New sh
 - CRM mapping now searches native property labels/names, presents readable field choices, shows the exact visible/checked row scope, and groups optional saved mapping controls. Preview summaries distinguish creates, updates, unchanged rows and review issues; stale previews explain why another preview is needed.
 - Live browser test created only `Pomade Night shift QA — 2026-09-07` in each existing HubSpot/Salesforce dev account. Both writes completed with native readback, existing custom score/tier/tag fields, verified IDs copied to the disposable sheet, and separate source reads returning the same records.
 - Twenty-three existing CRM sync/field/mapping tests, typecheck and lint passed. Mobile preview screenshots were reviewed; no non-test CRM records were modified. Evidence is ignored under `outputs/nightshift/2026-09-07/crm-*`.
+
+### 2026-09-07 — Preserve research drafts across output formats
+- Switching between one answer, structured fields and list rows adapts untouched examples only. Custom prompts, field names and value types remain intact even while the single-answer view hides the field list.
+- Three focused tests and five browser checks passed, including all output modes, mobile fit and cancelling without changing the saved sheet. The prompt has an explicit accessible label.
