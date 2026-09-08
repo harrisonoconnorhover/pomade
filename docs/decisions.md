@@ -1147,3 +1147,8 @@ Selecting a CSV opens a preview rather than overwriting the active sheet. New sh
 - Formula input chips now have search and a bounded scroll area. Builder explanations and capacity errors occupy full-width rows above sticky actions, including on narrow screens.
 - Completed CRM batches say created/updated and show verified values without a redundant empty Before column for creates. CSV counts use singular wording for one row or column.
 - Seven capacity/formula browser checks, four lazy-tool checks and five read-only CRM history checks passed. Updated 390px screenshots were visually reviewed; this verification made no CRM writes. Typecheck, lint and local build passed.
+
+### 2026-09-07 — Complete the local table-transfer workflow
+- A checked selection scope can be turned off even after all selected rows are cleared. Empty selections remain blocked until the user explicitly changes scope; they never silently expand to all records.
+- Transfer controls now have readable labels, responsive field groups, distinct success messages and recognizable record names in previews.
+- Eight transfer tests and seven actual browser checks passed. The browser saved a rule and transferred one synthetic company between existing QA sheets, preserved unrelated rows and unmapped data, and verified a second preview would add no duplicates. No provider or CRM calls were made.

@@ -35,7 +35,8 @@ export default function TableTransferBuilder({
 }) {
   const [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),
+    [notice, setNotice] = useState('');
   const [tables, setTables] = useState<TableSummary[]>([]);
   const [target, setTarget] = useState<WorkspaceSnapshot>();
   const [rule, setRule] = useState<TableTransferRule>();
@@ -51,6 +52,7 @@ export default function TableTransferBuilder({
     setOpen(true);
     setBusy(true);
     setError('');
+    setNotice('');
     try {
       const [r, h] = await Promise.all([
         fetch('/api/tables'),
@@ -71,6 +73,7 @@ export default function TableTransferBuilder({
     setBusy(true);
     setPreview(undefined);
     setError('');
+    setNotice('');
     try {
       const r = await fetch(
         `/api/workspace?workspaceId=${encodeURIComponent(id)}`,
@@ -119,6 +122,7 @@ export default function TableTransferBuilder({
     }
   }
   function change(patch: Partial<TableTransferRule>) {
+    setNotice('');
     setRule((r) => (r ? { ...r, ...patch } : r));
     setPreview(undefined);
   }
@@ -131,6 +135,7 @@ export default function TableTransferBuilder({
     if (!rule) return;
     setBusy(true);
     setError('');
+    setNotice('');
     try {
       const r = await fetch('/api/transfers', {
         method: 'POST',
@@ -157,7 +162,7 @@ export default function TableTransferBuilder({
       if (data.receipt) {
         setHistory((h) => [data.receipt!, ...h].slice(0, 10));
         setPreview(undefined);
-        setError(
+        setNotice(
           `Transfer saved: ${data.receipt.added} added, ${data.receipt.updated} updated, ${data.receipt.review} need review.`,
         );
       }
@@ -174,7 +179,7 @@ export default function TableTransferBuilder({
         Transfer to table
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="template-dialog">
+        <DialogContent className="template-dialog transfer-dialog">
           <DialogHeader>
             <DialogTitle>Repeatable table transfer</DialogTitle>
             <DialogDescription>
@@ -186,6 +191,7 @@ export default function TableTransferBuilder({
           <label>
             Saved rule
             <select
+              aria-label="Saved rule"
               value={ruleSaved ? rule?.id : ''}
               disabled={busy}
               onChange={(e) => {
@@ -206,6 +212,7 @@ export default function TableTransferBuilder({
           <label>
             Destination
             <select
+              aria-label="Destination"
               value={rule?.targetTableId ?? ''}
               disabled={busy}
               onChange={(e) => void chooseTarget(e.target.value)}
@@ -231,6 +238,7 @@ export default function TableTransferBuilder({
                 <label>
                   Source match key
                   <select
+                    aria-label="Source match key"
                     value={rule.sourceKey}
                     onChange={(e) => change({ sourceKey: e.target.value })}
                   >
@@ -244,6 +252,7 @@ export default function TableTransferBuilder({
                 <label>
                   Destination match key
                   <select
+                    aria-label="Destination match key"
                     value={rule.targetKey}
                     onChange={(e) => {
                       const mapping = { ...rule.mapping };
@@ -263,6 +272,7 @@ export default function TableTransferBuilder({
                 <label>
                   Match rule
                   <select
+                    aria-label="Match rule"
                     value={rule.normalization}
                     onChange={(e) =>
                       change({
@@ -279,6 +289,7 @@ export default function TableTransferBuilder({
                 <label>
                   Transfer mode
                   <select
+                    aria-label="Transfer mode"
                     value={rule.mode}
                     onChange={(e) =>
                       change({
@@ -298,6 +309,7 @@ export default function TableTransferBuilder({
                 <label>
                   Rows to send
                   <select
+                    aria-label="Rows to send"
                     value={rule.rowScope ?? 'source'}
                     onChange={(e) =>
                       change({
@@ -319,6 +331,7 @@ export default function TableTransferBuilder({
                   <label>
                     List recipe
                     <select
+                      aria-label="List recipe"
                       value={rule.childRecipeId ?? ''}
                       onChange={(e) =>
                         change({ childRecipeId: e.target.value })
@@ -363,6 +376,7 @@ export default function TableTransferBuilder({
                     <label key={c.id}>
                       {c.title}
                       <select
+                        aria-label={`Map ${c.title}`}
                         value={rule.mapping[c.id] ?? ''}
                         onChange={(e) =>
                           change({
@@ -383,53 +397,64 @@ export default function TableTransferBuilder({
                     </label>
                   ))}
               </div>
-              <Button
-                variant="outline"
-                disabled={busy || !saved}
-                onClick={() => {
-                  try {
-                    onSave(saveTransferRule(source, target, rule));
+              <div className="transfer-rule-actions">
+                <Button
+                  variant="outline"
+                  disabled={busy || !saved}
+                  onClick={() => {
+                    try {
+                      onSave(saveTransferRule(source, target, rule));
+                      setPreview(undefined);
+                      setError('');
+                      setNotice(
+                        'Rule updated; wait for the table to finish saving before previewing.',
+                      );
+                    } catch (e) {
+                      setError(
+                        e instanceof Error ? e.message : 'Rule invalid.',
+                      );
+                    }
+                  }}
+                >
+                  Save rule
+                </Button>
+                <Button
+                  variant="ghost"
+                  disabled={busy || !saved || !ruleSaved}
+                  onClick={() => {
+                    onSave({
+                      ...source,
+                      tableTransfers: source.tableTransfers?.filter(
+                        (r) => r.id !== rule.id,
+                      ),
+                      updatedAt: Date.now(),
+                    });
+                    setRule(undefined);
                     setPreview(undefined);
-                    setError(
-                      'Rule updated; wait for the table to finish saving before previewing.',
-                    );
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : 'Rule invalid.');
-                  }
-                }}
-              >
-                Save rule
-              </Button>{' '}
-              <Button
-                variant="outline"
-                disabled={busy || !saved || !ruleSaved}
-                onClick={() => {
-                  onSave({
-                    ...source,
-                    tableTransfers: source.tableTransfers?.filter(
-                      (r) => r.id !== rule.id,
-                    ),
-                    updatedAt: Date.now(),
-                  });
-                  setRule(undefined);
-                  setPreview(undefined);
-                }}
-              >
-                Delete saved rule
-              </Button>
+                  }}
+                >
+                  Delete saved rule
+                </Button>
+              </div>
               <label>
                 <input
                   type="checkbox"
                   checked={useSelection}
-                  disabled={!selectedRowIds.length || busy}
+                  aria-label="Use selected rows"
+                  disabled={busy || (!selectedRowIds.length && !useSelection)}
                   onChange={(e) => {
                     setUseSelection(e.target.checked);
                     setPreview(undefined);
                   }}
                 />
-                Use {selectedRowIds.length} selected rows (otherwise all source
-                rows)
+                Use selected rows ({selectedRowIds.length} selected)
               </label>
+              {useSelection && !selectedRowIds.length ? (
+                <p role="alert">
+                  No rows are selected. Select rows in the sheet, or turn off
+                  “Use selected rows” to preview all source rows.
+                </p>
+              ) : null}
               <p>
                 Adding or updating rows pauses an active destination schedule.
                 Transfers do not call external providers. Saved rules are manual
@@ -460,7 +485,12 @@ export default function TableTransferBuilder({
                     {preview.changes.slice(0, 20).map((c, i) => (
                       <details key={`${c.sourceRowId}-${i}`}>
                         <summary>
-                          {c.sourceRowId}: {c.action} · {c.reason}
+                          {source.rows.find((row) => row.id === c.sourceRowId)
+                            ?.values.company ||
+                            source.rows.find((row) => row.id === c.sourceRowId)
+                              ?.values.person ||
+                            c.sourceRowId}
+                          : {c.action} · {c.reason}
                         </summary>
                         <pre>
                           {JSON.stringify(
@@ -473,6 +503,7 @@ export default function TableTransferBuilder({
                     ))}
                   </div>
                   <Button
+                    className="transfer-apply"
                     disabled={
                       busy ||
                       !saved ||
@@ -489,6 +520,7 @@ export default function TableTransferBuilder({
             </>
           ) : null}
           {error ? <p role="alert">{error}</p> : null}
+          {notice ? <output>{notice}</output> : null}
           {history.length ? (
             <details>
               <summary>Recent transfers</summary>

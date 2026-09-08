@@ -1807,3 +1807,15 @@
 .research-builder-actions { flex-wrap: wrap; position: sticky; bottom: -16px; background: #fff; padding: 12px 0; border-top: 1px solid #e3e9e3; z-index: 1; }
 .research-builder-actions > p { flex-basis: 100%; font-size: 12px; }.research-builder-actions > p[role='alert'] { color: #934b33; padding: 10px 12px; }
 @media(max-width: 500px) { .research-builder-actions > button { flex: 1 1 auto; min-width: 0; }.formula-preview > div { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); } }
+
+.transfer-dialog { gap: 16px; }
+.transfer-dialog label:has(> select),.transfer-dialog label:has(> input:not([type='checkbox'])) { display: grid; gap: 6px; min-width: 0; color: #52675a; font-size: 12px; }
+.transfer-dialog select,.transfer-dialog input:not([type='checkbox']) { width: 100%; min-width: 0; border: 1px solid #d8e2da; border-radius: 7px; background: #fff; padding: 8px 10px; color: #263f30; font-size: 13px; }
+.transfer-dialog .http-output-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.transfer-dialog > label:has(> input[type='checkbox']) { display: flex; gap: 8px; align-items: center; font-size: 12px; color: #42604e; }.transfer-dialog input[type='checkbox'] { accent-color: #24633f; }
+.transfer-dialog > p { margin: 0; font-size: 12px; color: #6b7a6f; line-height: 1.5; }.transfer-dialog > p[role='alert'] { padding: 10px 12px; border-radius: 8px; background: #fff6e8; color: #935824; }
+.transfer-dialog > output { padding: 12px; border-radius: 9px; background: #f1f8f2; border: 1px solid #d9e8dc; color: #2b603b; font-size: 12px; line-height: 1.5; }
+.transfer-rule-actions { display: flex; gap: 8px; align-items: center; border-top: 1px solid #e2e9e3; padding-top: 12px; }.transfer-rule-actions > button { flex: 1; }
+.transfer-dialog .http-request-preview details { border: 1px solid #dce6dd; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; }.transfer-dialog .http-request-preview summary { font-size: 12px; color: #355640; cursor: pointer; overflow-wrap: anywhere; }.transfer-dialog .http-request-preview pre { font-size: 11px; }
+.transfer-apply { position: sticky; bottom: -12px; box-shadow: 0 0 0 6px #fff; }
+@media(max-width: 500px) { .transfer-dialog .http-output-grid { grid-template-columns: 1fr; }.transfer-rule-actions { flex-wrap: wrap; } }
