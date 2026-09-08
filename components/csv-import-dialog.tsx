@@ -136,7 +136,7 @@ export default function CsvImportDialog({
             <strong>{file.name}</strong>
             <small>
               {result
-                ? `${result.preview.rows.length.toLocaleString()} rows · ${result.preview.columns.length} columns`
+                ? `${result.preview.rows.length.toLocaleString()} ${result.preview.rows.length === 1 ? 'row' : 'rows'} · ${result.preview.columns.length} ${result.preview.columns.length === 1 ? 'column' : 'columns'}`
                 : 'Reading file…'}
             </small>
           </div>
@@ -235,7 +235,8 @@ export default function CsvImportDialog({
             <div className="csv-preview-table">
               <table>
                 <caption>
-                  First {Math.min(5, result.preview.rows.length)} rows ·{' '}
+                  First {Math.min(5, result.preview.rows.length)}{' '}
+                  {result.preview.rows.length === 1 ? 'row' : 'rows'} ·{' '}
                   {mode === 'new'
                     ? 'new sheet preview'
                     : 'CSV values to append'}
@@ -267,9 +268,10 @@ export default function CsvImportDialog({
             ) : null}
             {mode === 'append' ? (
               <p className="csv-import-note">
-                Adds {result.preview.rows.length} rows; existing rows are
-                unchanged. Importing again adds another copy. Any active
-                schedule pauses for review.
+                Adds {result.preview.rows.length}{' '}
+                {result.preview.rows.length === 1 ? 'row' : 'rows'}; existing
+                rows are unchanged. Importing again adds another copy. Any
+                active schedule pauses for review.
               </p>
             ) : null}
           </>
@@ -293,7 +295,7 @@ export default function CsvImportDialog({
               ? 'Importing…'
               : mode === 'new'
                 ? 'Create sheet from CSV'
-                : `Add ${result?.preview.rows.length ?? 0} rows`}
+                : `Add ${result?.preview.rows.length ?? 0} ${result?.preview.rows.length === 1 ? 'row' : 'rows'}`}
           </Button>
         </div>
       </DialogContent>

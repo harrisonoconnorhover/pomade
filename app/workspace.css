@@ -1799,3 +1799,11 @@
 @media(max-width: 550px) { .crm-field-mappings > label { grid-template-columns: 1fr; }.crm-mapping-heading { align-items: flex-start; flex-direction: column; gap: 4px; }.crm-change-record summary span { display: block; margin: 5px 0 0; }.crm-plan-heading { align-items: flex-start; flex-direction: column; } }
 
 .crm-change-table th { white-space: nowrap; }.crm-change-table td:first-child { min-width: 95px; color: #55705e; }.crm-sync-dialog > p { font-size: 12px; line-height: 1.5; color: #6d796f; }
+
+/* Keep long column lists and action explanations readable on small screens. */
+.formula-column-search { display: grid; gap: 6px; font-size: 12px; font-weight: 600; color: #486452; }
+.formula-column-search input { width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid #d8e2da; border-radius: 8px; background: #fff; color: #263f30; font-size: 13px; font-weight: 400; }
+.formula-input-columns { max-height: 132px; overflow-y: auto; align-content: flex-start; padding: 2px; }.formula-input-columns button { font-size: 11px; padding: 5px 8px; }
+.research-builder-actions { flex-wrap: wrap; position: sticky; bottom: -16px; background: #fff; padding: 12px 0; border-top: 1px solid #e3e9e3; z-index: 1; }
+.research-builder-actions > p { flex-basis: 100%; font-size: 12px; }.research-builder-actions > p[role='alert'] { color: #934b33; padding: 10px 12px; }
+@media(max-width: 500px) { .research-builder-actions > button { flex: 1 1 auto; min-width: 0; }.formula-preview > div { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); } }

@@ -58,6 +58,7 @@ const rail = () =>
 try {
   await page.goto(origin + '/?table=' + tableId);
   await page.getByRole('button', { name: /^Columns 99\/99/ }).waitFor();
+  await page.locator('canvas').first().waitFor({ state: 'visible' });
   const box = await page.locator('canvas').first().boundingBox();
   await page.mouse.click(box.x + 95, box.y + 65, { button: 'right' });
   await page.getByRole('menuitem', { name: /^Add column…/ }).click();
@@ -124,6 +125,25 @@ try {
       .isEnabled(),
     false,
   );
+  await page
+    .getByLabel('Find a column to insert', { exact: true })
+    .fill('QA field 96');
+  assert.equal(await page.locator('.formula-input-columns button').count(), 1);
+  await page
+    .locator('.formula-input-columns')
+    .getByRole('button', { name: 'QA field 96', exact: true })
+    .click();
+  assert.match(
+    await page.getByLabel('Formula', { exact: true }).inputValue(),
+    /\{\{qa_96\}\}/,
+  );
+  await page
+    .getByLabel('Find a column to insert', { exact: true })
+    .fill('not-a-column');
+  await page
+    .getByText('No columns match this search.', { exact: true })
+    .waitFor();
+  await page.getByLabel('Find a column to insert', { exact: true }).fill('');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('alert').scrollIntoViewIfNeeded();
   await page.screenshot({
@@ -149,6 +169,7 @@ try {
       'Permanent rail adds final available column',
       'Data overflow stays blocked before save',
       'Formula overflow stays blocked before save',
+      'Formula column search and insertion work with 100 columns',
       'Real saved sheet remains unchanged',
     ],
     pageErrors: errors,

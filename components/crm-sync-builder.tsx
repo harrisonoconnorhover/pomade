@@ -581,9 +581,13 @@ export default function CrmSyncBuilder({
                         }
                       </strong>
                       {action === 'create'
-                        ? 'to create'
+                        ? plan.status === 'complete'
+                          ? 'created'
+                          : 'to create'
                         : action === 'update'
-                          ? 'to update'
+                          ? plan.status === 'complete'
+                            ? 'updated'
+                            : 'to update'
                           : action === 'review'
                             ? 'need review'
                             : 'unchanged'}
@@ -608,9 +612,13 @@ export default function CrmSyncBuilder({
                     <strong>{a.label}</strong>
                     <span data-status={a.status}>
                       {a.action === 'create'
-                        ? 'Create new'
+                        ? a.status === 'verified'
+                          ? 'Created'
+                          : 'Create new'
                         : a.action === 'update'
-                          ? 'Update existing'
+                          ? a.status === 'verified'
+                            ? 'Updated'
+                            : 'Update existing'
                           : a.action === 'review'
                             ? 'Needs review'
                             : 'No change'}{' '}

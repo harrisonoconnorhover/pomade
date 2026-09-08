@@ -38,7 +38,7 @@ try {
     buffer: Buffer.from('Company,Email\nExample,qa@example.test'),
   });
   await page.getByRole('dialog', { name: 'Preview your CSV' }).waitFor();
-  await page.getByText('1 rows · 2 columns', { exact: true }).waitFor();
+  await page.getByText('1 row · 2 columns', { exact: true }).waitFor();
   assert.ok(requests.some((path) => path.includes('csv-import-dialog')));
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page

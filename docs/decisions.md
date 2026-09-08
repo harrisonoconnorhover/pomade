@@ -1142,3 +1142,8 @@ Selecting a CSV opens a preview rather than overwriting the active sheet. New sh
 ### 2026-09-07 — Enforce capacity before adding columns
 - Ordinary fields, preset/custom formulas, data waterfalls and single/structured/list research check the existing 100-column save limit before changing a sheet. Multi-output builders show the required and remaining space and preserve the open draft when it cannot fit.
 - Ten grid-column tests and six browser checks passed, including right-click discovery, the permanent Add column rail, 99-to-100 acceptance, overflow blocking, and a mobile warning. The capacity browser fixture was intercepted locally and did not alter saved sheet data.
+
+### 2026-09-07 — Readable builders and completed results
+- Formula input chips now have search and a bounded scroll area. Builder explanations and capacity errors occupy full-width rows above sticky actions, including on narrow screens.
+- Completed CRM batches say created/updated and show verified values without a redundant empty Before column for creates. CSV counts use singular wording for one row or column.
+- Seven capacity/formula browser checks, four lazy-tool checks and five read-only CRM history checks passed. Updated 390px screenshots were visually reviewed; this verification made no CRM writes. Typecheck, lint and local build passed.

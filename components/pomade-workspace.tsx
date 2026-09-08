@@ -606,6 +606,7 @@ export default function PomadeWorkspace({
   }
   const [httpBuilderOpen, setHttpBuilderOpen] = useState(false);
   const [formulaBuilderOpen, setFormulaBuilderOpen] = useState(false);
+  const [formulaColumnQuery, setFormulaColumnQuery] = useState('');
   const [waterfallBuilderOpen, setWaterfallBuilderOpen] = useState(false);
   const [recipeSettingsOpen, setRecipeSettingsOpen] = useState(false);
   const [researchBuilderOpen, setResearchBuilderOpen] = useState(false);
@@ -1182,6 +1183,13 @@ export default function PomadeWorkspace({
   const automaticFormulaCount = recipeColumns.filter(
     (column) => column.kind === 'formula' && column.autoRun,
   ).length;
+  const formulaInputColumns = workspace.columns.filter(
+    (column) =>
+      column.kind !== 'status' &&
+      `${column.title} ${column.id}`
+        .toLowerCase()
+        .includes(formulaColumnQuery.trim().toLowerCase()),
+  );
   const singleColumnLimit = columnCapacityError(workspace);
   const waterfallColumnLimit = columnCapacityError(workspace, 2);
   const researchColumnLimit = columnCapacityError(
@@ -1858,6 +1866,7 @@ export default function PomadeWorkspace({
 
   function openFormulaBuilder() {
     setAddColumnOpen(false);
+    setFormulaColumnQuery('');
     setFormulaColumnName('Personal label');
     setFormulaExpression('{{person | first}} at {{company}}');
     setFormulaBuilderOpen(true);
@@ -4064,7 +4073,9 @@ export default function PomadeWorkspace({
           visibleRowIds={visibleRows.map((row) => row.id)}
           selectedRowIds={selectedRowIds}
           onClose={() => setExportOpen(false)}
-          onExported={(count) => setNotice(`${count} rows exported.`)}
+          onExported={(count) =>
+            setNotice(`${count} ${count === 1 ? 'row' : 'rows'} exported.`)
+          }
         />
       ) : null}
       {csvFile ? (
@@ -5061,6 +5072,7 @@ export default function PomadeWorkspace({
           <label className="research-field">
             <span>Formula</span>
             <textarea
+              aria-label="Formula"
               value={formulaExpression}
               maxLength={2_000}
               onChange={(event) => setFormulaExpression(event.target.value)}
@@ -5068,24 +5080,36 @@ export default function PomadeWorkspace({
             />
           </label>
           <div className="formula-help">
-            <div className="research-variables" aria-label="Available columns">
-              <span>Insert a column</span>
-              {workspace.columns
-                .filter((column) => column.kind !== 'status')
-                .map((column) => (
-                  <button
-                    type="button"
-                    key={column.id}
-                    onClick={() =>
-                      setFormulaExpression(
-                        (current) => `${current}{{${column.id}}}`,
-                      )
-                    }
-                  >
-                    {column.title}
-                  </button>
-                ))}
+            <label className="formula-column-search">
+              Find a column to insert
+              <input
+                type="search"
+                value={formulaColumnQuery}
+                onChange={(event) => setFormulaColumnQuery(event.target.value)}
+                placeholder="Search column names…"
+              />
+            </label>
+            <div
+              className="research-variables formula-input-columns"
+              aria-label="Available columns"
+            >
+              {formulaInputColumns.map((column) => (
+                <button
+                  type="button"
+                  key={column.id}
+                  onClick={() =>
+                    setFormulaExpression(
+                      (current) => `${current}{{${column.id}}}`,
+                    )
+                  }
+                >
+                  {column.title}
+                </button>
+              ))}
             </div>
+            {!formulaInputColumns.length ? (
+              <p>No columns match this search.</p>
+            ) : null}
             <p>
               Optional filters: <code>| trim</code>, <code>| lower</code>,{' '}
               <code>| upper</code>, <code>| first</code>, or{' '}
