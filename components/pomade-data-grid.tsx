@@ -11,7 +11,14 @@ import DataEditor, {
   type Item,
 } from '@glideapps/glide-data-grid';
 import '@glideapps/glide-data-grid/dist/index.css';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { ContextMenu } from '@base-ui/react/context-menu';
 import { Plus, Settings2, Sparkles } from 'lucide-react';
 
@@ -40,6 +47,14 @@ function emptySelection(): GridSelection {
   };
 }
 
+function subscribeToPhoneGrid(onChange: () => void) {
+  const media = window.matchMedia('(max-width: 500px)');
+  media.addEventListener('change', onChange);
+  return () => media.removeEventListener('change', onChange);
+}
+const phoneGridSnapshot = () => window.matchMedia('(max-width: 500px)').matches;
+const desktopGridSnapshot = () => false;
+
 export default function PomadeDataGrid({
   columns,
   rows,
@@ -55,6 +70,11 @@ export default function PomadeDataGrid({
   onActiveRowChange,
   onSelectedRowIdsChange,
 }: Props) {
+  const phoneGrid = useSyncExternalStore(
+    subscribeToPhoneGrid,
+    phoneGridSnapshot,
+    desktopGridSnapshot,
+  );
   const [fontFamily] = useState(() =>
     typeof document === 'undefined'
       ? 'Arial, sans-serif'
@@ -260,7 +280,7 @@ export default function PomadeDataGrid({
           rowMarkers={{ kind: 'both', width: 52 }}
           rowSelect="multi"
           rowSelectionMode="multi"
-          freezeColumns={1}
+          freezeColumns={phoneGrid ? 0 : 1}
           smoothScrollX
           smoothScrollY
           fillHandle

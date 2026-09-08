@@ -1827,3 +1827,8 @@
 .lookup-builder [data-slot="dialog-title"] { padding-right: 24px; }
 .lookup-builder > .lookup-add-button { z-index: 1; }
 .lookup-builder > .lookup-add-button:disabled { opacity: 1; background: #edf1ec; color: #65756a; }
+
+@media(max-width: 500px) {
+  .grid-add-column-rail { width: 48px; }
+  .grid-add-column-rail > button > span, .grid-add-column-hint { display: none; }
+}

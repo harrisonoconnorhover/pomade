@@ -37,7 +37,11 @@ const errors = [],
   writes = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('requestfailed', (request) =>
-  failedRequests.push(new URL(request.url()).pathname),
+  failedRequests.push({
+    path: new URL(request.url()).pathname,
+    method: request.method(),
+    error: request.failure()?.errorText,
+  }),
 );
 page.on('request', (request) => {
   if (
@@ -61,6 +65,17 @@ const close = async () => {
 try {
   await page.goto(origin + '/?table=' + table.id);
   await page.locator('canvas').first().waitFor({ state: 'visible' });
+  const gridBounds = await page.locator('canvas').first().boundingBox();
+  assert.ok(gridBounds);
+  await page.mouse.click(gridBounds.x + 100, gridBounds.y + 20, {
+    button: 'right',
+  });
+  await page.getByRole('menuitem', { name: /^Add column/ }).click();
+  await page
+    .getByRole('dialog')
+    .getByText('What’s the next step?', { exact: true })
+    .waitFor();
+  await close();
   await page.getByRole('button', { name: /^Columns / }).click();
   await page
     .getByLabel('Search columns', { exact: true })
@@ -152,6 +167,35 @@ try {
     ),
     true,
   );
+  assert.equal(
+    await page
+      .locator('.grid-add-column-rail')
+      .evaluate((e) => Math.round(e.getBoundingClientRect().width)),
+    48,
+  );
+  await page
+    .locator('.dvn-scroller')
+    .first()
+    .evaluate((e) => {
+      e.scrollLeft = 450;
+    });
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
+  assert.ok(
+    await page
+      .locator('.dvn-scroller')
+      .first()
+      .evaluate((e) => e.scrollLeft >= 400),
+  );
+  await page.screenshot({
+    path: 'outputs/nightshift/2026-09-07/hosted-mobile-scrolled.png',
+    animations: 'disabled',
+  });
+
   assert.deepEqual(
     writes,
     [],
@@ -160,8 +204,16 @@ try {
   assert.deepEqual(errors, []);
   // Closing an unfinished connection check deliberately aborts those fetches.
   const unexpectedFailures = failedRequests.filter(
-    (path) =>
-      !['/api/providers/research', '/api/providers/http'].includes(path),
+    (request) =>
+      !(
+        request.method === 'GET' &&
+        request.error === 'net::ERR_ABORTED' &&
+        [
+          '/api/providers/research',
+          '/api/providers/research/settings',
+          '/api/providers/http',
+        ].includes(request.path)
+      ),
   );
   assert.deepEqual(unexpectedFailures, []);
   const result = {
@@ -169,12 +221,14 @@ try {
     tableId: table.id,
     checks: [
       'Private workbook loads',
+      'Right-click opens the column chooser',
       'Column search opens',
       'CSV export loads on demand',
       'Column rail routes to research',
       'Research draft survives output changes',
       'Lookup uses automatic matching and a single mobile field column',
       '390px viewport has no page overflow',
+      'Phone grid keeps a compact add control and scrolls across data columns',
     ],
     savedDataWrites: writes.length,
     pageErrors: errors,
