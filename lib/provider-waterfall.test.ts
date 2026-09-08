@@ -11,7 +11,10 @@ import {
   createRecipeTemplate,
   instantiateRecipeTemplate,
 } from './recipe-templates';
-import { findColumnDependencies } from './column-management';
+import {
+  findColumnDependencies,
+  updateWaterfallColumnOrder,
+} from './column-management';
 const connections: import('./http-enrichment').HttpConnection[] = [
   {
     id: 'first',
@@ -285,5 +288,107 @@ describe('verified provider results', () => {
     );
     expect(result.receipt.error).toBe('HTTP 451');
     expect(f).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('editing provider order', () => {
+  it('uses the new order during execution and preserves mapped inputs and output IDs', async () => {
+    const { w, column } = fixture();
+    column.inputBindings = { account: 'domain' };
+    column.providerWaterfall!.steps = column.providerWaterfall!.steps.map(
+      (step) => ({ ...step, pathTemplate: '/find?domain={{account}}' }),
+    );
+    column.providerWaterfall!.winnerColumnId = 'custom_winner';
+    column.providerWaterfall!.statusColumnId = 'custom_status';
+    const updated = updateWaterfallColumnOrder(w, column.id, {
+      title: column.title,
+      stepOrder: [1, 0],
+      continueOnError: true,
+    });
+    const edited = updated.columns.find((c) => c.id === column.id)!;
+    expect(updated.rows).toBe(w.rows);
+    expect(updated.columns.map((c) => c.id)).toEqual(
+      w.columns.map((c) => c.id),
+    );
+    expect(edited.inputBindings).toEqual({ account: 'domain' });
+    expect(edited.outputFields).toEqual(column.outputFields);
+    expect(edited.providerWaterfall).toMatchObject({
+      winnerColumnId: 'custom_winner',
+      statusColumnId: 'custom_status',
+      continueOnError: true,
+    });
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ email: '' }))
+      .mockResolvedValueOnce(Response.json({ email: 'ada@example.com' }));
+    const result = await executeProviderWaterfall(
+      updated,
+      'a',
+      edited,
+      connections,
+      fetcher,
+    );
+    expect(
+      fetcher.mock.calls.map(([url]) =>
+        typeof url === 'string' ? url : url instanceof URL ? url.href : url.url,
+      ),
+    ).toEqual([
+      'https://two.test/find?domain=example.com',
+      'https://one.test/find?domain=example.com',
+    ]);
+    expect(result.workspace.rows[0].values.custom_winner).toBe('First');
+    expect(w.rows[0].values.result).toBe('stale');
+  });
+  it('requires each existing step exactly once and preserves no-op identity', () => {
+    const { w, column } = fixture();
+    const options = {
+      title: column.title,
+      stepOrder: [0, 1],
+      continueOnError: false,
+    };
+    expect(updateWaterfallColumnOrder(w, column.id, options)).toBe(w);
+    for (const stepOrder of [[0], [1, 1], [0, 2], [0, 0.5]]) {
+      expect(() =>
+        updateWaterfallColumnOrder(w, column.id, { ...options, stepOrder }),
+      ).toThrow('every provider exactly once');
+    }
+  });
+  it('edits full sheets without adding columns and pauses only changed schedules', () => {
+    const { w, column } = fixture();
+    while (w.columns.length < 100)
+      w.columns.push({
+        id: 'extra_' + w.columns.length,
+        title: 'Extra ' + w.columns.length,
+        kind: 'text',
+        width: 120,
+      });
+    w.schedule = {
+      id: 's',
+      cadence: 'every_day',
+      enabled: true,
+      target: 'all',
+      confirmExternalResearch: true,
+      state: 'active',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const renamed = updateWaterfallColumnOrder(w, column.id, {
+      title: 'New name',
+      stepOrder: [0, 1],
+      continueOnError: false,
+    });
+    expect(renamed.schedule).toBe(w.schedule);
+    const updated = updateWaterfallColumnOrder(
+      w,
+      column.id,
+      { title: column.title, stepOrder: [1, 0], continueOnError: false },
+      20,
+    );
+    expect(updated.columns).toHaveLength(100);
+    expect(updated.schedule).toMatchObject({
+      enabled: false,
+      state: 'paused',
+      updatedAt: 20,
+    });
   });
 });

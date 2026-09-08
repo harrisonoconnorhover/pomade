@@ -30,6 +30,8 @@ type Props = {
   readOnly?: boolean;
   compact?: boolean;
   jumpToColumn?: { id: string; revision: number };
+  jumpToRow?: { id: string; revision: number };
+  onRowJumped: () => void;
   onColumnJumped: () => void;
   onColumnResize: (columnId: string, width: number) => void;
   onColumnsReorder: (startIndex: number, endIndex: number) => void;
@@ -61,6 +63,8 @@ export default function PomadeDataGrid({
   readOnly = false,
   compact = false,
   jumpToColumn,
+  jumpToRow,
+  onRowJumped,
   onColumnJumped,
   onColumnResize,
   onColumnsReorder,
@@ -81,6 +85,7 @@ export default function PomadeDataGrid({
       : getComputedStyle(document.body).fontFamily,
   );
   const gridRef = useRef<DataEditorRef>(null);
+  const [gridReady, setGridReady] = useState(false);
   const previousColumns = useRef(new Set(columns.map((column) => column.id)));
   const openedDialog = useRef(false);
   useEffect(() => {
@@ -206,10 +211,42 @@ export default function PomadeDataGrid({
         .map((index) => rows[index]?.id)
         .filter((rowId): rowId is string => Boolean(rowId));
       onSelectedRowIdsChange(selectedIds);
-      if (selectedIds.length === 1) onActiveRowChange(selectedIds[0]);
+      const cellRow = selection.current
+        ? rows[selection.current.cell[1]]
+        : undefined;
+      if (cellRow) onActiveRowChange(cellRow.id);
+      else if (selectedIds.length === 1) onActiveRowChange(selectedIds[0]);
     },
     [onActiveRowChange, onSelectedRowIdsChange, rows],
   );
+
+  useEffect(() => {
+    if (!jumpToRow || !columns.length || !gridReady) return;
+    const index = rows.findIndex((row) => row.id === jumpToRow.id);
+    if (index < 0) return;
+    const frame = requestAnimationFrame(() => {
+      gridRef.current?.scrollTo(0, index, 'vertical');
+      // Focusing an empty grid selection initializes row zero; apply the linked row after it.
+      gridRef.current?.focus();
+      onGridSelectionChange({
+        ...emptySelection(),
+        current: {
+          cell: [0, index],
+          range: { x: 0, y: index, width: 1, height: 1 },
+          rangeStack: [],
+        },
+      });
+      onRowJumped();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    jumpToRow,
+    rows,
+    columns.length,
+    gridReady,
+    onGridSelectionChange,
+    onRowJumped,
+  ]);
 
   return (
     <ContextMenu.Root
@@ -225,6 +262,9 @@ export default function PomadeDataGrid({
       >
         <DataEditor
           ref={gridRef}
+          onVisibleRegionChanged={(range) => {
+            if (range.width > 0 && range.height > 0) setGridReady(true);
+          }}
           columns={gridColumns}
           rows={rows.length}
           getCellContent={getCellContent}

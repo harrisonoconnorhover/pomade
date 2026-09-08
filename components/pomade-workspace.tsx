@@ -18,6 +18,8 @@ import {
   CalendarClock,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CirclePlay,
   Cloud,
   Database,
@@ -105,6 +107,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import RunConditionEditor from './run-condition-editor';
@@ -130,6 +135,9 @@ import {
   deleteWorkspaceColumn,
   findColumnDependencies,
   renameWorkspaceColumn,
+  researchSettingsChanged,
+  updateResearchColumnSettings,
+  updateWaterfallColumnOrder,
 } from '@/lib/column-management';
 import { createCompanyListWorkspace } from '@/lib/company-list-builder';
 import {
@@ -226,7 +234,6 @@ const PomadeDataGrid = dynamic(() => import('@/components/pomade-data-grid'), {
   loading: () => <div className="grid-loading">Shaping your workspace…</div>,
 });
 
-type FilterMode = 'All' | 'Ready' | 'Review';
 type SaveState = 'Loading' | 'Saving' | 'Saved' | 'Offline';
 type ResearchOutputMode = 'single' | 'structured' | 'list';
 type PendingRunMode = 'immediate' | 'background';
@@ -524,7 +531,7 @@ export default function PomadeWorkspace({
   const [saveState, setSaveState] = useState<SaveState>('Loading');
   const [saveAttempt, setSaveAttempt] = useState(0);
   const [running, setRunning] = useState(false);
-  const [filter, setFilter] = useState<FilterMode>('All');
+  const [filter, setFilter] = useState('All');
   const [activeSavedViewId, setActiveSavedViewId] = useState('');
   const [query, setQuery] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
@@ -542,6 +549,8 @@ export default function PomadeWorkspace({
     revision: number;
   }>();
   const finishColumnJump = useCallback(() => setColumnJump(undefined), []);
+  const [rowJump, setRowJump] = useState<{ id: string; revision: number }>();
+  const finishRowJump = useCallback(() => setRowJump(undefined), []);
   const gridColumns = useMemo(
     () => workspace.columns.filter((column) => !column.hidden),
     [workspace.columns],
@@ -620,6 +629,7 @@ export default function PomadeWorkspace({
   const [backgroundRunsOpen, setBackgroundRunsOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptPage, setReceiptPage] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [workspaceVersions, setWorkspaceVersions] = useState<
@@ -714,6 +724,16 @@ export default function PomadeWorkspace({
   const [columnEditorId, setColumnEditorId] = useState('');
   const [columnEditorTitle, setColumnEditorTitle] = useState('');
   const [columnEditorError, setColumnEditorError] = useState('');
+  const [columnEditorPrompt, setColumnEditorPrompt] = useState('');
+  const [columnEditorStepOrder, setColumnEditorStepOrder] = useState<number[]>(
+    [],
+  );
+  const [columnEditorContinueOnError, setColumnEditorContinueOnError] =
+    useState(false);
+  const [columnEditorProvider, setColumnEditorProvider] =
+    useState<PomadeColumn['researchProvider']>();
+  const [columnEditorModel, setColumnEditorModel] =
+    useState<CodexResearchSettings>();
   const [pendingRunRowIds, setPendingRunRowIds] = useState<string[]>([]);
   const [pendingRunColumnIds, setPendingRunColumnIds] = useState<string[]>([]);
   const [pendingRunMode, setPendingRunMode] =
@@ -808,8 +828,20 @@ export default function PomadeWorkspace({
         setActiveRowId(
           focused?.id ?? workspaceResponse.workspace.rows[0]?.id ?? '',
         );
-        if (initialRowId && !focused)
+        if (focused) {
+          setQuery('');
+          setFilter('All');
+          setActiveSavedViewId('');
+          setSelectedRowIds([]);
+          setInspectorOpen(true);
+          setRowJump((current) => ({
+            id: focused.id,
+            revision: (current?.revision ?? 0) + 1,
+          }));
+        } else if (initialRowId) {
+          setRowJump(undefined);
           setNotice('The linked source row no longer exists.');
+        }
         setSaveState('Saved');
         hydrated.current = true;
       })
@@ -1143,6 +1175,29 @@ export default function PomadeWorkspace({
   const editedColumn = workspace.columns.find(
     (column) => column.id === columnEditorId,
   );
+  const researchEditorSettings = {
+    title: columnEditorTitle,
+    prompt: columnEditorPrompt,
+    researchProvider: columnEditorProvider,
+    codexResearch: columnEditorModel,
+  };
+  const researchEditorDirty =
+    editedColumn?.recipe === 'web-research' &&
+    researchSettingsChanged(editedColumn, researchEditorSettings);
+  const waterfallEditorDirty = Boolean(
+    editedColumn?.providerWaterfall &&
+    (columnEditorStepOrder.some((index, position) => index !== position) ||
+      columnEditorContinueOnError !==
+        editedColumn.providerWaterfall.continueOnError),
+  );
+  const recipeEditorDirty = researchEditorDirty || waterfallEditorDirty;
+  const waterfallWaitingJob = editedColumn?.providerWaterfall
+    ? runJobs.find(
+        (job) =>
+          ['paused', 'failed'].includes(job.status) &&
+          (!job.columnIds?.length || job.columnIds.includes(editedColumn.id)),
+      )
+    : undefined;
   const editedColumnDependencies = editedColumn
     ? findColumnDependencies(workspace, editedColumn.id)
     : [];
@@ -1444,22 +1499,59 @@ export default function PomadeWorkspace({
     if (!column) return;
     setColumnEditorId(column.id);
     setColumnEditorTitle(column.title);
+    setColumnEditorPrompt(column.prompt ?? '');
+    setColumnEditorStepOrder(
+      column.providerWaterfall?.steps.map((_, index) => index) ?? [],
+    );
+    setColumnEditorContinueOnError(
+      column.providerWaterfall?.continueOnError ?? false,
+    );
+    setColumnEditorProvider(column.researchProvider);
+    setColumnEditorModel(
+      column.codexResearch ? { ...column.codexResearch } : undefined,
+    );
     setColumnEditorError('');
     setColumnEditorOpen(true);
   }
 
   function renameColumn() {
+    if (
+      !editedColumn ||
+      jobLocksWorkspace ||
+      (waterfallEditorDirty && waterfallWaitingJob)
+    )
+      return;
     try {
-      setWorkspace(
-        renameWorkspaceColumn(workspace, columnEditorId, columnEditorTitle),
-      );
+      const next =
+        editedColumn.recipe === 'web-research'
+          ? updateResearchColumnSettings(
+              workspace,
+              columnEditorId,
+              researchEditorSettings,
+            )
+          : editedColumn.providerWaterfall
+            ? updateWaterfallColumnOrder(workspace, columnEditorId, {
+                title: columnEditorTitle,
+                stepOrder: columnEditorStepOrder,
+                continueOnError: columnEditorContinueOnError,
+              })
+            : renameWorkspaceColumn(
+                workspace,
+                columnEditorId,
+                columnEditorTitle,
+              );
+      setWorkspace(next);
       setColumnEditorOpen(false);
-      setNotice('Column renamed without changing its recipe ID.');
+      setNotice(
+        recipeEditorDirty
+          ? `Recipe settings saved. Existing results stay until you rerun.${workspace.schedule?.enabled && !next.schedule?.enabled ? ' Review and resume the paused schedule when ready.' : ''}`
+          : 'Column settings saved.',
+      );
     } catch (error) {
       setColumnEditorError(
         error instanceof Error
           ? error.message
-          : 'The column could not be renamed.',
+          : 'The settings could not be saved.',
       );
     }
   }
@@ -1499,6 +1591,7 @@ export default function PomadeWorkspace({
   }
 
   function runEditedColumn(mode: PendingRunMode) {
+    if (recipeEditorDirty || jobLocksWorkspace) return;
     if (
       !editedColumn ||
       (editedColumn.kind !== 'formula' && editedColumn.kind !== 'enrichment')
@@ -2150,14 +2243,6 @@ export default function PomadeWorkspace({
     setSortAscending((current) => !current);
   }
 
-  function cycleFilter() {
-    setSelectedRowIds([]);
-    setActiveSavedViewId('');
-    setFilter((current) =>
-      current === 'All' ? 'Ready' : current === 'Ready' ? 'Review' : 'All',
-    );
-  }
-
   function openSavedViewBuilder() {
     const statusColumn = workspace.columns.find(
       (column) => column.kind === 'status',
@@ -2799,6 +2884,7 @@ export default function PomadeWorkspace({
   function openRunReceipt(run?: RunReceipt) {
     if (!run) return;
     setReceiptRun(run);
+    setReceiptPage(0);
     setReceiptOpen(true);
   }
 
@@ -3616,16 +3702,86 @@ export default function PomadeWorkspace({
               >
                 <ArrowDownUp /> Sort
               </Button>
-              <Button
-                variant={
-                  filter === 'All' && !activeSavedView ? 'ghost' : 'secondary'
-                }
-                onClick={cycleFilter}
-              >
-                <Filter />
-                {activeSavedView?.name ??
-                  (filter === 'All' ? 'Filter' : filter)}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant={
+                        filter === 'All' && !activeSavedView
+                          ? 'ghost'
+                          : 'secondary'
+                      }
+                      aria-label="Filter rows"
+                    />
+                  }
+                >
+                  <Filter />
+                  {activeSavedView?.name ??
+                    (filter === 'All' ? 'Filter' : filter)}
+                  <ChevronDown />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="row-filter-menu" align="start">
+                  <DropdownMenuRadioGroup
+                    value={
+                      activeSavedView
+                        ? `view:${activeSavedView.id}`
+                        : `status:${filter}`
+                    }
+                    onValueChange={(value) => {
+                      setSelectedRowIds([]);
+                      if (value.startsWith('view:')) {
+                        setFilter('All');
+                        setActiveSavedViewId(value.slice(5));
+                      } else {
+                        setFilter(value.slice(7));
+                        setActiveSavedViewId('');
+                      }
+                    }}
+                  >
+                    <DropdownMenuRadioItem closeOnClick value="status:All">
+                      All statuses
+                    </DropdownMenuRadioItem>
+                    {[
+                      ...new Set([
+                        'Ready',
+                        'Review',
+                        ...workspace.rows
+                          .map((row) => row.values.status)
+                          .filter(Boolean),
+                      ]),
+                    ]
+                      .filter((status) => status !== 'All')
+                      .map((status) => (
+                        <DropdownMenuRadioItem closeOnClick
+                          key={status}
+                          value={`status:${status}`}
+                        >
+                          {status}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    {workspace.savedViews?.length ? (
+                      <DropdownMenuSeparator />
+                    ) : null}
+                    {(workspace.savedViews ?? []).map((view) => (
+                      <DropdownMenuRadioItem closeOnClick
+                        key={view.id}
+                        value={`view:${view.id}`}
+                      >
+                        <BookmarkPlus />
+                        {view.name}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={openSavedViewBuilder}
+                    disabled={jobLocksWorkspace}
+                  >
+                    <Plus />
+                    Create a saved filter…
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <label className="toolbar-search">
                 <Search />
                 <input
@@ -3646,6 +3802,7 @@ export default function PomadeWorkspace({
             </div>
             <div className="sheet-view-actions">
               <ColumnFinder
+                onSettings={openColumnEditor}
                 columns={workspace.columns}
                 disabled={jobLocksWorkspace}
                 onVisibility={(id, hidden) => {
@@ -3719,6 +3876,8 @@ export default function PomadeWorkspace({
               compact={compactRows}
               columns={gridColumns}
               jumpToColumn={columnJump}
+              jumpToRow={rowJump}
+              onRowJumped={finishRowJump}
               onColumnJumped={finishColumnJump}
               rows={visibleRows}
               readOnly={jobLocksWorkspace}
@@ -6381,163 +6540,200 @@ export default function PomadeWorkspace({
               <strong>{currentReceipt?.externalWrites ?? 0}</strong>
             </div>
           </div>
-          <div className="receipt-log">
-            {currentReceipt?.receipts.slice(0, 100).map((receipt) => (
-              <div key={receipt.id}>
-                <span
-                  className={
-                    receipt.status === 'passed'
-                      ? 'receipt-pass'
-                      : 'receipt-review'
-                  }
-                >
-                  {receipt.status === 'passed' ? <Check /> : <Search />}
-                </span>
-                <div>
-                  <strong>
-                    {receipt.rowLabel} · {receipt.action}
-                  </strong>
-                  <small>
-                    {receipt.after || 'No output'} · {receipt.durationMs} ms
-                  </small>
-                  {receipt.researchModel ? (
+          <div
+            className="receipt-log"
+            key={`${currentReceipt?.id}-${receiptPage}`}
+          >
+            {currentReceipt?.receipts
+              .slice(receiptPage * 100, (receiptPage + 1) * 100)
+              .map((receipt) => (
+                <div key={receipt.id}>
+                  <span
+                    className={
+                      receipt.status === 'passed'
+                        ? 'receipt-pass'
+                        : 'receipt-review'
+                    }
+                  >
+                    {receipt.status === 'passed' ? <Check /> : <Search />}
+                  </span>
+                  <div>
+                    <strong>
+                      {receipt.rowLabel} · {receipt.action}
+                    </strong>
                     <small>
-                      Research: {receipt.researchModel}
-                      {receipt.reasoningEffort
-                        ? ` · ${receipt.reasoningEffort} effort`
-                        : ''}
-                      {receipt.cached ? ' · cached result' : ''}
+                      {receipt.after || 'No output'} · {receipt.durationMs} ms
                     </small>
-                  ) : null}
-                  {receipt.error ? (
-                    <p className="receipt-error">{receipt.error}</p>
-                  ) : null}
-                  {receipt.evidence?.length && !receipt.attempts?.length ? (
-                    <details>
-                      <summary>Result details</summary>
-                      <ul>
-                        {receipt.evidence.map((item, index) => (
-                          <li key={index}>{item}</li>
+                    {receipt.researchModel ? (
+                      <small>
+                        Research: {receipt.researchModel}
+                        {receipt.reasoningEffort
+                          ? ` · ${receipt.reasoningEffort} effort`
+                          : ''}
+                        {receipt.cached ? ' · cached result' : ''}
+                      </small>
+                    ) : null}
+                    {receipt.error ? (
+                      <p className="receipt-error">{receipt.error}</p>
+                    ) : null}
+                    {receipt.evidence?.length && !receipt.attempts?.length ? (
+                      <details>
+                        <summary>Result details</summary>
+                        <ul>
+                          {receipt.evidence.map((item, index) => (
+                            <li key={index}>{item}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                    {receipt.attempts?.length ? (
+                      <details>
+                        <summary>
+                          {receipt.attempts.length} provider attempts
+                        </summary>
+                        {receipt.attempts.map((attempt) => (
+                          <div className="receipt-attempt" key={attempt.id}>
+                            <p>
+                              {attempt.action} ·{' '}
+                              {attempt.pending
+                                ? 'waiting for result'
+                                : attempt.status === 'passed'
+                                  ? 'accepted'
+                                  : attempt.error
+                                    ? 'provider error'
+                                    : 'not accepted'}{' '}
+                              ·{' '}
+                              {attempt.error ||
+                                (attempt.pending
+                                  ? 'Search in progress'
+                                  : attempt.after) ||
+                                'No result'}{' '}
+                              · {attempt.durationMs} ms ·{' '}
+                              {attempt.creditsConsumed == null
+                                ? 'cost unknown'
+                                : `${attempt.creditsConsumed} credits`}
+                              {attempt.cached ? ' · saved step reused' : ''}
+                              {attempt.httpRequestCount !== undefined
+                                ? ` · ${attempt.httpRequestCount} HTTP request${attempt.httpRequestCount === 1 ? '' : 's'} this pass`
+                                : ''}
+                            </p>
+                            {attempt.evidence?.length ? (
+                              <ul>
+                                {attempt.evidence.map((item, detailIndex) => (
+                                  <li key={detailIndex}>{item}</li>
+                                ))}
+                              </ul>
+                            ) : null}
+                          </div>
                         ))}
-                      </ul>
-                    </details>
-                  ) : null}
-                  {receipt.attempts?.length ? (
-                    <details>
-                      <summary>
-                        {receipt.attempts.length} provider attempts
-                      </summary>
-                      {receipt.attempts.map((attempt) => (
-                        <div className="receipt-attempt" key={attempt.id}>
-                          <p>
-                            {attempt.action} ·{' '}
-                            {attempt.pending
-                              ? 'waiting for result'
-                              : attempt.status === 'passed'
-                                ? 'accepted'
-                                : attempt.error
-                                  ? 'provider error'
-                                  : 'not accepted'}{' '}
-                            ·{' '}
-                            {attempt.error ||
-                              (attempt.pending
-                                ? 'Search in progress'
-                                : attempt.after) ||
-                              'No result'}{' '}
-                            · {attempt.durationMs} ms ·{' '}
-                            {attempt.creditsConsumed == null
-                              ? 'cost unknown'
-                              : `${attempt.creditsConsumed} credits`}
-                            {attempt.cached ? ' · saved step reused' : ''}
-                            {attempt.httpRequestCount !== undefined
-                              ? ` · ${attempt.httpRequestCount} HTTP request${attempt.httpRequestCount === 1 ? '' : 's'} this pass`
+                      </details>
+                    ) : null}
+                    {receipt.references?.length ? (
+                      <span className="receipt-sources">
+                        {receipt.references
+                          .slice(0, 3)
+                          .map((reference, index) => (
+                            <a
+                              key={`${reference.url}-${index}`}
+                              href={reference.url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {reference.title}
+                            </a>
+                          ))}
+                      </span>
+                    ) : null}
+                    {receipt.browserVisits?.length ? (
+                      <details>
+                        <summary>
+                          Browser visits · {receipt.browserVisits.length}
+                        </summary>
+                        {receipt.browserVisits.map((visit, index) => (
+                          <p key={`${visit.url}-${index}`}>
+                            {visit.status} ·{' '}
+                            <a
+                              href={visit.url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {visit.title || visit.url}
+                            </a>
+                            {visit.error ? ` · ${visit.error}` : ''}
+                            {visit.truncated
+                              ? ' · Page text was shortened'
                               : ''}
+                            {' · '}
+                            {new Date(visit.visitedAt).toLocaleString()}
                           </p>
-                          {attempt.evidence?.length ? (
-                            <ul>
-                              {attempt.evidence.map((item, detailIndex) => (
-                                <li key={detailIndex}>{item}</li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </div>
-                      ))}
-                    </details>
-                  ) : null}
-                  {receipt.references?.length ? (
-                    <span className="receipt-sources">
-                      {receipt.references
-                        .slice(0, 3)
-                        .map((reference, index) => (
-                          <a
-                            key={`${reference.url}-${index}`}
-                            href={reference.url}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {reference.title}
-                          </a>
                         ))}
-                    </span>
-                  ) : null}
-                  {receipt.browserVisits?.length ? (
-                    <details>
-                      <summary>
-                        Browser visits · {receipt.browserVisits.length}
-                      </summary>
-                      {receipt.browserVisits.map((visit, index) => (
-                        <p key={`${visit.url}-${index}`}>
-                          {visit.status} ·{' '}
-                          <a href={visit.url} target="_blank" rel="noreferrer">
-                            {visit.title || visit.url}
-                          </a>
-                          {visit.error ? ` · ${visit.error}` : ''}
-                          {visit.truncated ? ' · Page text was shortened' : ''}
-                          {' · '}
-                          {new Date(visit.visitedAt).toLocaleString()}
-                        </p>
-                      ))}
-                      {receipt.references
-                        ?.filter((reference) => reference.excerpt)
-                        .map((reference, index) => (
-                          <figure
-                            className="receipt-quotation"
-                            key={`${reference.url}-${index}`}
-                          >
-                            <blockquote>{reference.excerpt}</blockquote>
-                            <figcaption>
-                              <a
-                                href={reference.url}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                {reference.title || reference.url}
-                              </a>
-                            </figcaption>
-                          </figure>
-                        ))}
-                    </details>
-                  ) : null}
-                  {receipt.outputValues &&
-                  Object.keys(receipt.outputValues).length > 1 ? (
-                    <span className="receipt-output-values">
-                      {Object.entries(receipt.outputValues)
-                        .slice(0, 6)
-                        .map(([columnId, value]) => (
-                          <span key={columnId}>
-                            <em>
-                              {workspace.columns.find(
-                                (column) => column.id === columnId,
-                              )?.title ?? columnId.replaceAll('_', ' ')}
-                            </em>
-                            {value || 'Not found'}
-                          </span>
-                        ))}
-                    </span>
-                  ) : null}
+                        {receipt.references
+                          ?.filter((reference) => reference.excerpt)
+                          .map((reference, index) => (
+                            <figure
+                              className="receipt-quotation"
+                              key={`${reference.url}-${index}`}
+                            >
+                              <blockquote>{reference.excerpt}</blockquote>
+                              <figcaption>
+                                <a
+                                  href={reference.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {reference.title || reference.url}
+                                </a>
+                              </figcaption>
+                            </figure>
+                          ))}
+                      </details>
+                    ) : null}
+                    {receipt.outputValues &&
+                    Object.keys(receipt.outputValues).length > 1 ? (
+                      <span className="receipt-output-values">
+                        {Object.entries(receipt.outputValues)
+                          .slice(0, 6)
+                          .map(([columnId, value]) => (
+                            <span key={columnId}>
+                              <em>
+                                {workspace.columns.find(
+                                  (column) => column.id === columnId,
+                                )?.title ?? columnId.replaceAll('_', ' ')}
+                              </em>
+                              {value || 'Not found'}
+                            </span>
+                          ))}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+          </div>
+          <div className="receipt-pagination">
+            <span aria-live="polite">
+              {currentReceipt?.receipts.length
+                ? `${receiptPage * 100 + 1}–${Math.min((receiptPage + 1) * 100, currentReceipt.receipts.length)} of ${currentReceipt.receipts.length} actions`
+                : 'No action details recorded'}
+            </span>
+            <Button
+              variant="outline"
+              aria-label="Previous page"
+              disabled={receiptPage === 0}
+              onClick={() => setReceiptPage((page) => Math.max(0, page - 1))}
+            >
+              <ChevronLeft /> Previous
+            </Button>
+            <Button
+              variant="outline"
+              aria-label="Next page"
+              disabled={
+                (receiptPage + 1) * 100 >=
+                (currentReceipt?.receipts.length ?? 0)
+              }
+              onClick={() => setReceiptPage((page) => page + 1)}
+            >
+              Next <ChevronRight />
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -7030,36 +7226,33 @@ export default function PomadeWorkspace({
           <DialogHeader>
             <DialogTitle>Column settings</DialogTitle>
             <DialogDescription>
-              Rename the visible header without changing the stable column ID
-              used by recipes, views, or row data.
+              {editedColumn?.recipe === 'web-research'
+                ? 'Update the research question and provider. Your columns and existing results stay in place.'
+                : editedColumn?.providerWaterfall
+                  ? 'Change which provider is tried first. Your columns, input mappings, and existing results stay in place.'
+                  : 'Rename the header while keeping its recipe ID and row data.'}
             </DialogDescription>
           </DialogHeader>
           {editedColumn?.recipe === 'web-research' ? (
             <ResearchProviderPicker
-              value={editedColumn.researchProvider}
+              value={columnEditorProvider}
               defaultProvider={researchStatus?.provider}
               disabled={jobLocksWorkspace}
-              onChange={(researchProvider) =>
-                updateRecipeColumn(editedColumn.id, { researchProvider })
-              }
+              onChange={setColumnEditorProvider}
             />
           ) : null}
           {editedColumn?.recipe === 'web-research' &&
-          (editedColumn.researchProvider ?? researchStatus?.provider) ===
-            'codex' ? (
+          (columnEditorProvider ?? researchStatus?.provider) === 'codex' ? (
             <>
               <CodexModelPicker
                 label={`${editedColumn.title} research`}
-                value={editedColumn.codexResearch}
+                value={columnEditorModel}
                 defaults={codexSettings.data?.defaults}
                 models={codexSettings.data?.models}
                 inherit
                 disabled={jobLocksWorkspace || codexSettings.loading}
-                onChange={(codexResearch) =>
-                  updateRecipeColumn(editedColumn.id, { codexResearch })
-                }
+                onChange={setColumnEditorModel}
               />
-              <CodexDefaultsEditor state={codexSettings} />
             </>
           ) : null}
           <div className="column-editor-meta">
@@ -7080,6 +7273,7 @@ export default function PomadeWorkspace({
             <span>Column name</span>
             <input
               value={columnEditorTitle}
+              disabled={jobLocksWorkspace}
               maxLength={80}
               onChange={(event) => setColumnEditorTitle(event.target.value)}
               onKeyDown={(event) => {
@@ -7087,6 +7281,139 @@ export default function PomadeWorkspace({
               }}
             />
           </label>
+          {editedColumn?.recipe === 'web-research' ? (
+            <label className="research-field">
+              <span>Research prompt</span>
+              <textarea
+                value={columnEditorPrompt}
+                maxLength={4000}
+                rows={6}
+                disabled={jobLocksWorkspace}
+                onChange={(event) => setColumnEditorPrompt(event.target.value)}
+              />
+              <small>
+                Use {'{{column_id}}'} for row values. Existing output fields and
+                linked sheets stay the same. Changes apply on the next run.
+              </small>
+              {researchEditorDirty && workspace.schedule?.enabled ? (
+                <small>
+                  Saving these changes pauses the schedule so you can review the
+                  updated research before it runs automatically.
+                </small>
+              ) : null}
+            </label>
+          ) : null}
+          {editedColumn?.providerWaterfall ? (
+            <div className="column-waterfall-settings">
+              <div>
+                <strong>Provider order</strong>
+                <p>
+                  Stop when a provider returns a result that meets the current
+                  rule:{' '}
+                  {editedColumn.providerWaterfall.accept.replaceAll('-', ' ')}.
+                </p>
+              </div>
+              <ol>
+                {columnEditorStepOrder.map((stepIndex, position) => {
+                  const step = editedColumn.providerWaterfall!.steps[stepIndex];
+                  if (!step) return null;
+                  return (
+                    <li key={stepIndex}>
+                      <span className="waterfall-step-number">
+                        {position + 1}
+                      </span>
+                      <span className="waterfall-step-label">
+                        <strong>
+                          {step.connectionId
+                            .replaceAll('_', ' ')
+                            .replaceAll('-', ' ')}
+                        </strong>
+                        <small>
+                          {step.method} · {step.responsePath}
+                          {step.verifier ? ' · with verification' : ''}
+                        </small>
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Move provider ${position + 1} up`}
+                        disabled={
+                          position === 0 ||
+                          jobLocksWorkspace ||
+                          Boolean(waterfallWaitingJob)
+                        }
+                        onClick={() =>
+                          setColumnEditorStepOrder((order) => {
+                            const next = [...order];
+                            [next[position - 1], next[position]] = [
+                              next[position],
+                              next[position - 1],
+                            ];
+                            return next;
+                          })
+                        }
+                      >
+                        <ArrowUp />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Move provider ${position + 1} down`}
+                        disabled={
+                          position === columnEditorStepOrder.length - 1 ||
+                          jobLocksWorkspace ||
+                          Boolean(waterfallWaitingJob)
+                        }
+                        onClick={() =>
+                          setColumnEditorStepOrder((order) => {
+                            const next = [...order];
+                            [next[position], next[position + 1]] = [
+                              next[position + 1],
+                              next[position],
+                            ];
+                            return next;
+                          })
+                        }
+                      >
+                        <ArrowDown />
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ol>
+              <label className="waterfall-error-choice">
+                <input
+                  type="checkbox"
+                  checked={columnEditorContinueOnError}
+                  disabled={jobLocksWorkspace || Boolean(waterfallWaitingJob)}
+                  onChange={(event) =>
+                    setColumnEditorContinueOnError(event.target.checked)
+                  }
+                />
+                Try the next provider if one returns an error
+              </label>
+              {waterfallWaitingJob ? (
+                <p>
+                  A paused or failed run still uses this waterfall. Finish or
+                  cancel it before changing provider order.{' '}
+                  <Button
+                    variant="link"
+                    onClick={() => {
+                      setColumnEditorOpen(false);
+                      setBackgroundRunsOpen(true);
+                    }}
+                  >
+                    Open background runs
+                  </Button>
+                </p>
+              ) : waterfallEditorDirty && workspace.schedule?.enabled ? (
+                <p>
+                  Saving this order pauses the schedule for review before its
+                  next automatic run.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           {columnEditorError ? (
             <p className="apollo-error" role="alert">
               {columnEditorError}
@@ -7117,23 +7444,31 @@ export default function PomadeWorkspace({
               <span>
                 <strong>Run only this recipe</strong>
                 <small>
-                  {runTargetIds.length} selected or visible{' '}
-                  {runTargetIds.length === 1 ? 'row' : 'rows'} · existing
-                  provider confirmation still applies
+                  {recipeEditorDirty
+                    ? 'Save settings before running this recipe.'
+                    : `${runTargetIds.length} selected or visible rows · provider confirmation applies`}
                 </small>
               </span>
               <Button
                 variant="outline"
                 onClick={() => runEditedColumn('background')}
                 disabled={
-                  jobSaving || jobLocksWorkspace || !runTargetIds.length
+                  jobSaving ||
+                  jobLocksWorkspace ||
+                  recipeEditorDirty ||
+                  !runTargetIds.length
                 }
               >
                 <Cloud /> Queue
               </Button>
               <Button
                 onClick={() => runEditedColumn('immediate')}
-                disabled={running || jobLocksWorkspace || !runTargetIds.length}
+                disabled={
+                  running ||
+                  jobLocksWorkspace ||
+                  recipeEditorDirty ||
+                  !runTargetIds.length
+                }
               >
                 <Play /> Run now
               </Button>
@@ -7158,8 +7493,20 @@ export default function PomadeWorkspace({
             >
               Cancel
             </Button>
-            <Button onClick={renameColumn} disabled={!columnEditorTitle.trim()}>
-              Save name
+            <Button
+              onClick={renameColumn}
+              disabled={
+                jobLocksWorkspace ||
+                (waterfallEditorDirty && Boolean(waterfallWaitingJob)) ||
+                !columnEditorTitle.trim() ||
+                (editedColumn?.recipe === 'web-research' &&
+                  !columnEditorPrompt.trim())
+              }
+            >
+              {editedColumn?.recipe === 'web-research' ||
+              editedColumn?.providerWaterfall
+                ? 'Save settings'
+                : 'Save name'}
             </Button>
           </div>
         </DialogContent>

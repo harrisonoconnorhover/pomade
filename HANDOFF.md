@@ -2,38 +2,37 @@
 
 ## Finished
 
-- Polished column discovery, provider setup, mobile builders, formula input search and research drafts. Improved phone grid scrolling. Added clear capacity checks for the existing 100-column limit, including multi-output actions.
-- Added CSV preview with a new-sheet default and mapped append, explicit export scope/hidden-column choices, and correct multi-cell paste/clear behavior with filters and formulas.
-- Added selectable run actions, consistent request ceilings, recovery from unavailable history/providers, and protection for edits arriving during job polling or CRM refresh.
-- Improved CRM mapping and verified-result review. Created one synthetic company in each existing HubSpot/Salesforce dev account and independently read back the record and custom fields. Verified a real local table transfer and lookup; improved matching defaults, reload/retry states and mobile controls.
-- Released runtime `41e0d54` as private hosted version 32 and left the same local build running at http://localhost:8798. Deferred optional CSV/planner code; the workbook entry is 25.3% smaller compressed. Added `docs/workbook-quick-start.md` and corrected refresh/scheduling instructions.
+- Research columns now support editing the prompt, provider, model and effort in place. Cancel discards drafts; Save preserves IDs, output fields, mappings and existing results.
+- Existing provider waterfalls support reordering and error fallback settings. Waiting runs retain their original configuration; changed recipes pause enabled schedules for review.
+- Columns search opens settings directly, including hidden fields. Explicit status/saved-view filters replace cycling. Arrow keys keep record details aligned; source links scroll to the correct row on desktop and phone.
+- Run receipts expose every action through 100-item pages, with full-run totals and usable mobile controls.
+- Earlier night-shift CSV, run controls, CRM refresh, transfer and lookup improvements remain. One synthetic company was created and verified in each dev CRM earlier tonight. Current extension is built locally; private deployment is pending final publication checks.
 
 ## Try It
 
-- Right-click the grid or use the far-right **Add column** rail. Try AI research, switch its output format, and inspect **Columns** search. Setup alone does not run enrichment.
-- Use **Load data** to preview CSV/CRM inputs. Check rows or filter, then review Run actions; use **More → Export CSV** to select exactly what to download.
-- Use **Send → Transfer to table**, **Add column → Lookup another table**, or **Send → Write to CRM**. The local **Night shift QA CRM round trip** sheet holds the verified synthetic examples. Saved CRM sources expose **Refresh settings**.
+- Open **Columns**, search for a research or waterfall column, and click its settings button. Change settings, then Save or Cancel. Configuration alone does not execute providers.
+- Use **Filter** to choose a status or saved view. Search combines with it; **Clear filters** resets both.
+- Open a source-row link or use arrow keys with **Details** open. In **Run history**, use Previous/Next on long receipts. See `docs/workbook-quick-start.md`.
 
 ## Checks
 
-- 118 focused tests across 18 files passed; the final lookup checks also passed. Typecheck, lint, diff checks, and both production builds passed.
-- Actual browser checks covered imports/exports, paste, run scope, failure recovery, research drafts, capacity, formula search, CRM previews/readback, transfers and lookups. Desktop, tablet and 390px layouts were inspected. Final hosted verification passed: nine checks, zero saved writes or page errors. Refreshed stale local font cache; the local browser now loads font assets correctly.
-- Release checks confirmed all 24 original local and 16 hosted sheets preserved; four additional local QA sheets remain. All saved content matched the pre-release snapshot, seven hosted connections remained configured, six served assets per installation matched builds, anonymous access returned 401, and the public callback health check passed.
-
-- Hosted background polling stayed error-free for 90 seconds.
+- 58 focused tests across seven files passed. Typecheck, lint, diff checks, local build and hosted build passed.
+- Browser checks passed for research drafts, model inheritance, provider ordering, waiting-job protection, hidden-column settings, receipt pagination, explicit filters, row links and 390px layouts. Synthetic saves made no provider calls. Eleven local workbook smoke checks passed with zero writes or page errors.
+- Existing hosted access remains one owner, no groups or external visitors. Release preservation checks and hosted smoke verification are pending the new deployment.
 
 ## Decisions
 
-- The hosted audience remains exactly one owner; local and hosted data remain separate. No GitHub push, purchases, or access expansion.
-- Provider setup tests used synthetic responses; real CRM writes were limited to the two labeled dev-account records.
+- Preserve existing columns/results when changing recipes; apply the new settings on the next run.
+- Keep local and hosted data separate, with the hosted audience restricted to the existing owner. No GitHub push, purchases or access expansion.
 
 ## Remaining
 
-- Real Apollo phone enrichment still needs eligible API access. Other unconnected provider adapters need live credentials and coverage testing.
-- Fully unattended hosted timers remain unverified; open-site/companion wakeups work. ChatGPT research needs the Mac helper.
+- Publish and verify the prepared private version; leave localhost:8798 running.
+- Actual Apollo phone enrichment needs eligible API access; other unconnected adapters need credentials and live coverage.
+- Fully unattended hosted timers remain unverified. ChatGPT research needs the Mac helper.
 
 ## Review First
 
-- `docs/workbook-quick-start.md` and the four local QA sheets.
-- `components/pomade-workspace.tsx`, lookup/transfer/CRM builders and `app/workspace.css`.
-- Ignored evidence in `outputs/nightshift/2026-09-07/`; browser scripts in `scripts/test-*-ui.mjs`.
+- `docs/workbook-quick-start.md` and Column settings in the UI.
+- `lib/column-management.ts`, the grid, column finder and workspace filter/receipt controls.
+- Browser regressions in `scripts/test-*-ui.mjs`; ignored screenshots in `outputs/nightshift/2026-09-07/`.

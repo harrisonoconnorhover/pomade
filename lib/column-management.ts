@@ -1,3 +1,4 @@
+import { pauseRecipeSchedule } from './recipe-schedule';
 import { conditionFields } from './run-conditions';
 import { providerInputFields } from './provider-waterfall';
 import { httpInputFields } from './http-enrichment';
@@ -236,6 +237,124 @@ export function renameWorkspaceColumn(
           : step,
       ),
     })),
+    updatedAt: now,
+  };
+}
+
+export type ResearchColumnSettings = Pick<
+  PomadeColumn,
+  'title' | 'prompt' | 'researchProvider' | 'codexResearch'
+>;
+
+export function researchSettingsChanged(
+  column: PomadeColumn,
+  settings: ResearchColumnSettings,
+) {
+  return (
+    (column.prompt ?? '').trim() !== (settings.prompt ?? '').trim() ||
+    column.researchProvider !== settings.researchProvider ||
+    (column.codexResearch === undefined) !==
+      (settings.codexResearch === undefined) ||
+    column.codexResearch?.model !== settings.codexResearch?.model ||
+    column.codexResearch?.reasoningEffort !==
+      settings.codexResearch?.reasoningEffort
+  );
+}
+
+export function updateResearchColumnSettings(
+  workspace: WorkspaceSnapshot,
+  columnId: string,
+  settings: ResearchColumnSettings,
+  now = Date.now(),
+): WorkspaceSnapshot {
+  const column = workspace.columns.find(
+    (candidate) => candidate.id === columnId,
+  );
+  if (column?.recipe !== 'web-research')
+    throw new Error('Choose an existing research column.');
+  const prompt = settings.prompt?.trim() ?? '';
+  if (!prompt || prompt.length > 4000)
+    throw new Error('Research prompts require between 1 and 4,000 characters.');
+  const renamed = renameWorkspaceColumn(
+    workspace,
+    columnId,
+    settings.title,
+    now,
+  );
+  if (!researchSettingsChanged(column, settings)) return renamed;
+  return {
+    ...renamed,
+    columns: renamed.columns.map((candidate) =>
+      candidate.id === columnId
+        ? {
+            ...candidate,
+            prompt,
+            researchProvider: settings.researchProvider,
+            codexResearch: settings.codexResearch
+              ? { ...settings.codexResearch }
+              : undefined,
+          }
+        : candidate,
+    ),
+    schedule: renamed.schedule?.enabled
+      ? pauseRecipeSchedule(renamed.schedule, now)
+      : renamed.schedule,
+    updatedAt: now,
+  };
+}
+
+export function updateWaterfallColumnOrder(
+  workspace: WorkspaceSnapshot,
+  columnId: string,
+  settings: { title: string; stepOrder: number[]; continueOnError: boolean },
+  now = Date.now(),
+): WorkspaceSnapshot {
+  const column = workspace.columns.find(
+    (candidate) => candidate.id === columnId,
+  );
+  const config = column?.providerWaterfall;
+  if (column?.recipe !== 'http-waterfall' || !config)
+    throw new Error('Choose an existing provider waterfall.');
+  if (
+    settings.stepOrder.length !== config.steps.length ||
+    new Set(settings.stepOrder).size !== config.steps.length ||
+    settings.stepOrder.some(
+      (index) =>
+        !Number.isInteger(index) || index < 0 || index >= config.steps.length,
+    )
+  ) {
+    throw new Error(
+      'Keep every provider exactly once when changing the order.',
+    );
+  }
+  const renamed = renameWorkspaceColumn(
+    workspace,
+    columnId,
+    settings.title,
+    now,
+  );
+  if (
+    settings.stepOrder.every((index, position) => index === position) &&
+    settings.continueOnError === config.continueOnError
+  )
+    return renamed;
+  return {
+    ...renamed,
+    columns: renamed.columns.map((candidate) =>
+      candidate.id === columnId
+        ? {
+            ...candidate,
+            providerWaterfall: {
+              ...config,
+              steps: settings.stepOrder.map((index) => config.steps[index]),
+              continueOnError: settings.continueOnError,
+            },
+          }
+        : candidate,
+    ),
+    schedule: renamed.schedule?.enabled
+      ? pauseRecipeSchedule(renamed.schedule, now)
+      : renamed.schedule,
     updatedAt: now,
   };
 }

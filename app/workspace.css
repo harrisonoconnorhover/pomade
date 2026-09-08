@@ -1832,3 +1832,18 @@
   .grid-add-column-rail { width: 48px; }
   .grid-add-column-rail > button > span, .grid-add-column-hint { display: none; }
 }
+
+.column-finder-row .column-finder-settings {
+  width: 36px;
+  height: 40px;
+  padding: 8px;
+  flex-shrink: 0;
+  justify-content: center;
+  border-radius: 6px;
+}
+.column-finder-row .column-finder-settings:hover {
+  background: #dfeade;
+}
+
+.row-filter-menu { min-width: 220px; max-width: min(320px, calc(100vw - 24px)); }
+.row-filter-menu [role='menuitemradio'], .row-filter-menu [role='menuitem'] { min-height: 36px; overflow-wrap: anywhere; }

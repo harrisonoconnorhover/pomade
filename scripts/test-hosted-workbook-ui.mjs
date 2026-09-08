@@ -85,7 +85,52 @@ try {
     .getByText(searchColumn.title, { exact: true })
     .first()
     .waitFor();
+  await page
+    .getByRole('button', {
+      name: 'Settings for ' + searchColumn.title,
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole('dialog', { name: 'Find a column', exact: true })
+    .waitFor({ state: 'hidden' });
+  const settings = page.getByRole('dialog', {
+    name: 'Column settings',
+    exact: true,
+  });
+  await settings.waitFor();
+  assert.equal(
+    await settings.getByLabel('Column name', { exact: true }).inputValue(),
+    searchColumn.title,
+  );
   await close();
+  await page.getByRole('button', { name: 'Filter rows', exact: true }).click();
+  await page
+    .getByRole('menuitemradio', { name: 'All statuses', exact: true })
+    .click();
+  if (workspace.rows.length) {
+    const linkedRow = workspace.rows.at(-1);
+    await page.goto(
+      origin +
+        '/?table=' +
+        table.id +
+        '&row=' +
+        encodeURIComponent(linkedRow.id),
+    );
+    await page
+      .getByRole('complementary', { name: 'Record details' })
+      .getByRole('heading', {
+        name:
+          linkedRow.values.company ||
+          linkedRow.values.person ||
+          'Selected record',
+        exact: true,
+      })
+      .waitFor();
+    await page
+      .getByRole('button', { name: 'Close record details', exact: true })
+      .click();
+  }
   await page.getByRole('button', { name: 'More', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Export CSV', exact: true }).click();
   await page.getByRole('dialog', { name: 'Export CSV', exact: true }).waitFor();
@@ -222,7 +267,9 @@ try {
     checks: [
       'Private workbook loads',
       'Right-click opens the column chooser',
-      'Column search opens',
+      'Column search opens the correct settings',
+      'Explicit status filter is available',
+      'Existing source-row link opens the correct record',
       'CSV export loads on demand',
       'Column rail routes to research',
       'Research draft survives output changes',

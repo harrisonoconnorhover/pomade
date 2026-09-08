@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { ArrowRight, Columns3, Search } from 'lucide-react';
+import { ArrowRight, Columns3, Search, Settings2 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
   Dialog,
@@ -16,12 +16,14 @@ export default function ColumnFinder({
   onVisibility,
   onShowAll,
   onJump,
+  onSettings,
 }: {
   columns: PomadeColumn[];
   disabled: boolean;
   onVisibility: (id: string, hidden: boolean) => void;
   onShowAll: () => void;
   onJump: (id: string) => void;
+  onSettings: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -56,8 +58,8 @@ export default function ColumnFinder({
           <DialogHeader>
             <DialogTitle>Find a column</DialogTitle>
             <DialogDescription>
-              Click a name to jump there. Hidden columns keep their data and
-              still run their recipes.
+              Click a name to jump there, or open its settings. Hidden columns
+              keep their data and still run their recipes.
             </DialogDescription>
           </DialogHeader>
           <label className="catalog-search">
@@ -118,6 +120,18 @@ export default function ColumnFinder({
                     </small>
                   </span>
                   <ArrowRight aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="column-finder-settings"
+                  aria-label={`Settings for ${column.title}`}
+                  title={`Settings for ${column.title}`}
+                  onClick={() => {
+                    setOpen(false);
+                    onSettings(column.id);
+                  }}
+                >
+                  <Settings2 aria-hidden="true" />
                 </button>
               </div>
             ))}

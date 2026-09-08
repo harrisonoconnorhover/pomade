@@ -4,7 +4,10 @@ import {
   deleteWorkspaceColumn,
   findColumnDependencies,
   renameWorkspaceColumn,
+  updateResearchColumnSettings,
+  researchSettingsChanged,
 } from './column-management';
+import { createRecipeSchedule } from './recipe-schedule';
 import { createSampleWorkspace } from './sample-workspace';
 import { createTable } from './workbook';
 import { executeWorkspace } from './local-recipe-engine';
@@ -247,5 +250,116 @@ describe('column management', () => {
       executeWorkspace(result, ['a']).workspace.rows[0].values.best_email,
     ).toBe('actual@example.test');
     expect(() => deleteWorkspaceColumn(result, 'apollo_email')).toThrow();
+  });
+});
+
+describe('research column settings', () => {
+  function fixture() {
+    const workspace = createSampleWorkspace();
+    workspace.columns.push({
+      id: 'research',
+      title: 'Research',
+      kind: 'enrichment',
+      recipe: 'web-research',
+      width: 230,
+      prompt: 'Research {{account}}',
+      researchProvider: 'parallel',
+      inputBindings: { account: 'company' },
+      outputFields: [{ id: 'research', title: 'Research', valueType: 'text' }],
+      listDestinationBindings: { company: 'company' },
+      listLimit: 7,
+      autoRun: false,
+    });
+    workspace.rows[0].values.research = 'Existing sourced answer';
+    workspace.schedule = createRecipeSchedule({
+      id: 'schedule',
+      cadence: 'every_day',
+      nextRunAt: 2000,
+      now: 1000,
+    });
+    return workspace;
+  }
+  it('updates the question and model while preserving results, bindings, outputs and destinations', () => {
+    const workspace = fixture();
+    const column = workspace.columns.at(-1)!;
+    const updated = updateResearchColumnSettings(
+      workspace,
+      'research',
+      {
+        ...column,
+        title: 'Hiring research',
+        prompt: '  Find hiring plans at {{account}}  ',
+        researchProvider: 'codex',
+        codexResearch: { model: 'gpt-5.5', reasoningEffort: 'high' },
+      },
+      1500,
+    );
+    expect(updated.rows).toBe(workspace.rows);
+    expect(updated.columns.map((c) => c.id)).toEqual(
+      workspace.columns.map((c) => c.id),
+    );
+    expect(updated.columns.at(-1)).toMatchObject({
+      ...column,
+      title: 'Hiring research',
+      prompt: 'Find hiring plans at {{account}}',
+      researchProvider: 'codex',
+      outputFields: [
+        { id: 'research', title: 'Hiring research', valueType: 'text' },
+      ],
+      codexResearch: { model: 'gpt-5.5', reasoningEffort: 'high' },
+    });
+    expect(updated.schedule).toMatchObject({
+      enabled: false,
+      state: 'paused',
+      updatedAt: 1500,
+    });
+    expect(findColumnDependencies(updated, 'company')).toContainEqual({
+      ownerId: 'research',
+      ownerTitle: 'Hiring research',
+      relationship: 'recipe input',
+    });
+    expect(workspace.schedule?.enabled).toBe(true);
+    expect(
+      researchSettingsChanged(column, { ...column, codexResearch: {} }),
+    ).toBe(true);
+  });
+  it('keeps schedules running for name-only edits and preserves exact no-ops', () => {
+    const workspace = fixture(),
+      column = workspace.columns.at(-1)!;
+    expect(updateResearchColumnSettings(workspace, column.id, column)).toBe(
+      workspace,
+    );
+    const updated = updateResearchColumnSettings(workspace, column.id, {
+      ...column,
+      title: 'New name',
+    });
+    expect(updated.schedule).toBe(workspace.schedule);
+    expect(
+      researchSettingsChanged(column, {
+        ...column,
+        codexResearch: { reasoningEffort: 'high' },
+      }),
+    ).toBe(true);
+  });
+  it('rejects empty or oversized prompts, missing research columns, and duplicate names', () => {
+    const workspace = fixture(),
+      column = workspace.columns.at(-1)!;
+    for (const prompt of ['', ' '.repeat(10), 'a'.repeat(4001)]) {
+      expect(() =>
+        updateResearchColumnSettings(workspace, column.id, {
+          ...column,
+          prompt,
+        }),
+      ).toThrow('between 1 and 4,000');
+    }
+    expect(() =>
+      updateResearchColumnSettings(workspace, 'company', column),
+    ).toThrow('existing research');
+    expect(() =>
+      updateResearchColumnSettings(workspace, column.id, {
+        ...column,
+        title: 'Company',
+      }),
+    ).toThrow('already uses');
   });
 });
