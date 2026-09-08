@@ -1821,5 +1821,7 @@
 @media(max-width: 500px) { .transfer-dialog .http-output-grid { grid-template-columns: 1fr; }.transfer-rule-actions { flex-wrap: wrap; } }
 
 .lookup-source-status { display: flex; justify-content: space-between; gap: 10px; align-items: center; font-size: 12px; color: #718075; }.lookup-source-status > button { flex-shrink: 0; }
-.lookup-builder .lookup-preview { max-height: 320px; overflow: auto; }.lookup-builder .lookup-preview table { font-size: 12px; }.lookup-builder > button:last-child { position: sticky; bottom: -12px; box-shadow: 0 0 0 6px #fff; }
+.lookup-builder .lookup-preview { max-height: 320px; overflow: auto; }.lookup-builder .lookup-preview table { font-size: 12px; }.lookup-builder > .lookup-add-button { position: sticky; bottom: -12px; box-shadow: 0 0 0 6px #fff; }
 @media(max-width: 500px) { .lookup-builder .lookup-fields { grid-template-columns: 1fr; } }
+
+.lookup-builder [data-slot="dialog-title"] { padding-right: 24px; }

@@ -7,6 +7,9 @@ research and enrichment recipes, running them safely, and inspecting exactly
 what changed. It is an original product built on the open-source
 [Glide Data Grid](https://github.com/glideapps/glide-data-grid).
 
+Start with the [workbook quick start](docs/workbook-quick-start.md) for current
+import, column, run, CRM and export controls.
+
 ## Current vertical slice
 
 - Start with four buying-signal recipes for sales hiring, recent funding, tools in use,
@@ -104,7 +107,9 @@ Select rows and choose **Action → Send selected rows to new table** to make a
 separate stage, such as a people list researched from company accounts. The new
 table keeps the values and a **Source** button linking each row to its original
 record. Upstream recipes become ordinary columns, so using the new table cannot
-accidentally rerun the list research. These are snapshot copies; repeatable sync rules remain planned. Existing source rows stay unchanged.
+accidentally rerun the list research. These are snapshot copies. For repeatable mapping into an existing sheet, use
+**Send → Transfer to table** and preview the saved transfer before applying it. Existing
+source rows stay unchanged.
 
 Switching waits for edits to save. If a save fails, use **Retry save** before
 leaving the table. Background jobs can continue in their own table while you
@@ -112,8 +117,10 @@ work elsewhere.
 
 ## Reuse data with a table lookup
 
-Open **Recipe library → Lookup another table**, select source and matching
-columns, choose exact text, case-insensitive text, or website/domain matching,
+Open **Add column → Lookup another table**, select source and matching
+columns, and keep **Automatic** for case-insensitive text or website/domain
+matching when both fields are recognized as website/domain fields. You can
+override this with exact text, case-insensitive text, or website/domain matching,
 and select up to four fields. Preview the first five rows, then add the lookup.
 Run its column from the header menu or include it in a normal/background/scheduled
 run. Each run reads the latest saved source data and consumes no provider credits.
@@ -196,10 +203,13 @@ Conditions are case-insensitive and are checked before provider calls. Formula
 auto-update is local and free; external research remains an explicit,
 credit-confirmed run.
 
-Scheduled runs persist with the workspace and execute even when the browser is
-closed. A future one-time run acts as a delay; recurring runs advance from their
+Scheduled runs persist with the workspace. Locally, they can run with the browser
+closed while Pomade and its scheduler remain running. Hosted work currently
+advances while the site is open or the Mac companion is connected, with recipe
+schedules disabled by default and requiring explicit enablement; fully
+unattended hosted timer delivery remains unverified. A future one-time run acts as a delay; recurring runs advance from their
 original interval. The scheduler captures stable row IDs when targeting a
-selection, uses the same ten-request provider ceiling and run receipts as a
+selection, uses the background request limits and the same receipts as a
 manual run, and stops after an error instead of spending credits repeatedly.
 
 Background runs process a stable row scope one row at a time on the same worker
@@ -759,7 +769,7 @@ The local server and clock must stay running. Hosted work advances through confi
 
 ### Run preview and additional contact providers (September 7, 2026)
 
-Before an external run, the confirmation dialog shows each row/action, current conditions, missing inputs or connections, finder/verifier order and maximum submissions. Dependencies on selected earlier steps are marked as pending inputs rather than definite misses. This is a configuration preview, not a live API entitlement test or a credit quote.
+Before an external run, the confirmation dialog lets you select action columns and switch between immediate and background execution. It shows each captured row/action, current conditions, missing inputs or connections, finder/verifier order and maximum submissions. Checked rows in the current view take priority; otherwise the current filtered view supplies the rows. Unchecking every action disables the run. Asynchronous providers require background execution. A sheet containing only local formulas/lookups can run directly without a provider confirmation. Dependencies on selected earlier steps are marked as pending inputs rather than definite misses. This is a configuration preview, not a live API entitlement test or a credit quote.
 
 **Dropcontact** is available in Account → Connections (`DROPCONTACT_API_KEY`) and the contact waterfall builder. Its named-work-email preset uses first name, last name and company domain, saves the request ID and checks results every 30 seconds. Only `nominative@pro` candidates pass; choose a separate verifier for strict verified-email acceptance. No phone is inferred from company data. `credits_left` remains a balance, not a charge attributed to the lookup. Live Dropcontact access is untested.
 

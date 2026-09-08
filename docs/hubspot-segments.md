@@ -13,7 +13,8 @@ the existing 5,000-row capacity.
 
 **Merge records** merges by CRM record ID and preserves enrichment results.
 **Replace rows** replaces the rows while keeping recipe columns; it pauses an
-enabled table schedule. Empty previews cannot replace existing rows. Imported
+enabled table schedule. Empty previews cannot replace existing rows. **Save source for refresh** keeps
+an empty segment connected so a later refresh can import its first members. Imported
 tables retain the segment ID, name, record type, extra properties and import time in source metadata.
 
 Choose **All contacts/companies (no segment)** explicitly to use the original
@@ -40,9 +41,24 @@ column order and rows not returned by the source. It does not rerun enrichment.
 The change summary describes merging, not replacing. Closing the dialog cancels
 the pending preview; it does not change the sheet.
 
-The saved source is a snapshot. Active HubSpot membership can change between pages;
-the preview deduplicates record IDs. Refresh is manual. Automatic refresh, removal
-of records that leave a segment, and refresh scheduling remain future work.
+Active HubSpot membership can change between pages; the preview deduplicates record IDs.
+
+For ongoing updates, open **Refresh settings**, choose **Every day** or **Every
+week**, set **Maximum records per refresh** (1–1,000), and choose **Save refresh
+settings**. The first automatic refresh runs shortly after saving. **Preview
+changes** reads without saving the draft settings; **Refresh now** uses the last
+saved settings. Closing the settings dialog discards unsaved changes.
+
+A complete refresh marks absent records **No longer in source** and keeps their
+rows. Partial reads do not claim that records left the segment. Research,
+formula outputs and edits made while a refresh is in flight are preserved;
+conflicting changes stay visible for review rather than silently overwriting edits.
+
+The local app and scheduler must remain running. Hosted refreshes advance while
+Pomade is open or the Mac companion is connected; missed refreshes catch up at
+the next wakeup. An unattended hosted timer with both closed remains unverified.
+The two installations keep independent schedules and data. See
+[hosting and local execution](hosting.md).
 
 ## Connection
 

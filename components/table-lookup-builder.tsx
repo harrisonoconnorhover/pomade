@@ -32,7 +32,18 @@ export default function TableLookupBuilder({
   workspace: WorkspaceSnapshot;
   onAdd: (columns: PomadeColumn[]) => void;
 }) {
-  const [tables, setTables] = useState<TableSummary[]>([]);
+  const [tableRevision, setTableRevision] = useState(0);
+  const tableRequestKey = `${workspace.id}:${tableRevision}`;
+  const [tableResult, setTableResult] = useState<{
+    key: string;
+    tables?: TableSummary[];
+    error?: string;
+  }>();
+  const tablesLoading = open && tableResult?.key !== tableRequestKey;
+  const tables =
+    tableResult?.key === tableRequestKey ? (tableResult.tables ?? []) : [];
+  const tableError =
+    tableResult?.key === tableRequestKey ? tableResult.error : undefined;
   const [sourceId, setSourceId] = useState('');
   const [sourceResult, setSourceResult] = useState<{
     key: string;
@@ -53,7 +64,10 @@ export default function TableLookupBuilder({
   const lastLoadedSourceId = useRef('');
   const sourceRequestKey = `${sourceId}:${sourceRevision}`;
   function changeOpen(value: boolean) {
-    if (!value) setSourceRevision((revision) => revision + 1);
+    if (!value) {
+      setSourceRevision((revision) => revision + 1);
+      setTableRevision((revision) => revision + 1);
+    }
     onOpenChange(value);
   }
   const [comparison, setComparison] =
@@ -72,7 +86,7 @@ export default function TableLookupBuilder({
         const available = result.tables.filter(
           (table) => table.id !== workspace.id,
         );
-        setTables(available);
+        setTableResult({ key: tableRequestKey, tables: available });
         setSourceId((current) =>
           available.some((table) => table.id === current)
             ? current
@@ -80,12 +94,13 @@ export default function TableLookupBuilder({
         );
       })
       .catch((e: Error) => {
-        if (!cancelled) setError(e.message);
+        if (!cancelled)
+          setTableResult({ key: tableRequestKey, error: e.message });
       });
     return () => {
       cancelled = true;
     };
-  }, [open, workspace.id]);
+  }, [open, workspace.id, tableRequestKey]);
   useEffect(() => {
     if (!open || !sourceId) return;
     let cancelled = false;
@@ -130,7 +145,12 @@ export default function TableLookupBuilder({
   const sourceLoading =
     open && Boolean(sourceId) && sourceResult?.key !== sourceRequestKey;
   const currentSource =
-    sourceResult?.key === sourceRequestKey ? sourceResult.workspace : undefined;
+    !tablesLoading &&
+    !tableError &&
+    tables.some((table) => table.id === sourceId) &&
+    sourceResult?.key === sourceRequestKey
+      ? sourceResult.workspace
+      : undefined;
   const sourceError =
     sourceResult?.key === sourceRequestKey ? sourceResult.error : undefined;
   const suggestedNormalization = suggestLookupNormalization(
@@ -218,6 +238,7 @@ export default function TableLookupBuilder({
             Source table
             <select
               aria-label="Source table"
+              disabled={tablesLoading || Boolean(tableError) || !tables.length}
               value={sourceId}
               onChange={(event) => {
                 setSourceId(event.target.value);
@@ -225,7 +246,13 @@ export default function TableLookupBuilder({
               }}
             >
               {!tables.length ? (
-                <option value="">Create another table first</option>
+                <option value="">
+                  {tablesLoading
+                    ? 'Loading tables…'
+                    : tableError
+                      ? 'Tables unavailable'
+                      : 'Create another table first'}
+                </option>
               ) : null}
               {tables.map((table) => (
                 <option key={table.id} value={table.id}>
@@ -257,7 +284,13 @@ export default function TableLookupBuilder({
               onChange={(event) => setSourceMatchId(event.target.value)}
             >
               {!currentSource ? (
-                <option value="">Loading source…</option>
+                <option value="">
+                  {tablesLoading || sourceLoading
+                    ? 'Loading source…'
+                    : sourceId
+                      ? 'Source unavailable'
+                      : 'Choose a source table'}
+                </option>
               ) : null}
               {currentSource?.columns.map((column) => (
                 <option key={column.id} value={column.id}>
@@ -291,22 +324,36 @@ export default function TableLookupBuilder({
         </div>
         <div className="lookup-source-status">
           <span>
-            {sourceLoading
-              ? 'Loading saved source values…'
-              : currentSource
-                ? `${currentSource.rows.length} saved source rows`
-                : 'Source is unavailable'}
+            {tablesLoading
+              ? 'Loading source tables…'
+              : tableError
+                ? 'Source tables are unavailable'
+                : sourceLoading
+                  ? 'Loading saved source values…'
+                  : currentSource
+                    ? `${currentSource.rows.length} saved source rows`
+                    : sourceId
+                      ? 'Source is unavailable'
+                      : 'Create another table to use a lookup'}
           </span>
           <Button
             variant="ghost"
             size="sm"
-            disabled={!sourceId || sourceLoading}
+            disabled={tablesLoading || (!tableError && sourceLoading)}
             onClick={() => {
               setError('');
-              setSourceRevision((value) => value + 1);
+              if (tableError || !sourceId)
+                setTableRevision((value) => value + 1);
+              else setSourceRevision((value) => value + 1);
             }}
           >
-            {currentSource ? 'Reload source' : 'Retry source'}
+            {tableError
+              ? 'Retry tables'
+              : !sourceId
+                ? 'Reload tables'
+                : currentSource
+                  ? 'Reload source'
+                  : 'Retry source'}
           </Button>
         </div>
         <div className="lookup-fields">
@@ -414,9 +461,12 @@ export default function TableLookupBuilder({
             ) : null}
           </div>
         ) : null}
-        {error || sourceError || (preview && 'error' in preview) ? (
+        {tableError ||
+        error ||
+        sourceError ||
+        (preview && 'error' in preview) ? (
           <p className="template-error" role="alert">
-            {error || sourceError || preview?.error}
+            {tableError || error || sourceError || preview?.error}
           </p>
         ) : null}
         <p className="lookup-note">
@@ -426,6 +476,7 @@ export default function TableLookupBuilder({
           The source table is unchanged.
         </p>
         <Button
+          className="lookup-add-button"
           onClick={add}
           disabled={!preview || 'error' in preview || !currentSource}
         >
