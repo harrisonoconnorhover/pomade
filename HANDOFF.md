@@ -2,38 +2,36 @@
 
 ## Finished
 
-- Private hosted version **34** and localhost:8798 run source `d79f057`. Local commits are saved; no GitHub push, purchases or access expansion occurred.
-- Research settings edit prompts/providers in place, plus ChatGPT model/effort. Save preserves outputs, mappings and results; Cancel discards drafts. Model loading has an in-place retry.
-- Existing waterfalls support provider reordering and error fallback settings. Waiting runs retain their original configuration; changed recipes pause enabled schedules.
-- Columns search opens settings, including hidden fields. Explicit status/saved-view filters combine with search. Arrow keys align record details; source links select and scroll to their row on desktop and phone.
-- Run receipts expose every action through searchable 100-item pages and review/passed filters. Earlier CSV, run-control, CRM refresh, transfer and lookup improvements remain. One synthetic company was verified in each dev CRM earlier tonight.
+- Foreman’s worker fixed row deletion: stale selected IDs no longer delete unrelated generated rows. Existing selected rows still delete their descendants; schedules and immutable/no-op behavior remain intact.
+- A separate read-only reviewer inspected the change and independently passed all required checks. Two synthetic regression tests failed before the fix and passed afterward.
+- Rebuilt and restored local Pomade at localhost:8798. All 28 saved sheet snapshots are unchanged.
+- Earlier private hosted version **34** remains on source `d79f057`. Research/waterfall settings, filters, row links, receipt search and earlier workbook improvements remain. This local increment has not been deployed or pushed.
 
 ## Try It
 
-- Open [private Pomade](https://pomade.deleteddeleted.chatgpt.site) or [local Pomade](http://localhost:8798). Their saved data and connections remain separate.
-- In **Columns**, search for a research/waterfall column and open its settings. For model/effort, choose **ChatGPT subscription** and uncheck **Use app defaults**. Save or Cancel; configuration does not execute providers.
-- Use **Filter** and row search, or **Run history → select a run → Needs review** and receipt search. See [the quick start](docs/workbook-quick-start.md).
+- Open [local Pomade](http://localhost:8798). [Private hosted Pomade](https://pomade.deleteddeleted.chatgpt.site) retains its separate data and earlier release.
+- Run `./node_modules/.bin/vitest run --config vitest.config.ts --configLoader runner --no-cache lib/row-management.test.ts lib/recipe-schedule.test.ts --pool threads`.
 
 ## Checks
 
-- 58 focused tests across seven files passed, plus typecheck, lint, diff checks and local/hosted production builds.
-- Browser regressions passed for drafts, model inheritance/recovery, waterfall ordering, waiting-job protection, hidden-column settings, filters, receipts, row links and 390px layouts. Eleven actual local and eleven hosted smoke checks passed with zero saved-data writes or page errors. Keyboard focus/Escape checks passed; the actual local ChatGPT catalog loaded seven models without executing research.
-- A real local save/reload/restore made exactly two saves on the disposable QA sheet; its contents matched afterward apart from revision/timestamp. No enrichment ran.
-- An unsaved hosted research draft survived 181 seconds of natural polling; Cancel left the complete saved snapshot unchanged. Zero API mutations, provider executions or browser errors.
-- Release checks preserved all 24 original local sheets and 16 hosted sheets; all 28 local saved contents remained unchanged. Seven hosted connections remain configured. Six served assets matched each build; anonymous access was blocked and Apollo callback health passed.
+- 18 focused tests passed; TypeScript (`--noEmit --incremental false`), Oxlint and `git diff --check` passed independently in the reviewer.
+- `npm run build` and `npm run build:hosted` passed. Hosted build preserved local `dist/`.
+- Local `/` and `/api/providers/http` returned HTTP 200 after startup. No active jobs or enabled schedules existed before startup; hashes of all 28 saved snapshots matched afterward.
+- The first review’s default Vitest process pool failed on temporary-file writes. Threads passed in read-only mode; a new review-first run with that acceptance command reached DONE.
+- Earlier release’s 58 tests and browser/provider checks are historical and were not rerun for this helper change. Current validation used synthetic tests and HTTP checks; no provider execution or saved-sheet edits.
 
 ## Decisions
 
-- Recipe edits retain current answers and apply on the next run.
-- Preserve the existing hosted audience: one owner. Local and hosted data remain separate.
+- Only existing selected rows establish deletion roots; unrelated orphans remain untouched.
+- Keep the hosted audience owner-only, and local/hosted data separate.
 
 ## Remaining
 
-- Live Apollo phone enrichment needs eligible API access; unconnected adapters need credentials and live coverage.
+- The row-deletion correction is local; private hosted version 34 predates it.
+- Live Apollo phone enrichment needs eligible access; unconnected adapters need credentials and live coverage.
 - Fully unattended hosted timers remain unverified. ChatGPT research needs the Mac helper.
 
 ## Review First
 
-- Column settings and [quick start](docs/workbook-quick-start.md).
-- `lib/column-management.ts` and workspace filter/receipt controls.
-- Browser scripts in `scripts/test-*-ui.mjs`; ignored evidence in `outputs/nightshift/2026-09-07/`.
+- `lib/row-management.ts` and `lib/row-management.test.ts`.
+- Foreman reports: `../foreman/runs/20260908T142933Z-946419/report.md` and `../foreman/runs/20260908T143857Z-e5afcd/report.md`.

@@ -12,7 +12,10 @@ export function deleteWorkspaceRows(
   rowIds: string[],
   now = Date.now(),
 ): DeleteRowsResult {
-  const removed = new Set(rowIds.filter(Boolean));
+  const existingRowIds = new Set(workspace.rows.map((row) => row.id));
+  const removed = new Set(
+    rowIds.filter((rowId) => rowId && existingRowIds.has(rowId)),
+  );
   if (!removed.size) {
     return { workspace, removedCount: 0, schedulePaused: false };
   }
