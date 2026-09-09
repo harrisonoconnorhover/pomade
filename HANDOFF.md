@@ -2,38 +2,38 @@
 
 ## Finished
 
-- New **Personal opener** columns use the existing web-research engine with an editable prompt, provider selection and mapped inputs. Four outputs hold the draft, supporting evidence, source URL and assessment.
-- The default prompt requests a specific supported company fact and a blank opener with an explanation when evidence is insufficient. Existing citations and run receipts remain available for review.
-- Adding a recipe creates blank columns with auto-run disabled. Legacy `write-opener` columns retain their values and generic local behavior; settings offer **Add researched opener** as a separate, deliberate action.
-- Local Pomade is rebuilt and running at localhost:8798. All 28 saved sheet snapshots are unchanged. No hosted deployment, GitHub push, provider execution or CRM write occurred.
+- Published private hosted **version 35**, source `24c5fc250829611cd13308d06a2b255590a05433`. It includes the researched Personal opener and the fix preventing stale row selections from deleting unrelated generated rows.
+- **Personal opener** offers an editable research prompt, provider choice and input mapping. Four outputs hold the draft, evidence, source URL and assessment; the prompt requests a blank opener when evidence is insufficient.
+- Adding the recipe does not execute it. Legacy `write-opener` columns retain their generic local behavior and existing values, with a deliberate **Add researched opener** action in settings.
+- Hosted access remains owner-only. The stopped local server was restored using its unchanged build. No GitHub push, paid provider call, CRM write, runtime-setting change or callback change occurred.
 
 ## Try It
 
-1. Open [local Pomade](http://localhost:8798), then **Add column → Personal opener**.
-2. Choose the provider, map the company website and optionally customize the prompt/focus. **Add function** creates four blank outputs; it does not run research.
-3. Check provider access and row scope before running. Review evidence and citations before using the draft. Save the configured column as a template to reuse it.
+1. Open [private hosted Pomade](https://pomade.deleteddeleted.chatgpt.site), refresh an already-open tab, and choose **Add column → Personal opener**. [Local Pomade](http://localhost:8798) also has this recipe, with separate saved data.
+2. Map the company website, choose a provider, and optionally edit the prompt/focus. **Add function** creates four blank columns without running research.
+3. Check provider access and row scope before running. Review the source and run receipt before using the draft; save the column as a template to reuse it.
 
 ## Checks
 
-- 21 focused Vitest tests passed across personal opener, research recipes, recipe templates and recipe-file exchange; typecheck, lint and `git diff --check` passed.
-- Local and hosted builds passed. The hosted build preserved local `dist/`; neither build was deployed.
-- Seven disposable browser checks passed: discovery, cancel, required mapping, custom prompt/provider persistence, four-output creation without execution, 390px layout and deliberate legacy adoption. Desktop/mobile screenshots reviewed; zero page errors or real writes.
-- Full before/after hashes matched for all 28 saved sheets. No active local jobs or enabled schedules existed during restart/checks.
+- 39 focused tests passed: 21 opener/template tests and 18 row-deletion/schedule tests. Typecheck, lint, and release diff checks passed.
+- Reused successful local and hosted builds from unchanged runtime source. The prescribed Sites helper archive passed entrypoint, asset, manifest, hosted-mode and all 12 unchanged migration checks.
+- Seven disposable local browser checks passed, including cancel, mapping, provider/prompt persistence, legacy adoption and 390px layout; screenshots reviewed. All 28 local sheet hashes matched again after restoring the local server.
+- Sites confirmed deployment succeeded, version 35/source above, unchanged environment revision 9 and access revision 1: one account, no external visitors or groups.
+- Authenticated live checks opened the new recipe and cancelled without workbook writes. All 16 hosted sheet hashes, connection-status responses and disabled schedules matched their pre-deployment state; no active jobs. Local build hashes also matched. Hosted/local roots returned 200; anonymous hosted access returned 401. Live browser checks reported zero application mutations and page errors; one automatic Cloudflare background check was blocked.
 
 ## Decisions
 
-- Reuse the existing research and template paths; no new integrations or dependencies.
-- Preserve legacy execution; never turn a saved local shortcut into a provider call silently.
-- Synthetic responses verify wiring and missing-evidence handling, not live research accuracy. The prompt's factual assessment still needs human source review.
+- Keep existing data, credentials, access and schema; deploy only the two approved changes.
+- Preserve legacy execution. Synthetic provider responses prove wiring, not live research accuracy; source review remains necessary.
 
 ## Remaining
 
-- Hosted version 34 (`d79f057`) predates this increment and the earlier local row-deletion correction.
-- Live provider accuracy and account entitlement were not tested in this slice.
-- Company summary, demo ICP shortcut replacement and CRM deal notes remain separate work.
+- Live provider quality and plan entitlement were not exercised.
+- ChatGPT research still needs the connected Mac; unattended hosted timers remain unverified.
+- Company summary, demo ICP replacement and CRM deal notes are separate work.
 
 ## Review First
 
 - `lib/research-recipes.ts` and `lib/personal-opener.test.ts`.
+- `lib/row-management.ts` and its regression tests.
 - Personal opener setup and legacy adoption in `components/pomade-workspace.tsx`.
-- `scripts/test-personal-opener-ui.mjs`; local artifacts under ignored `outputs/personal-opener/`.
