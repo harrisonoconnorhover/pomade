@@ -41,6 +41,24 @@ for review. A waiting waterfall run must finish or be cancelled before reorderin
 Every output and status field counts
 toward the 100-column limit; builders explain when the chosen setup will not fit.
 
+## Draft a sourced opener
+
+Choose **Add column → Personal opener**. Map the company website, choose a research
+provider, and edit the prompt or optional research focus to suit your offering.
+**Add function** creates four blank columns: Personal opener, Opener evidence,
+Opener source, and Opener assessment. It does not run research.
+
+Run the new action deliberately after checking provider access and row scope.
+The recipe asks for a concise opener grounded in a specific company fact, with
+a supporting quote and source URL. When evidence is insufficient, it asks for a
+blank opener and an explanation. Review the source and run receipt before using
+the draft; an AI assessment is not independent fact verification. Save the column
+as a template to reuse your prompt and input mappings.
+
+Older Personal opener columns still use generic local text. Their settings offer
+**Add researched opener**, which opens setup for separate new columns. Existing
+values and execution behavior stay intact until you deliberately edit or run them.
+
 ## Run a deliberate scope
 
 Check the rows you want, or filter the sheet before running. The Run button

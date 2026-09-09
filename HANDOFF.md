@@ -2,36 +2,38 @@
 
 ## Finished
 
-- Foreman’s worker fixed row deletion: stale selected IDs no longer delete unrelated generated rows. Existing selected rows still delete their descendants; schedules and immutable/no-op behavior remain intact.
-- A separate read-only reviewer inspected the change and independently passed all required checks. Two synthetic regression tests failed before the fix and passed afterward.
-- Rebuilt and restored local Pomade at localhost:8798. All 28 saved sheet snapshots are unchanged.
-- Earlier private hosted version **34** remains on source `d79f057`. Research/waterfall settings, filters, row links, receipt search and earlier workbook improvements remain. This local increment has not been deployed or pushed.
+- New **Personal opener** columns use the existing web-research engine with an editable prompt, provider selection and mapped inputs. Four outputs hold the draft, supporting evidence, source URL and assessment.
+- The default prompt requests a specific supported company fact and a blank opener with an explanation when evidence is insufficient. Existing citations and run receipts remain available for review.
+- Adding a recipe creates blank columns with auto-run disabled. Legacy `write-opener` columns retain their values and generic local behavior; settings offer **Add researched opener** as a separate, deliberate action.
+- Local Pomade is rebuilt and running at localhost:8798. All 28 saved sheet snapshots are unchanged. No hosted deployment, GitHub push, provider execution or CRM write occurred.
 
 ## Try It
 
-- Open [local Pomade](http://localhost:8798). [Private hosted Pomade](https://pomade.deleteddeleted.chatgpt.site) retains its separate data and earlier release.
-- Run `./node_modules/.bin/vitest run --config vitest.config.ts --configLoader runner --no-cache lib/row-management.test.ts lib/recipe-schedule.test.ts --pool threads`.
+1. Open [local Pomade](http://localhost:8798), then **Add column → Personal opener**.
+2. Choose the provider, map the company website and optionally customize the prompt/focus. **Add function** creates four blank outputs; it does not run research.
+3. Check provider access and row scope before running. Review evidence and citations before using the draft. Save the configured column as a template to reuse it.
 
 ## Checks
 
-- 18 focused tests passed; TypeScript (`--noEmit --incremental false`), Oxlint and `git diff --check` passed independently in the reviewer.
-- `npm run build` and `npm run build:hosted` passed. Hosted build preserved local `dist/`.
-- Local `/` and `/api/providers/http` returned HTTP 200 after startup. No active jobs or enabled schedules existed before startup; hashes of all 28 saved snapshots matched afterward.
-- The first review’s default Vitest process pool failed on temporary-file writes. Threads passed in read-only mode; a new review-first run with that acceptance command reached DONE.
-- Earlier release’s 58 tests and browser/provider checks are historical and were not rerun for this helper change. Current validation used synthetic tests and HTTP checks; no provider execution or saved-sheet edits.
+- 21 focused Vitest tests passed across personal opener, research recipes, recipe templates and recipe-file exchange; typecheck, lint and `git diff --check` passed.
+- Local and hosted builds passed. The hosted build preserved local `dist/`; neither build was deployed.
+- Seven disposable browser checks passed: discovery, cancel, required mapping, custom prompt/provider persistence, four-output creation without execution, 390px layout and deliberate legacy adoption. Desktop/mobile screenshots reviewed; zero page errors or real writes.
+- Full before/after hashes matched for all 28 saved sheets. No active local jobs or enabled schedules existed during restart/checks.
 
 ## Decisions
 
-- Only existing selected rows establish deletion roots; unrelated orphans remain untouched.
-- Keep the hosted audience owner-only, and local/hosted data separate.
+- Reuse the existing research and template paths; no new integrations or dependencies.
+- Preserve legacy execution; never turn a saved local shortcut into a provider call silently.
+- Synthetic responses verify wiring and missing-evidence handling, not live research accuracy. The prompt's factual assessment still needs human source review.
 
 ## Remaining
 
-- The row-deletion correction is local; private hosted version 34 predates it.
-- Live Apollo phone enrichment needs eligible access; unconnected adapters need credentials and live coverage.
-- Fully unattended hosted timers remain unverified. ChatGPT research needs the Mac helper.
+- Hosted version 34 (`d79f057`) predates this increment and the earlier local row-deletion correction.
+- Live provider accuracy and account entitlement were not tested in this slice.
+- Company summary, demo ICP shortcut replacement and CRM deal notes remain separate work.
 
 ## Review First
 
-- `lib/row-management.ts` and `lib/row-management.test.ts`.
-- Foreman reports: `../foreman/runs/20260908T142933Z-946419/report.md` and `../foreman/runs/20260908T143857Z-e5afcd/report.md`.
+- `lib/research-recipes.ts` and `lib/personal-opener.test.ts`.
+- Personal opener setup and legacy adoption in `components/pomade-workspace.tsx`.
+- `scripts/test-personal-opener-ui.mjs`; local artifacts under ignored `outputs/personal-opener/`.

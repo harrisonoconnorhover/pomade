@@ -4,6 +4,7 @@ import { hasAsyncProvider } from '@/lib/async-provider';
 
 import {
   RESEARCH_RECIPES,
+  PERSONAL_OPENER_RECIPE,
   prepareResearchRecipe,
 } from '@/lib/research-recipes';
 
@@ -403,8 +404,8 @@ const recipePresets: RecipePreset[] = [
     recipe: 'write-opener',
     width: 330,
     group: 'Research',
-    description: 'Draft an editable first line from the row context.',
-    requires: 'Person + company',
+    description: PERSONAL_OPENER_RECIPE.description!,
+    requires: 'Company website + research provider',
   },
   {
     title: 'Company summary',
@@ -664,6 +665,7 @@ export default function PomadeWorkspace({
   const [templateDescription, setTemplateDescription] = useState('');
   const [activeTemplateId, setActiveTemplateId] = useState('');
   const [templateResearchFocus, setTemplateResearchFocus] = useState('');
+  const [templateResearchPrompt, setTemplateResearchPrompt] = useState('');
   const [templateResearchProvider, setTemplateResearchProvider] =
     useState<PomadeColumn['researchProvider']>();
   const [templateError, setTemplateError] = useState('');
@@ -1226,9 +1228,11 @@ export default function PomadeWorkspace({
   const templateColumn = workspace.columns.find(
     (column) => column.id === templateColumnId,
   );
-  const activeTemplate = [...RESEARCH_RECIPES, ...recipeTemplates].find(
-    (template) => template.id === activeTemplateId,
-  );
+  const activeTemplate = [
+    PERSONAL_OPENER_RECIPE,
+    ...RESEARCH_RECIPES,
+    ...recipeTemplates,
+  ].find((template) => template.id === activeTemplateId);
   const templateBindingsReady = Boolean(
     activeTemplate?.inputs.every(
       (input) => !input.required || templateBindings[input.key],
@@ -1768,6 +1772,7 @@ export default function PomadeWorkspace({
     setAddColumnOpen(false);
     setActiveTemplateId(template.id);
     setTemplateResearchFocus('');
+    setTemplateResearchPrompt(template.column.prompt ?? '');
     setTemplateResearchProvider(template.column.researchProvider);
     setTemplateBindings(defaultTemplateBindings(template, workspace.columns));
     setTemplateError('');
@@ -1780,6 +1785,10 @@ export default function PomadeWorkspace({
       const addedColumns = instantiateRecipeTemplate(
         prepareResearchRecipe(activeTemplate, {
           focus: templateResearchFocus,
+          prompt:
+            activeTemplate.id === PERSONAL_OPENER_RECIPE.id
+              ? templateResearchPrompt
+              : undefined,
           provider: templateResearchProvider,
         }),
         workspace.columns,
@@ -4755,9 +4764,11 @@ export default function PomadeWorkspace({
                           ? openFormulaBuilder()
                           : preset.recipe === 'waterfall'
                             ? openWaterfallBuilder()
-                            : preset.recipe === 'web-research'
-                              ? openResearchBuilder()
-                              : addRecipeColumn(preset)
+                            : preset.recipe === 'write-opener'
+                              ? openTemplateUse(PERSONAL_OPENER_RECIPE)
+                              : preset.recipe === 'web-research'
+                                ? openResearchBuilder()
+                                : addRecipeColumn(preset)
                       }
                     >
                       <span
@@ -5156,6 +5167,26 @@ export default function PomadeWorkspace({
                     disabled={jobLocksWorkspace}
                     onChange={setTemplateResearchProvider}
                   />
+                  {activeTemplate.id === PERSONAL_OPENER_RECIPE.id ? (
+                    <label className="recipe-research-focus">
+                      Research prompt
+                      <textarea
+                        aria-label="Research prompt"
+                        aria-describedby="personal-opener-prompt-help"
+                        rows={6}
+                        maxLength={4000}
+                        value={templateResearchPrompt}
+                        onChange={(event) =>
+                          setTemplateResearchPrompt(event.target.value)
+                        }
+                      />
+                      <small id="personal-opener-prompt-help">
+                        Use {'{{domain}}'} for the mapped website. Keep the
+                        evidence and insufficient-evidence instructions. Adding
+                        this recipe does not run research.
+                      </small>
+                    </label>
+                  ) : null}
                   <label className="recipe-research-focus">
                     Research focus (optional)
                     <textarea
@@ -7305,6 +7336,29 @@ export default function PomadeWorkspace({
                   : 'Rename the header while keeping its recipe ID and row data.'}
             </DialogDescription>
           </DialogHeader>
+          {editedColumn?.recipe === 'write-opener' ? (
+            <div className="template-no-inputs legacy-opener-notice">
+              <p>
+                Legacy template opener: this column inserts generic text and
+                does not research company facts. Its saved values and behavior
+                stay unchanged.
+              </p>
+              <Button
+                variant="outline"
+                disabled={jobLocksWorkspace}
+                onClick={() => {
+                  setColumnEditorOpen(false);
+                  openTemplateUse(PERSONAL_OPENER_RECIPE);
+                }}
+              >
+                Add researched opener
+              </Button>
+              <p>
+                The researched recipe creates separate columns and only runs
+                when you choose.
+              </p>
+            </div>
+          ) : null}
           {editedColumn?.recipe === 'web-research' ? (
             <ResearchProviderPicker
               value={columnEditorProvider}

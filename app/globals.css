@@ -2289,6 +2289,15 @@ body {
   color: #647269;
   background: #f4f5f1;
 }
+.legacy-opener-notice {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 14px;
+  color: #394e41;
+  font-size: 13px;
+  line-height: 1.5;
+}
 .template-error {
   border: 1px solid #efc7bf;
   color: #9f3d32;
