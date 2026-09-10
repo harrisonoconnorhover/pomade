@@ -2,38 +2,38 @@
 
 ## Finished
 
-- Published private hosted **version 35**, source `24c5fc250829611cd13308d06a2b255590a05433`. It includes the researched Personal opener and the fix preventing stale row selections from deleting unrelated generated rows.
-- **Personal opener** offers an editable research prompt, provider choice and input mapping. Four outputs hold the draft, evidence, source URL and assessment; the prompt requests a blank opener when evidence is insufficient.
-- Adding the recipe does not execute it. Legacy `write-opener` columns retain their generic local behavior and existing values, with a deliberate **Add researched opener** action in settings.
-- Hosted access remains owner-only. The stopped local server was restored using its unchanged build. No GitHub push, paid provider call, CRM write, runtime-setting change or callback change occurred.
+- Private hosted **version 35** runs source `24c5fc250829611cd13308d06a2b255590a05433`: researched Personal opener and the stale-selection row-deletion correction. This GitHub catch-up does not redeploy it.
+- **Personal opener** provides an editable research prompt, provider choice and input mapping, with four outputs: draft, evidence, source URL and assessment. The default prompt requests a blank opener when evidence is insufficient.
+- Adding the recipe does not run research. Existing legacy opener values and generic local behavior remain unchanged, with deliberate adoption available in column settings.
+- This is the approved **private GitHub catch-up snapshot**: 123 accumulated development commits plus this handoff update, preserving the existing history. No public release, tags, visibility change, other-project push or hosted-setting change is included.
 
 ## Try It
 
-1. Open [private hosted Pomade](https://pomade.deleteddeleted.chatgpt.site), refresh an already-open tab, and choose **Add column → Personal opener**. [Local Pomade](http://localhost:8798) also has this recipe, with separate saved data.
-2. Map the company website, choose a provider, and optionally edit the prompt/focus. **Add function** creates four blank columns without running research.
-3. Check provider access and row scope before running. Review the source and run receipt before using the draft; save the column as a template to reuse it.
+1. Open [private hosted Pomade](https://pomade.deleteddeleted.chatgpt.site), refresh an old tab, then choose **Add column → Personal opener**. [Local Pomade](http://localhost:8798) uses separate saved data.
+2. Map the company website, choose a provider and customize the prompt/focus. **Add function** creates blank columns; review row scope and provider access before running. Review evidence before using the draft.
+3. Source and self-hosting instructions are in the [private GitHub repository](https://github.com/harrisonoconnorhover/pomade) and `README.md`.
 
 ## Checks
 
-- 39 focused tests passed: 21 opener/template tests and 18 row-deletion/schedule tests. Typecheck, lint, and release diff checks passed.
-- Reused successful local and hosted builds from unchanged runtime source. The prescribed Sites helper archive passed entrypoint, asset, manifest, hosted-mode and all 12 unchanged migration checks.
-- Seven disposable local browser checks passed, including cancel, mapping, provider/prompt persistence, legacy adoption and 390px layout; screenshots reviewed. All 28 local sheet hashes matched again after restoring the local server.
-- Sites confirmed deployment succeeded, version 35/source above, unchanged environment revision 9 and access revision 1: one account, no external visitors or groups.
-- Authenticated live checks opened the new recipe and cancelled without workbook writes. All 16 hosted sheet hashes, connection-status responses and disabled schedules matched their pre-deployment state; no active jobs. Local build hashes also matched. Hosted/local roots returned 200; anonymous hosted access returned 401. Live browser checks reported zero application mutations and page errors; one automatic Cloudflare background check was blocked.
+- September 10 source review: all 123 outgoing commits and 328 historical paths inspected for sensitive data/artifacts. Gitleaks 8.30.1 scanned the outgoing history with zero findings. Local credentials, saved state, raw results and build output remain ignored.
+- GitHub main was `2693b9ee2e98936abb932a0ff132684d4da7ab27`, an ancestor with no divergent commits. Repository private; no Actions workflows, Pages site or active local pre-push hook. No CI pass is claimed.
+- Reused September 9 exact-runtime evidence: 39 focused tests, typecheck, lint, local/hosted builds and seven disposable browser checks passed. No runtime changes or broad reruns for this source sync.
+- Version 35/source and its one-owner audience were rechecked through Sites. Earlier deployment checks preserved 16 hosted and 28 local sheets and connection status; live opener/cancel passed with no application writes, hosted/local roots returned 200 and anonymous hosted access returned 401.
+- Current handoff syntax, word limit and Git diff checks passed. The final GitHub SHA and any triggered checks are verified after the push and reported with the release result.
 
 ## Decisions
 
-- Keep existing data, credentials, access and schema; deploy only the two approved changes.
-- Preserve legacy execution. Synthetic provider responses prove wiring, not live research accuracy; source review remains necessary.
+- One deliberate GitHub catch-up is approved; routine development iterations remain local unless authorized.
+- Preserve existing history, data, connections and private access. Synthetic research tests prove wiring, not live factual accuracy.
 
 ## Remaining
 
 - Live provider quality and plan entitlement were not exercised.
-- ChatGPT research still needs the connected Mac; unattended hosted timers remain unverified.
+- ChatGPT research needs the Mac; unattended hosted timers remain unverified.
 - Company summary, demo ICP replacement and CRM deal notes are separate work.
 
 ## Review First
 
-- `lib/research-recipes.ts` and `lib/personal-opener.test.ts`.
-- `lib/row-management.ts` and its regression tests.
-- Personal opener setup and legacy adoption in `components/pomade-workspace.tsx`.
+- `lib/research-recipes.ts`, opener setup and legacy adoption.
+- `lib/row-management.ts` and regression tests.
+- `README.md` and `docs/workbook-quick-start.md`.
