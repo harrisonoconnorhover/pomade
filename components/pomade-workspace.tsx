@@ -6595,7 +6595,7 @@ export default function PomadeWorkspace({
             <DialogTitle>Run receipt</DialogTitle>
             <DialogDescription>
               {currentReceipt
-                ? `${providerLabel(currentReceipt)} · ${runTime(currentReceipt.finishedAt)} · ${currentReceipt.passedCount} checks passed · ${currentReceipt.reviewCount} rows need review`
+                ? `${providerLabel(currentReceipt)} · ${runTime(currentReceipt.finishedAt)} · ${currentReceipt.passedCount} actions passed checks · ${currentReceipt.reviewCount} actions need review`
                 : 'No run yet.'}
             </DialogDescription>
           </DialogHeader>
