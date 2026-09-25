@@ -4,7 +4,7 @@ import {
   suggestControlTowerMappings,
   toControlTowerPreview,
 } from './control-tower-adapter';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 
 describe('Control Tower handoff mapping', () => {
   it('suggests portable contact fields from ordinary Pomade columns', () => {

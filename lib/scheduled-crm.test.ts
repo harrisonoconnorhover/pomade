@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { runScheduledCrm } from '../db/scheduled-crm';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 import { findColumnDependencies } from './column-management';
 import { crmConnectionFingerprint, type CrmSyncPlan } from './crm-sync';
 

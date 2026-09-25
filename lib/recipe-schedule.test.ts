@@ -12,7 +12,7 @@ import {
   isScheduleDue,
   pauseRecipeSchedule,
 } from './recipe-schedule';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 
 function scheduledWorkspace(
   nextRunAt: number,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 import { createSavedView, rowMatchesSavedView } from './saved-views';
 
 describe('saved views', () => {

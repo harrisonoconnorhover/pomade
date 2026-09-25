@@ -9,7 +9,7 @@ import {
   contactPreset,
   type ContactBindings,
 } from './contact-provider-presets';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 const bindings: ContactBindings = {
   person: 'person',
   domain: 'domain',

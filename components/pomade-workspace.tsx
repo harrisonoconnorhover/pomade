@@ -408,12 +408,13 @@ const recipePresets: RecipePreset[] = [
     requires: 'Company website + research provider',
   },
   {
-    title: 'Company summary',
+    title: 'Example company summary',
     kind: 'enrichment',
     recipe: 'company-summary',
     width: 300,
     group: 'Research',
-    description: 'Create a concise account-research summary.',
+    description:
+      'Insert a fixed example sentence; this does not research the company.',
     requires: 'Company',
   },
 ];
@@ -3104,7 +3105,7 @@ export default function PomadeWorkspace({
                 (filter === 'All'
                   ? 'All records'
                   : filter === 'Ready'
-                    ? 'Ready to use'
+                    ? 'Checks passed'
                     : 'Needs review')}
             </p>
             <h1>
@@ -3258,7 +3259,7 @@ export default function PomadeWorkspace({
                 setFilter(filter === 'Ready' ? 'All' : 'Ready');
               }}
             >
-              <Check /> Ready to use <span>{readyCount}</span>
+              <Check /> Checks passed <span>{readyCount}</span>
             </button>
             <button
               className={`nav-item ${filter === 'Review' ? 'active' : ''}`}
@@ -3756,7 +3757,11 @@ export default function PomadeWorkspace({
                 >
                   <Filter />
                   {activeSavedView?.name ??
-                    (filter === 'All' ? 'Filter' : filter)}
+                    (filter === 'All'
+                      ? 'Filter'
+                      : filter === 'Ready'
+                        ? 'Checks passed'
+                        : filter)}
                   <ChevronDown />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="row-filter-menu" align="start">
@@ -3796,7 +3801,7 @@ export default function PomadeWorkspace({
                           key={status}
                           value={`status:${status}`}
                         >
-                          {status}
+                          {status === 'Ready' ? 'Checks passed' : status}
                         </DropdownMenuRadioItem>
                       ))}
                     {workspace.savedViews?.length ? (
@@ -4055,7 +4060,9 @@ export default function PomadeWorkspace({
             <span
               className={`record-status record-status-${(selectedValues.status || 'draft').toLowerCase()}`}
             >
-              {selectedValues.status || 'Draft'}
+              {selectedValues.status === 'Ready'
+                ? 'Checks passed'
+                : selectedValues.status || 'Draft'}
             </span>
           </div>
           <Button
@@ -4207,6 +4214,10 @@ export default function PomadeWorkspace({
                   <span>Recipe trace</span>
                   <span>{selectedReceipts.length} recent</span>
                 </div>
+                <p className="empty-trace">
+                  Run checks cover execution and output requirements. Research
+                  sources still need review for factual accuracy and freshness.
+                </p>
                 {selectedReceipts.length ? (
                   <ol className="recipe-list">
                     {selectedReceipts.map((receipt) => (
@@ -4221,7 +4232,10 @@ export default function PomadeWorkspace({
                         <div>
                           <strong>{receipt.action}</strong>
                           <small>
-                            {receipt.status} · {receipt.durationMs} ms
+                            {receipt.status === 'passed'
+                              ? 'Checks passed'
+                              : 'Needs review'}{' '}
+                            · {receipt.durationMs} ms
                           </small>
                         </div>
                       </li>
@@ -6581,10 +6595,15 @@ export default function PomadeWorkspace({
             <DialogTitle>Run receipt</DialogTitle>
             <DialogDescription>
               {currentReceipt
-                ? `${providerLabel(currentReceipt)} · ${runTime(currentReceipt.finishedAt)} · ${currentReceipt.passedCount} passed · ${currentReceipt.reviewCount} rows need review`
+                ? `${providerLabel(currentReceipt)} · ${runTime(currentReceipt.finishedAt)} · ${currentReceipt.passedCount} checks passed · ${currentReceipt.reviewCount} rows need review`
                 : 'No run yet.'}
             </DialogDescription>
           </DialogHeader>
+          <p className="empty-trace">
+            Passed checks are not factual verification. Research with source
+            links still needs review; a completed run is not approval to use or
+            send its results.
+          </p>
           <div className="receipt-summary">
             <div>
               <span>Rows</span>
@@ -6623,7 +6642,7 @@ export default function PomadeWorkspace({
             >
               <option value="all">All results</option>
               <option value="review">Needs review</option>
-              <option value="passed">Passed</option>
+              <option value="passed">Checks passed</option>
             </select>
             {receiptQuery || receiptStatus !== 'all' ? (
               <Button

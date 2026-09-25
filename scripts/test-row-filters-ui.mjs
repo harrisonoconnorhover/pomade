@@ -124,7 +124,7 @@ try {
   await assertRows(4);
   let popup = await openFilterMenu();
   assert.equal(await popup.getByRole('menuitemradio', { name: 'All statuses', exact: true }).getAttribute('aria-checked'), 'true');
-  for (const name of ['Ready', 'Review', 'Imported', savedViewName])
+  for (const name of ['Checks passed', 'Review', 'Imported', savedViewName])
     await popup.getByRole('menuitemradio', { name, exact: true }).waitFor();
   await page.screenshot({ path: 'outputs/nightshift/2026-09-07/row-filters-desktop.png', animations: 'disabled' });
   await popup.getByRole('menuitemradio', { name: 'Imported', exact: true }).click();
@@ -134,7 +134,7 @@ try {
   assert.equal(await popup.getByRole('menuitemradio', { name: 'Imported', exact: true }).getAttribute('aria-checked'), 'true');
   await page.keyboard.press('Escape');
 
-  await chooseFilter('Ready');
+  await chooseFilter('Checks passed');
   await assertRows(2);
   await search().fill('Alpha');
   await assertRows(1);
@@ -143,7 +143,7 @@ try {
   assert.equal(await search().inputValue(), 'Alpha', 'Saved filters must preserve current search text.');
   popup = await openFilterMenu();
   assert.equal(await popup.getByRole('menuitemradio', { name: savedViewName, exact: true }).getAttribute('aria-checked'), 'true');
-  assert.equal(await popup.getByRole('menuitemradio', { name: 'Ready', exact: true }).getAttribute('aria-checked'), 'false');
+  assert.equal(await popup.getByRole('menuitemradio', { name: 'Checks passed', exact: true }).getAttribute('aria-checked'), 'false');
   await popup.getByRole('menuitemradio', { name: 'All statuses', exact: true }).click();
   await dismissFilterPopup(popup);
   await assertRows(2);
@@ -161,7 +161,7 @@ try {
   await page.mouse.click(grid.x + 25, grid.y + 65); // First row's checkbox.
   await page.locator('.selection-chip').filter({ hasText: /^1 selected$/ }).waitFor();
   await assertRows(4, true);
-  await chooseFilter('Ready'); // Alpha One remains visible; selection must still clear.
+  await chooseFilter('Checks passed'); // Alpha One remains visible; selection must still clear.
   await assertRows(2);
   assert.equal(await page.locator('.selection-chip').count(), 0, 'Choosing a filter must clear checked-row execution scope.');
 

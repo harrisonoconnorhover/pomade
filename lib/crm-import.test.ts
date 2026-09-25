@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { applyCrmImport, reviewCrmImport, savedCrmSource } from './crm-import';
 import type { CrmSourcePreview } from './pomade-types';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 
 const PREVIEW: CrmSourcePreview = {
   provider: 'hubspot',

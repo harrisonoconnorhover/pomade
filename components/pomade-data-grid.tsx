@@ -151,7 +151,7 @@ export default function PomadeDataGrid({
       return {
         kind: GridCellKind.Text,
         data: value,
-        displayData: value,
+        displayData: isStatus && value === 'Ready' ? 'Checks passed' : value,
         allowOverlay: !isStatus,
         readonly: isStatus || readOnly,
         contentAlign: column.recipe === 'score-fit' ? 'center' : 'left',

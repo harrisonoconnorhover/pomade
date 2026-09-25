@@ -9,7 +9,7 @@ import {
   renderCustomFormula,
   shouldRunRecipe,
 } from './local-recipe-engine';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 import { toScoutboundPipeline } from './scoutbound-adapter';
 
 describe('Pomade recipe execution', () => {

@@ -7,10 +7,40 @@ research and enrichment recipes, running them safely, and inspecting exactly
 what changed. It is an original product built on the open-source
 [Glide Data Grid](https://github.com/glideapps/glide-data-grid).
 
-Start with the [workbook quick start](docs/workbook-quick-start.md) for current
-import, column, run, CRM and export controls.
+## Inspect a complete workflow
 
-## Current vertical slice
+[Walk through the cleanup example](docs/portfolio-workflow.md): three fictional
+accounts go from inconsistent website inputs to normalized domains, first names
+and contact keys. The missing website stays missing and its row needs review.
+The example uses existing local formulas, requires no provider account, and
+includes downloadable input, exact expected output and the test command.
+
+For historical live-provider evidence, see the [September 7 benchmark](docs/live-benchmark-2026-09-07.md):
+12 of 15 work emails accepted by the providers, plus one verified update in each
+dev CRM. Those small-sample results are dated observations, not current match-rate,
+deliverability or production-reliability claims.
+
+## Availability and limits
+
+- **Public:** source code, local development setup, workflow documentation and
+  synthetic examples. This is an independent project in active development.
+- **Private:** the hosted workbook and saved operating data. There is no public
+  hosted demo or signup; an authenticated owner account is required.
+- **Connected workflows:** research, enrichment and CRM operations require the
+  appropriate credentials. A provider adapter with synthetic tests is not proof
+  of a successful live-provider run.
+- **Run status:** “Checks passed” describes execution/output checks. Source-linked
+  research still needs factual review. Stored/exported `Ready` values retain the
+  same meaning; they are not human approval or proof of accuracy.
+- **Unfinished:** standalone self-host packaging and verified unattended hosted
+  scheduling. Local, public-source and private-hosted versions can differ.
+
+The [workbook quick start](docs/workbook-quick-start.md) covers the controls;
+[hosting notes](docs/hosting.md) explain private deployment requirements.
+
+<details>
+<summary>Implemented workflow catalogue and provider limits</summary>
+
 
 - Start with four buying-signal recipes for sales hiring, recent funding, tools in use,
   and sales leadership with operations support; customize and reuse them across sheets.
@@ -72,16 +102,15 @@ identities, preserve partial successes, and attach a receipt to every completed
 row. The older GTM Control Tower download remains available; direct local CRM
 writes now have their own preview and receipts, without automatic rollback.
 
+</details>
+
 ## Product direction
 
-One open-source product, usable through an independent installation or an
-optional Pomade-hosted account. Our current priority is daily usability: table workflows, integrations and
-reliable enrichment. The private hosted site uses Sites ChatGPT sign-in and
-isolated accounts with personal provider/CRM connections. The optional friends
-beta can remain unused until someone wants access; public signup and direct
-Google sign-in are not implemented. Complete standalone self-host packaging
-remains unfinished. Development uses Workers/D1 and Sites tooling, with approved
-private-site releases and local commits. GitHub publishing remains deferred.
+Pomade prioritizes practical table workflows, inspectable research and deliberate
+CRM updates. The source is public. The private hosted site uses Sites ChatGPT
+sign-in and isolated accounts with personal connections. Public signup and direct
+Google sign-in are not implemented; complete standalone self-host packaging
+remains unfinished. Public source updates and private hosted releases are separate.
 
 ## Build from a prompt
 
@@ -187,8 +216,10 @@ npm install --legacy-peer-deps
 npm run dev
 ```
 
-Then open the printed local URL. Load a CSV or use the included founder-target
-workspace, add a recipe column, and click **Run enrichment**.
+Then open the printed local URL. A fresh owner workspace starts with the
+**Synthetic cleanup example** and three local formula columns. Run the recipes
+and inspect their receipts. Existing saved sheets are preserved. To try the same
+example in an existing installation, follow the [workflow walkthrough](docs/portfolio-workflow.md).
 
 Custom formulas use column tokens such as `{{person}}` and may apply `trim`,
 `lower`, `upper`, `first`, or `domain` filters, for example

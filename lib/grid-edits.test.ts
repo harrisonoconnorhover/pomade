@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 import { applyGridEdits, visibleSelection } from './grid-edits';
 
 describe('spreadsheet edits and visible selection', () => {

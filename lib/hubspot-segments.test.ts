@@ -5,7 +5,7 @@ import {
 } from './hubspot-segments';
 import { readCrmSource } from './crm-sources';
 import { applyCrmImport, mergeCrmSourcePages } from './crm-import';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 
 const contactList = {
   listId: '11',

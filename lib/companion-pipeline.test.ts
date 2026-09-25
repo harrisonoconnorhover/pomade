@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { executeRecipePipeline } from './recipe-pipeline';
 import type { WorkspaceSnapshot, PomadeColumn } from './pomade-types';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 
 it('saves earlier provider work and stops downstream steps when Mac research is pending', async () => {
   const workspace = createSampleWorkspace();

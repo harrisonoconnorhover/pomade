@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTable } from './workbook';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 import { executeWorkspace } from './local-recipe-engine';
 import { deleteWorkspaceRows } from './row-management';
 

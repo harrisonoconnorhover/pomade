@@ -8,7 +8,7 @@ import {
   researchSettingsChanged,
 } from './column-management';
 import { createRecipeSchedule } from './recipe-schedule';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 import { createTable } from './workbook';
 import { executeWorkspace } from './local-recipe-engine';
 

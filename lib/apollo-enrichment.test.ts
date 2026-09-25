@@ -5,7 +5,7 @@ import {
   applyApolloEnrichment,
 } from './apollo-enrichment';
 import type { ApolloEnrichmentResult } from './pomade-types';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 
 const FOUND: ApolloEnrichmentResult = {
   personId: 'apollo-1',

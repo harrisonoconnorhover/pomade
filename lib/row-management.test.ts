@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createRecipeSchedule } from './recipe-schedule';
 import { deleteWorkspaceRows } from './row-management';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 
 describe('row management', () => {
   it('deletes selected rows and all generated descendants', () => {

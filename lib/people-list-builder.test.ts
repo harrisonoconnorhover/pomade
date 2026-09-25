@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createPeopleListWorkspace } from './people-list-builder';
 import { createRecipeSchedule } from './recipe-schedule';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 
 describe('people list builder', () => {
   it('adds a scoped people finder to the selected company row', () => {

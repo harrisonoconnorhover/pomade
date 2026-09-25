@@ -10,7 +10,7 @@ import {
   CSV_NEW_COLUMN,
   CSV_SKIP_COLUMN,
 } from './csv-import';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 import { createRecipeSchedule } from './recipe-schedule';
 describe('previewed CSV imports', () => {
   it('reads quoted values, multiline text and single-column files', () => {

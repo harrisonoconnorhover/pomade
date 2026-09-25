@@ -13,7 +13,7 @@ import {
   createRecipeTemplate,
   instantiateRecipeTemplate,
 } from './recipe-templates';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 
 const models: CodexModel[] = [
   {

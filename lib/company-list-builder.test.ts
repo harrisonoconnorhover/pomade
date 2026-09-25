@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createCompanyListWorkspace } from './company-list-builder';
 import { createRecipeSchedule } from './recipe-schedule';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 
 describe('company list builder', () => {
   it('adds a scoped list recipe without replacing existing data', () => {

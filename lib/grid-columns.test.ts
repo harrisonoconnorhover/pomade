@@ -11,7 +11,7 @@ import {
 } from './grid-columns';
 import { executeWorkspace } from './local-recipe-engine';
 import { mergeWorkspaceEdits } from './workspace-merge';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 
 describe('grid column layout', () => {
   it('persists bounded column widths', () => {

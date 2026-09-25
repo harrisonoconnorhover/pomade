@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { executeWorkspace } from './local-recipe-engine';
-import { createSampleWorkspace } from './sample-workspace';
+import { createSampleWorkspace } from './legacy-workspace.test-support';
 
 describe('single-column run scope', () => {
   it('runs only the requested recipe for only the requested rows', () => {
