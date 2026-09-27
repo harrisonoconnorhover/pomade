@@ -10,9 +10,39 @@ import {
   shouldRunRecipe,
 } from './local-recipe-engine';
 import { createSampleWorkspace } from './legacy-workspace.test-support';
+import { createSampleWorkspace as createCleanupWorkspace } from './sample-workspace';
 import { toScoutboundPipeline } from './scoutbound-adapter';
 
 describe('Pomade recipe execution', () => {
+  it('keeps a row in review when any executed formula needs review', () => {
+    const workspace = createCleanupWorkspace();
+    workspace.rows[0].values.person = '';
+    const result = executeWorkspace(workspace, ['sample-1']);
+
+    expect(result.run.receipts.map(({ status }) => status)).toEqual([
+      'passed',
+      'review',
+      'review',
+    ]);
+    expect(result.workspace.rows[0].values).toMatchObject({
+      normalized_domain: 'aster.example',
+      first_name: '',
+      contact_key: '',
+      status: 'Review',
+    });
+    expect(result.run).toMatchObject({
+      rowCount: 1,
+      actionCount: 3,
+      passedCount: 1,
+      reviewCount: 1,
+      externalWrites: 0,
+    });
+    expect(result.workspace.rows[1]).toBe(workspace.rows[1]);
+    expect(
+      executeWorkspace(result.workspace, ['sample-1']).workspace.rows,
+    ).toEqual(result.workspace.rows);
+  });
+
   it('does not recursively rerun a list recipe on its own child rows', () => {
     expect(
       shouldRunRecipe(

@@ -253,7 +253,6 @@ export function executeWorkspace(
   const rows = input.rows.map((row, rowIndex) => {
     if (selected && !selected.has(row.id)) return row;
     const values = { ...row.values };
-    let lookupNeedsReview = false;
     const receiptStart = receipts.length;
 
     for (const column of recipeColumns) {
@@ -264,7 +263,6 @@ export function executeWorkspace(
       const before = values[column.id] ?? '';
       const actionStartedAt = Date.now();
       const lookup = lookupResolvers.get(column.id)?.({ ...row, values });
-      if (lookup && !lookup.passed) lookupNeedsReview = true;
       const outputValues =
         lookup?.values ?? runRecipeOutputs(column, { ...row, values });
       const after = outputValues[column.id] ?? '';
@@ -288,8 +286,10 @@ export function executeWorkspace(
 
     if (receipts.length === receiptStart) return row;
     const hasRequiredFields = Boolean(values.company && values.domain);
-    values.status =
-      hasRequiredFields && !lookupNeedsReview ? 'Ready' : 'Review';
+    const needsReview = receipts
+      .slice(receiptStart)
+      .some((receipt) => receipt.status !== 'passed');
+    values.status = hasRequiredFields && !needsReview ? 'Ready' : 'Review';
     return { ...row, values };
   });
 

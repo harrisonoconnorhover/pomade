@@ -1,8 +1,52 @@
 import { describe, expect, it } from 'vitest';
 import { createSampleWorkspace } from './legacy-workspace.test-support';
 import { applyGridEdits, visibleSelection } from './grid-edits';
+import { createSampleWorkspace as createCleanupWorkspace } from './sample-workspace';
+import { executeWorkspace } from './local-recipe-engine';
+import { workspaceCsv } from './csv-import';
 
 describe('spreadsheet edits and visible selection', () => {
+  it('marks changed inputs as Draft without erasing outputs or unrelated values', () => {
+    const { workspace } = executeWorkspace(createCleanupWorkspace());
+    const first = workspace.rows[0];
+    const edited = applyGridEdits(
+      workspace,
+      [{ ...first, values: { ...first.values, domain: '' } }],
+      'domain',
+    );
+
+    expect(edited.rows[0].values).toEqual({
+      ...first.values,
+      domain: '',
+      status: 'Draft',
+    });
+    expect(edited.rows[1]).toBe(workspace.rows[1]);
+    expect(workspace.rows[0].values.status).toBe('Ready');
+    expect(workspaceCsv(edited).split('\r\n')[1]).toBe(
+      'Aster Works,Maya Chen,Operations lead,,aster.example,Maya,person:maya chen|aster.example,Draft',
+    );
+
+    const rerun = executeWorkspace(edited, [first.id]);
+    expect(rerun.workspace.rows[0].values).toMatchObject({
+      normalized_domain: '',
+      contact_key: '',
+      status: 'Review',
+    });
+    expect(rerun.run.reviewCount).toBe(1);
+  });
+
+  it('keeps an unchanged cell edit as a no-op, including status and timestamp', () => {
+    const { workspace } = executeWorkspace(createCleanupWorkspace());
+    const first = workspace.rows[0];
+    expect(
+      applyGridEdits(
+        workspace,
+        [{ ...first, values: { ...first.values } }],
+        'domain',
+      ),
+    ).toBe(workspace);
+  });
+
   it('merges consecutive stale callbacks and recomputes formulas from the latest values', () => {
     const original = createSampleWorkspace();
     original.columns.push({
