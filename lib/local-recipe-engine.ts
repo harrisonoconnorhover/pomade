@@ -1,7 +1,7 @@
 import { rubricScoreValues } from './rubric-score';
 import { matchesRunCondition } from './run-conditions';
 export { matchesRunCondition } from './run-conditions';
-import { createLookupResolver } from './table-lookup';
+import { createLookupResolver, normalizeLookupKey } from './table-lookup';
 import type {
   ActionReceipt,
   PomadeColumn,
@@ -11,12 +11,7 @@ import type {
 } from './pomade-types';
 
 function normalizeDomain(input: string) {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/^https?:\/\//, '')
-    .replace(/^www\./, '')
-    .split('/')[0];
+  return normalizeLookupKey(input, 'domain');
 }
 
 const CUSTOM_FORMULA_MAX_LENGTH = 2_000;
@@ -92,7 +87,7 @@ function emailDomain(input: string) {
 
 function dedupeKey(column: PomadeColumn, row: PomadeRow) {
   const email = (
-    recipeValue(column, row, 'email') ||
+    recipeValue(column, row, 'email').trim() ||
     recipeValue(column, row, 'apollo_email')
   )
     .trim()
@@ -120,7 +115,7 @@ function runRecipe(column: PomadeColumn, row: PomadeRow) {
       return recipeValue(column, row, 'person').trim().split(/\s+/)[0] ?? '';
     case 'email-domain':
       return emailDomain(
-        recipeValue(column, row, 'email') ||
+        recipeValue(column, row, 'email').trim() ||
           recipeValue(column, row, 'apollo_email'),
       );
     case 'dedupe-key':

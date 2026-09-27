@@ -14,6 +14,56 @@ import { createSampleWorkspace as createCleanupWorkspace } from './sample-worksp
 import { toScoutboundPipeline } from './scoutbound-adapter';
 
 describe('Pomade recipe execution', () => {
+  it('uses one domain identity for bare domains, paths, queries and fragments', () => {
+    for (const domain of [
+      'aster.example',
+      ' HTTPS://WWW.ASTER.EXAMPLE/about ',
+      'https://www.aster.example?utm_source=email',
+      'https://www.aster.example#team',
+    ]) {
+      const workspace = createCleanupWorkspace();
+      workspace.rows[0].values.domain = domain;
+      const result = executeWorkspace(workspace, ['sample-1']);
+
+      expect(result.workspace.rows[0].values).toMatchObject({
+        domain,
+        normalized_domain: 'aster.example',
+        contact_key: 'person:maya chen|aster.example',
+        status: 'Ready',
+      });
+      expect(
+        renderCustomFormula('{{domain | domain}}', workspace.rows[0]),
+      ).toBe('aster.example');
+    }
+  });
+
+  it('uses the first nonblank email for identity and email-domain formulas', () => {
+    const workspace = createCleanupWorkspace();
+    workspace.columns.push({
+      id: 'email_domain',
+      title: 'Email domain',
+      kind: 'formula',
+      recipe: 'email-domain',
+      width: 180,
+    });
+    workspace.rows[0].values.apollo_email = ' Maya@aster.example ';
+
+    for (const [email, expected] of [
+      ['', 'maya@aster.example'],
+      [' \t ', 'maya@aster.example'],
+      [' Maya@primary.example ', 'maya@primary.example'],
+    ]) {
+      workspace.rows[0].values.email = email;
+      const result = executeWorkspace(workspace, ['sample-1']);
+      expect(result.workspace.rows[0].values).toMatchObject({
+        email,
+        apollo_email: ' Maya@aster.example ',
+        contact_key: `email:${expected}`,
+        email_domain: expected.split('@')[1],
+      });
+    }
+  });
+
   it('keeps a row in review when any executed formula needs review', () => {
     const workspace = createCleanupWorkspace();
     workspace.rows[0].values.person = '';
