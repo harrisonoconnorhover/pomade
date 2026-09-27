@@ -52,6 +52,21 @@ stays **Review**. Editing a previously checked input first changes the row to
 **Draft**; prior output values remain visible until rerun, but their old passing
 status is not carried into CSV exports. An unchanged edit leaves the row alone.
 
+To check identity cleanup, replace Aster's website with
+`https://www.aster.example?utm_source=email` or
+`https://www.aster.example#team` and rerun. Both produce `aster.example` and
+`person:maya chen|aster.example`; tracking links do not create different keys.
+
+When imported `email` and `apollo_email` fields exist, Dedupe key and Email domain
+use the first nonblank value in that order. A whitespace-only `email` therefore
+allows the supplied `apollo_email` value to be used. This selects existing data;
+it does not look up, verify or prove delivery to an address. The
+[formula regressions](../lib/local-recipe-engine.test.ts) cover both cases:
+
+```bash
+npm test -- lib/local-recipe-engine.test.ts
+```
+
 ## Separate historical evidence: connected provider and CRM work
 
 The [September 7, 2026 live benchmark](live-benchmark-2026-09-07.md) documents

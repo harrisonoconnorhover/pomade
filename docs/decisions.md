@@ -1,5 +1,17 @@
 # Product decisions
 
+## September 27, 2026: keep formula identities consistent
+
+Domain formulas reuse the existing table-lookup URL normalizer, including the
+custom `domain` filter and person/domain contact keys. Paths, query strings and
+fragments do not belong to a domain identity; original input values stay intact.
+
+Dedupe key and Email domain trim the primary email before selecting the existing
+Apollo-email fallback. A nonblank primary value retains precedence. These are
+local transformations of supplied values, not email validation or provider work.
+The correction adds no dependencies and is published separately from the private
+hosted app; unrelated development remains unpublished.
+
 ## September 27, 2026: current inputs determine local check status
 
 A real grid edit returns its row to Draft, including in CSV exports. Existing
