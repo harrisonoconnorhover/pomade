@@ -1,5 +1,18 @@
 # Product decisions
 
+## September 27, 2026: current inputs determine local check status
+
+A real grid edit returns its row to Draft, including in CSV exports. Existing
+values stay available until explicit rerun (or the configured automatic formula
+update); receipts remain evidence of their original inputs. An unchanged edit
+is a no-op. A row can pass the local runner only when required fields exist and
+all executed actions pass; review results must agree with row/run counts.
+
+Record-detail website links preserve supplied HTTP(S) URLs, including uppercase
+schemes, and add HTTPS only to bare domains. This keeps the documented starter's
+raw website values usable without changing their stored evidence.
+
+
 ## Separate sibling product
 
 Pomade is a standalone repository. GTM Control Tower and Scoutbound remain

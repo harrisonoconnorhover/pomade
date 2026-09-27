@@ -2,39 +2,39 @@
 
 ## Finished
 
-- Fresh owner workspaces now show three fictional accounts and existing local formulas for normalized domains, first names and contact keys. Missing inputs stay missing; saved workspaces are preserved.
-- Visible status labels say **Checks passed** and explain that source-linked research still needs factual review. Stored statuses and execution behavior are unchanged.
-- The README leads to a reproducible workflow, downloadable synthetic input and a dated, bounded live-provider benchmark.
-- This narrow public source release contains corrections `e290393` and `11dbf27` on base `8731e69`. It excludes unrelated local ICP and account-memory feature work.
-- Receipt summary copy counts actions, not rows. The private hosted app was not redeployed.
+- Actual input edits now reset the row to Draft while preserving prior values until rerun; unchanged edits do nothing.
+- Local formula review outcomes now prevent a passing row. Clearing a person's name yields two review actions and a Review row.
+- Record-detail links correctly handle supplied HTTP(S) URLs, uppercase schemes, bare domains and surrounding whitespace.
+- The existing three-row walkthrough now includes edit, rerun and missing-person checks. No providers or product features were added.
+- Runtime commits `1560dba` and `025ce35` are mirrored into development as `d9475d3` and `6611e9d`, preserving unpublished work. Public publication is pending.
 
 ## Try It
 
-1. Read [the workflow](docs/portfolio-workflow.md), download its input and follow [local setup](README.md#run-locally).
-2. Run the three synthetic rows and inspect their nine formula receipts. No provider account is needed.
-3. Run `npm test -- lib/sample-workspace.test.ts` to check exact expected outputs, missing inputs and repeatability.
+1. Follow [local setup](README.md#run-locally) and [the synthetic workflow](docs/portfolio-workflow.md). Run the three rows: nine local actions, two passing rows and one Review row.
+2. Clear the first person's name: the row becomes Draft. Run its recipes: First name and Contact key need review, and the row stays Review.
+3. Clear a previously checked website, export CSV before rerunning, and inspect `Run status=Draft`. Prior formula values remain visible but do not retain passing status.
 
 ## Checks
 
-- Before the final one-line receipt copy correction: 152 focused tests across 26 suites, typecheck, lint, local/hosted builds and diff checks passed in both the isolated release and local development trees. Existing chunk-size warnings remain.
-- Browser QA used fresh isolated local storage with no credentials or scheduler: three rows, nine local actions, zero provider calls or external writes; two rows passed checks and the missing-domain row needed review. Normalized values matched the walkthrough.
-- The receipt wording correction then passed focused lint and diff checks in both trees. No new runtime validation is claimed for historical private-hosted behavior.
-- This handoff's required headings, word limit and diff were checked.
+- 54 focused tests across seven suites, typecheck, lint and diff checks passed in public and development trees.
+- Public local and hosted builds passed after both runtime changes; existing chunk-size warnings remain. Four synthetic checks of the actual website-link expression passed.
+- Fresh isolated browser/storage: three-row run, input edit to Draft, missing-person rerun to Review, one-pass/two-review receipt and actual CSV export passed. Export retained old Birch outputs with Draft and Aster with Review.
+- Independent clean-source installation used `npm ci --legacy-peer-deps --ignore-scripts`; its dev server then started and initialized the disposable local database successfully. No provider credentials or scheduler were used.
+- Public repository has no configured GitHub Actions workflow; these are local checks, not a CI claim.
 
 ## Decisions
 
-- Demonstrate existing deterministic behavior without adding features or implying researched qualification.
-- Preserve legacy compatibility fixtures as test-only data and do not migrate saved sheets.
-- Keep public source publication separate from private hosted deployment.
+- Keep earlier values and receipts inspectable while invalidating stale row status.
+- Row status must reconcile with action results.
+- Separate public source publication from private hosted deployment; preserve saved sheets and unrelated development.
 
 ## Remaining
 
-- Private hosted deployment is deferred; its runtime is unchanged by this source release.
-- Live research quality, provider entitlement and unattended hosted scheduling were not revalidated.
-- The older public ICP preset is explicitly a deterministic demo, not researched qualification.
+- Publish and verify the reviewed public source.
+- Private hosted/runtime deployments and historical provider benchmarks are unchanged; no live research, CRM writes or scheduled jobs were exercised.
 
 ## Review First
 
-- `lib/sample-workspace.ts` and `lib/sample-workspace.test.ts`.
-- `docs/portfolio-workflow.md` and the opening README sections.
-- Status and receipt wording in `components/pomade-workspace.tsx` and `components/pomade-data-grid.tsx`.
+- `lib/grid-edits.ts` and `lib/local-recipe-engine.ts`, plus their focused regressions.
+- `components/pomade-workspace.tsx`: record-detail website href.
+- `docs/portfolio-workflow.md`: the reproducible failure case.

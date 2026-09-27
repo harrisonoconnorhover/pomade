@@ -46,6 +46,12 @@ run returns the same values without adding rows. This is deterministic workflow
 verification, not an AI-accuracy benchmark. The starter is created only when the
 owner has no saved default sheet; no migration rewrites existing sheets.
 
+To check a failure, clear the first row's person and run its recipes again.
+First name and Contact key have no output, both actions need review, and the row
+stays **Review**. Editing a previously checked input first changes the row to
+**Draft**; prior output values remain visible until rerun, but their old passing
+status is not carried into CSV exports. An unchanged edit leaves the row alone.
+
 ## Separate historical evidence: connected provider and CRM work
 
 The [September 7, 2026 live benchmark](live-benchmark-2026-09-07.md) documents
