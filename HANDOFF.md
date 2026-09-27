@@ -6,7 +6,7 @@
 - Local formula review outcomes now prevent a passing row. Clearing a person's name yields two review actions and a Review row.
 - Record-detail links correctly handle supplied HTTP(S) URLs, uppercase schemes, bare domains and surrounding whitespace.
 - The existing three-row walkthrough now includes edit, rerun and missing-person checks. No providers or product features were added.
-- Runtime commits `1560dba` and `025ce35` are mirrored into development as `d9475d3` and `6611e9d`, preserving unpublished work. Public publication is pending.
+- Runtime commits `1560dba` and `025ce35` are published with documentation at `caf5e03`, and mirrored into development as `d9475d3` and `6611e9d`, preserving unpublished work.
 
 ## Try It
 
@@ -21,6 +21,7 @@
 - Fresh isolated browser/storage: three-row run, input edit to Draft, missing-person rerun to Review, one-pass/two-review receipt and actual CSV export passed. Export retained old Birch outputs with Draft and Aster with Review.
 - Independent clean-source installation used `npm ci --legacy-peer-deps --ignore-scripts`; its dev server then started and initialized the disposable local database successfully. No provider credentials or scheduler were used.
 - Public repository has no configured GitHub Actions workflow; these are local checks, not a CI claim.
+- Remote main and commit-pinned public downloads were verified; all three changed runtime files byte-match the reviewed release. Browser inspection confirmed the corrected full website href without visiting it.
 
 ## Decisions
 
@@ -30,7 +31,7 @@
 
 ## Remaining
 
-- Publish and verify the reviewed public source.
+- No required work remains in this correction pass.
 - Private hosted/runtime deployments and historical provider benchmarks are unchanged; no live research, CRM writes or scheduled jobs were exercised.
 
 ## Review First
