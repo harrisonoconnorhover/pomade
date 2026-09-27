@@ -4084,7 +4084,11 @@ export default function PomadeWorkspace({
                 <span>{selectedValues.title || 'No title'}</span>
                 {selectedValues.domain ? (
                   <a
-                    href={`https://${selectedValues.domain}`}
+                    href={
+                      /^https?:\/\//i.test(selectedValues.domain.trim())
+                        ? selectedValues.domain.trim()
+                        : `https://${selectedValues.domain.trim()}`
+                    }
                     target="_blank"
                     rel="noreferrer"
                   >
